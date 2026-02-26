@@ -1,0 +1,5 @@
+{
+  "name": "Hockey Scoreboard  Overlay",
+  "description": "A web-based control panel and OBS overlay for ice hockey scoreboards.",
+  "requestFramePermissions": []
+}
