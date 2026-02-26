@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useStore, TeamState, GameState, KeyboardShortcut } from "../store";
+import { useStore, TeamState, GameState, KeyboardShortcut, Penalty } from "../store";
 import { Play, Square, Settings, Minus, Plus, Link as LinkIcon, Keyboard, X } from "lucide-react";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 
@@ -151,9 +151,9 @@ function TeamControls({ team, state, updateState, gameState }: { team: "home" | 
       <div className="pt-4 border-t border-zinc-800">
         <div className="flex items-center justify-between mb-4">
           <span className="text-zinc-400 uppercase tracking-wider text-sm font-semibold">Penalties</span>
-          <button 
+          <button
             onClick={() => {
-              const newPenalty = { id: Math.random().toString(36).substr(2, 9), playerNumber: "00", timeRemaining: 120, duration: 120 };
+              const newPenalty = { id: Math.random().toString(36).substr(2, 9), playerNumber: "00", timeRemaining: 120000, duration: 120000 };
               updateTeam({ penalties: [...state.penalties, newPenalty] });
             }}
             className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded text-sm font-medium flex items-center gap-1"
@@ -163,43 +163,19 @@ function TeamControls({ team, state, updateState, gameState }: { team: "home" | 
         </div>
         <div className="flex flex-col gap-2">
           {state.penalties.map((p, i) => (
-            <div key={p.id} className="flex items-center gap-2 bg-zinc-950 p-2 rounded border border-zinc-800">
-              <input 
-                type="text" 
-                value={p.playerNumber} 
-                onChange={(e) => {
-                  const newPenalties = [...state.penalties];
-                  newPenalties[i].playerNumber = e.target.value;
-                  updateTeam({ penalties: newPenalties });
-                }}
-                className="w-12 bg-zinc-800 text-center rounded p-1 text-sm font-mono"
-                placeholder="#"
-              />
-              <select
-                value={p.duration}
-                onChange={(e) => {
-                  const newPenalties = [...state.penalties];
-                  newPenalties[i].duration = parseInt(e.target.value);
-                  newPenalties[i].timeRemaining = parseInt(e.target.value);
-                  updateTeam({ penalties: newPenalties });
-                }}
-                className="bg-zinc-800 rounded p-1 text-sm flex-1"
-              >
-                <option value={120}>2:00</option>
-                <option value={240}>4:00</option>
-                <option value={300}>5:00</option>
-                <option value={600}>10:00</option>
-              </select>
-              <button 
-                onClick={() => {
-                  const newPenalties = state.penalties.filter((_, index) => index !== i);
-                  updateTeam({ penalties: newPenalties });
-                }}
-                className="p-1.5 text-red-400 hover:bg-red-400/10 rounded"
-              >
-                <Minus size={16} />
-              </button>
-            </div>
+            <PenaltyItem
+              key={p.id}
+              penalty={p}
+              onChange={(updated) => {
+                const newPenalties = [...state.penalties];
+                newPenalties[i] = updated;
+                updateTeam({ penalties: newPenalties });
+              }}
+              onRemove={() => {
+                const newPenalties = state.penalties.filter((_, index) => index !== i);
+                updateTeam({ penalties: newPenalties });
+              }}
+            />
           ))}
           {state.penalties.length === 0 && (
             <div className="text-center text-zinc-600 text-sm py-4 italic">No active penalties</div>
@@ -246,14 +222,46 @@ function ClockControl({ clock, period, startClock, stopClock, setClock, updateSt
     return () => cancelAnimationFrame(animationFrameId);
   }, [clock.isRunning, clock.timeRemaining, clock.lastUpdate]);
 
-  const handleSetClock = () => {
-    const parts = editValue.split(":");
-    if (parts.length === 2) {
-      const mins = parseInt(parts[0]);
-      const secs = parseInt(parts[1]);
-      if (!isNaN(mins) && !isNaN(secs)) {
-        setClock((mins * 60 + secs) * 1000);
+  const parseTime = (input: string): number | null => {
+    input = input.trim();
+
+    if (input.includes(":")) {
+      const parts = input.split(":");
+      if (parts.length === 2) {
+        const mins = parseInt(parts[0]);
+        const secs = parseInt(parts[1]);
+        if (!isNaN(mins) && !isNaN(secs)) {
+          return (mins * 60 + secs) * 1000;
+        }
       }
+      return null;
+    }
+
+    const digits = input.replace(/\D/g, "");
+    if (!digits) return null;
+
+    const num = parseInt(digits);
+    if (isNaN(num)) return null;
+
+    if (digits.length <= 2) {
+      return num * 1000;
+    }
+
+    if (digits.length === 3) {
+      const mins = parseInt(digits[0]);
+      const secs = parseInt(digits.slice(1));
+      return (mins * 60 + secs) * 1000;
+    }
+
+    const secs = parseInt(digits.slice(-2));
+    const mins = parseInt(digits.slice(0, -2));
+    return (mins * 60 + secs) * 1000;
+  };
+
+  const handleSetClock = () => {
+    const timeMs = parseTime(editValue);
+    if (timeMs !== null) {
+      setClock(timeMs);
     }
     setEditMode(false);
   };
@@ -263,17 +271,16 @@ function ClockControl({ clock, period, startClock, stopClock, setClock, updateSt
       <div className="text-zinc-400 uppercase tracking-widest text-sm font-bold">{period} PERIOD</div>
       
       {editMode ? (
-        <div className="flex items-center gap-2">
-          <input 
-            type="text" 
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            className="text-6xl font-mono font-bold bg-zinc-950 text-white w-48 text-center rounded-lg border border-zinc-700 focus:border-indigo-500 focus:outline-none"
-            autoFocus
-            onKeyDown={(e) => e.key === "Enter" && handleSetClock()}
-          />
-          <button onClick={handleSetClock} className="p-3 bg-indigo-600 hover:bg-indigo-500 rounded-lg">Save</button>
-        </div>
+        <input
+          type="text"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          className="text-6xl font-mono font-bold bg-zinc-950 text-white w-48 text-center rounded-lg border border-zinc-700 focus:border-indigo-500 focus:outline-none"
+          autoFocus
+          onFocus={(e) => e.target.select()}
+          onKeyDown={(e) => e.key === "Enter" && handleSetClock()}
+          onBlur={handleSetClock}
+        />
       ) : (
         <div 
           className="text-7xl font-mono font-bold tracking-tighter cursor-pointer hover:text-indigo-400 transition-colors"
@@ -455,6 +462,130 @@ function SettingsPanel({ gameState, updateState }: { gameState: GameState, updat
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+function PenaltyItem({ penalty, onChange, onRemove }: { penalty: Penalty; onChange: (penalty: Penalty) => void; onRemove: () => void }) {
+  const { gameState } = useStore();
+  const [editMode, setEditMode] = useState(false);
+  const [editValue, setEditValue] = useState("2:00");
+  const [displayTime, setDisplayTime] = useState("2:00");
+
+  useEffect(() => {
+    if (!gameState) return;
+
+    let animationFrameId: number;
+    const updateDisplay = () => {
+      let currentRemaining = penalty.timeRemaining;
+      if (gameState.clock.isRunning) {
+        const elapsed = Date.now() - gameState.clock.lastUpdate;
+        currentRemaining = Math.max(0, penalty.timeRemaining - elapsed);
+      }
+
+      const totalSeconds = Math.ceil(currentRemaining / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      setDisplayTime(`${minutes}:${seconds.toString().padStart(2, "0")}`);
+
+      if (gameState.clock.isRunning) {
+        animationFrameId = requestAnimationFrame(updateDisplay);
+      }
+    };
+
+    updateDisplay();
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [gameState?.clock.isRunning, gameState?.clock.lastUpdate, penalty.timeRemaining]);
+
+  const parseTime = (input: string): number | null => {
+    // Remove any whitespace
+    input = input.trim();
+
+    // If it contains a colon, parse as MM:SS
+    if (input.includes(":")) {
+      const parts = input.split(":");
+      if (parts.length === 2) {
+        const mins = parseInt(parts[0]);
+        const secs = parseInt(parts[1]);
+        if (!isNaN(mins) && !isNaN(secs)) {
+          return (mins * 60 + secs) * 1000;
+        }
+      }
+      return null;
+    }
+
+    // No colon - parse as digits
+    // Remove any non-digit characters
+    const digits = input.replace(/\D/g, "");
+    if (!digits) return null;
+
+    const num = parseInt(digits);
+    if (isNaN(num)) return null;
+
+    // 1-2 digits: treat as seconds (e.g., "30" = 0:30, "5" = 0:05)
+    if (digits.length <= 2) {
+      return num * 1000;
+    }
+
+    // 3 digits: treat as M:SS (e.g., "515" = 5:15, "130" = 1:30)
+    if (digits.length === 3) {
+      const mins = parseInt(digits[0]);
+      const secs = parseInt(digits.slice(1));
+      return (mins * 60 + secs) * 1000;
+    }
+
+    // 4+ digits: treat as MM:SS (e.g., "1430" = 14:30, "2000" = 20:00)
+    const secs = parseInt(digits.slice(-2));
+    const mins = parseInt(digits.slice(0, -2));
+    return (mins * 60 + secs) * 1000;
+  };
+
+  const handleTimeChange = () => {
+    const timeMs = parseTime(editValue);
+    if (timeMs !== null) {
+      onChange({ ...penalty, timeRemaining: timeMs, duration: timeMs });
+    }
+    setEditMode(false);
+  };
+
+  return (
+    <div className="flex items-center gap-2 bg-zinc-950 p-2 rounded border border-zinc-800">
+      <input
+        type="text"
+        value={penalty.playerNumber}
+        onChange={(e) => onChange({ ...penalty, playerNumber: e.target.value })}
+        className="w-12 bg-zinc-800 text-center rounded p-1 text-sm font-mono"
+        placeholder="#"
+      />
+      {editMode ? (
+        <input
+          type="text"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onFocus={(e) => e.target.select()}
+          onKeyDown={(e) => e.key === "Enter" && handleTimeChange()}
+          onBlur={handleTimeChange}
+          className="bg-zinc-800 rounded p-1 text-sm font-mono flex-1 text-center"
+          autoFocus
+          placeholder="M:SS or MMSS"
+        />
+      ) : (
+        <div
+          className="bg-zinc-800 rounded p-1 text-sm flex-1 text-center font-mono cursor-pointer hover:bg-zinc-700"
+          onClick={() => {
+            setEditValue(displayTime);
+            setEditMode(true);
+          }}
+        >
+          {displayTime}
+        </div>
+      )}
+      <button
+        onClick={onRemove}
+        className="p-1.5 text-red-400 hover:bg-red-400/10 rounded"
+      >
+        <Minus size={16} />
+      </button>
     </div>
   );
 }

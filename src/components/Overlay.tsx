@@ -130,25 +130,28 @@ function PenaltyTimer({ penalty, clock }: any) {
   useEffect(() => {
     let animationFrameId: number;
     const updateDisplay = () => {
-      let currentRemaining = penalty.timeRemaining * 1000;
+      let currentRemaining = penalty.timeRemaining;
       if (clock.isRunning) {
         const elapsed = Date.now() - clock.lastUpdate;
-        currentRemaining = Math.max(0, (penalty.timeRemaining * 1000) - elapsed);
+        currentRemaining = Math.max(0, penalty.timeRemaining - elapsed);
       }
-      
+
       const totalSeconds = Math.ceil(currentRemaining / 1000);
       const minutes = Math.floor(totalSeconds / 60);
       const seconds = totalSeconds % 60;
-      
+
       setDisplay(`${penalty.playerNumber} - ${minutes}:${seconds.toString().padStart(2, "0")}`);
-      
+
       if (clock.isRunning) {
         animationFrameId = requestAnimationFrame(updateDisplay);
       }
     };
 
     updateDisplay();
-    return () => cancelAnimationFrame(animationFrameId);
+
+    if (clock.isRunning) {
+      return () => cancelAnimationFrame(animationFrameId);
+    }
   }, [clock.isRunning, clock.lastUpdate, penalty.timeRemaining, penalty.playerNumber]);
 
   return (

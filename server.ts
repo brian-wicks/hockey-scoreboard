@@ -95,14 +95,14 @@ function startClockInterval() {
       gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining - elapsed);
       gameState.clock.lastUpdate = now;
 
-      // Update penalties
+      // Update penalties (timeRemaining is in milliseconds)
       [gameState.homeTeam, gameState.awayTeam].forEach((team) => {
         team.penalties = team.penalties
           .map((p) => ({
             ...p,
             timeRemaining: Math.max(0, p.timeRemaining - elapsed),
           }))
-          .filter((p) => p.timeRemaining > 0);
+          .filter((p) => p.timeRemaining > 100); // Keep penalties with more than 0.1s remaining
       });
 
       io.emit("gameState", gameState);
