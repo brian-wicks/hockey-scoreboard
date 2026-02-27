@@ -34,6 +34,7 @@ module.exports = {
 
   deploy: {
     staging: {
+      name: "hockey-scoreboard-staging",
       user: "brianw",
       host: "54.38.215.21",
       key: "id_rsa",
