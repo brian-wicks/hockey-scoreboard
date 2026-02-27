@@ -143,6 +143,14 @@ io.on("connection", (socket) => {
       const now = Date.now();
       const elapsed = now - gameState.clock.lastUpdate;
       gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining - elapsed);
+      [gameState.homeTeam, gameState.awayTeam].forEach((team) => {
+        team.penalties = team.penalties
+          .map((p) => ({
+            ...p,
+            timeRemaining: Math.max(0, p.timeRemaining - elapsed),
+          }))
+          .filter((p) => p.timeRemaining > 100);
+      });
       gameState.clock.isRunning = false;
       gameState.clock.lastUpdate = now;
       io.emit("gameState", gameState);

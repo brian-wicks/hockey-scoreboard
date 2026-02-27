@@ -131,38 +131,18 @@ export default function Overlay() {
   );
 }
 
-function PenaltyTimer({ penalty, clock }: any) {
+function PenaltyTimer({ penalty }: any) {
   const [display, setDisplay] = useState("");
 
   useEffect(() => {
-    let animationFrameId: number;
-    const updateDisplay = () => {
-      let currentRemaining = penalty.timeRemaining;
-      if (clock.isRunning) {
-        const elapsed = Date.now() - clock.lastUpdate;
-        currentRemaining = Math.max(0, penalty.timeRemaining - elapsed);
-      }
-
-      const totalSeconds = Math.ceil(currentRemaining / 1000);
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-
-      const timeDisplay = `${minutes}:${seconds.toString().padStart(2, "0")}`;
-      let playerNumber = String(penalty.playerNumber ?? "").trim();
-      playerNumber = playerNumber == "00" ? "" : playerNumber;
-      setDisplay(playerNumber ? `${playerNumber} - ${timeDisplay}` : timeDisplay);
-
-      if (clock.isRunning) {
-        animationFrameId = requestAnimationFrame(updateDisplay);
-      }
-    };
-
-    updateDisplay();
-
-    if (clock.isRunning) {
-      return () => cancelAnimationFrame(animationFrameId);
-    }
-  }, [clock.isRunning, clock.lastUpdate, penalty.timeRemaining, penalty.playerNumber]);
+    const totalSeconds = Math.ceil(Math.max(0, penalty.timeRemaining) / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    const timeDisplay = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+    let playerNumber = String(penalty.playerNumber ?? "").trim();
+    playerNumber = playerNumber == "00" ? "" : playerNumber;
+    setDisplay(playerNumber ? `${playerNumber} - ${timeDisplay}` : timeDisplay);
+  }, [penalty.timeRemaining, penalty.playerNumber]);
 
   return (
     <div className="px-3 py-1 border-t border-white/20 flex justify-center items-center">
