@@ -43,7 +43,7 @@ module.exports = {
       env: {
         NODE_ENV: "staging",
         PORT: 3697,
-        VITE_BASE_URL: "https://stage.scoreboard.brianwicks.co.uk",
+        VITE_BASE_URL: "https://stage-scoreboard.brianwicks.co.uk",
       },
       "post-deploy":
         "npm ci && npm run build && pm2 startOrReload ecosystem.config.cjs --env staging",
