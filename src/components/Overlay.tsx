@@ -72,7 +72,7 @@ export default function Overlay() {
           {/* Home Penalties */}
           {homeTeam.penalties.length > 0 && (
             <div className="flex flex-col bg-red-600/90 text-xs font-mono font-bold">
-              {homeTeam.penalties.map((p, i) => (
+              {homeTeam.penalties.map((p) => (
                 <PenaltyTimer key={p.id} penalty={p} clock={gameState.clock} />
               ))}
             </div>
@@ -112,7 +112,7 @@ export default function Overlay() {
           {/* Away Penalties */}
           {awayTeam.penalties.length > 0 && (
             <div className="flex flex-col bg-red-600/90 text-xs font-mono font-bold">
-              {awayTeam.penalties.map((p, i) => (
+              {awayTeam.penalties.map((p) => (
                 <PenaltyTimer key={p.id} penalty={p} clock={gameState.clock} />
               ))}
             </div>

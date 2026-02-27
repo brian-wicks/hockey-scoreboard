@@ -33,12 +33,18 @@
   {
     "key": "s",
     "action": "homeShotsUp",
-    "description": "Home Shots +1"
+    "description": "Home Shots +1",
+    "ctrl": false,
+    "shift": false,
+    "alt": false
   },
   {
     "key": "d",
     "action": "awayShotsUp",
-    "description": "Away Shots +1"
+    "description": "Away Shots +1",
+    "ctrl": false,
+    "shift": false,
+    "alt": false
   },
   {
     "key": "ArrowLeft",

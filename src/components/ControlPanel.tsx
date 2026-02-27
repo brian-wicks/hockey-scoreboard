@@ -65,7 +65,7 @@ export default function ControlPanel() {
               <ClockControl clock={clock} period={period} startClock={startClock} stopClock={stopClock} setClock={setClock} updateState={updateState} gameState={gameState} />
               
               <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                <h2 className="text-lg font-semibold mb-4 text-zinc-300 uppercase tracking-wider text-sm">Game Actions</h2>
+                <h2 className="text-lg font-semibold mb-4 text-zinc-300 uppercase tracking-wider">Game Actions</h2>
                 <div className="grid grid-cols-2 gap-4">
                   <button 
                     onClick={() => updateState({ period: "1st" })}
@@ -97,7 +97,7 @@ export default function ControlPanel() {
   );
 }
 
-function TeamControls({ team, state, updateState, gameState }: { team: "home" | "away", state: TeamState, updateState: any, gameState: GameState }) {
+function TeamControls({ team, state, updateState }: { team: "home" | "away", state: TeamState, updateState: any, gameState: GameState }) {
   const updateTeam = (updates: Partial<TeamState>) => {
     updateState({ [`${team}Team`]: { ...state, ...updates } });
   };
@@ -186,7 +186,7 @@ function TeamControls({ team, state, updateState, gameState }: { team: "home" | 
   );
 }
 
-function ClockControl({ clock, period, startClock, stopClock, setClock, updateState, gameState }: any) {
+function ClockControl({ clock, period, startClock, stopClock, setClock }: any) {
   const [displayTime, setDisplayTime] = useState("20:00");
   const [editMode, setEditMode] = useState(false);
   const [editValue, setEditValue] = useState("20:00");
