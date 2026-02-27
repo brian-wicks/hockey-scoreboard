@@ -1,11 +1,12 @@
 const isWindows = process.platform === "win32";
 const appScript = isWindows ? "cmd.exe" : "./node_modules/.bin/tsx";
 const appArgs = isWindows ? "/c .\\node_modules\\.bin\\tsx.cmd server.ts" : "server.ts";
+const name = `hockey-scoreboard-${process.env.NODE_ENV || "development"}`;
 
 module.exports = {
   apps: [
     {
-      name: "hockey-scoreboard",
+      name: name,
       cwd: ".",
       script: appScript,
       args: appArgs,
@@ -34,7 +35,6 @@ module.exports = {
 
   deploy: {
     staging: {
-      name: "hockey-scoreboard-staging",
       user: "brianw",
       host: "54.38.215.21",
       key: "id_rsa",
