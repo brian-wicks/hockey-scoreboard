@@ -1,0 +1,14 @@
+{
+  "homeTeam": {
+    "name": "Newcastle Wildcats",
+    "abbreviation": "NEW",
+    "logo": "https://buiha.org.uk/assets/img/icon/md/newcastle.png",
+    "color": "#002444"
+  },
+  "awayTeam": {
+    "name": "Leeds Gryphons",
+    "abbreviation": "LEE",
+    "logo": "https://buiha.org.uk/assets/img/icon/md/leeds.png",
+    "color": "#0d4c37"
+  }
+}

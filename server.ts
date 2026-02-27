@@ -20,6 +20,8 @@ const io = new Server(httpServer, {
 app.use(express.json());
 
 const SHORTCUTS_FILE = join(__dirname, "shortcuts.json");
+const TEAM_DEFAULTS_FILE = join(__dirname, "team-defaults.json");
+const TEAM_PRESETS_FILE = join(__dirname, "team-presets.json");
 
 interface Penalty {
   id: string;
@@ -39,6 +41,23 @@ interface TeamState {
   penalties: Penalty[];
 }
 
+interface TeamIdentity {
+  name: string;
+  abbreviation: string;
+  logo: string;
+  color: string;
+}
+
+interface TeamDefaults {
+  homeTeam: TeamIdentity;
+  awayTeam: TeamIdentity;
+}
+
+interface TeamPreset extends TeamDefaults {
+  name: string;
+  updatedAt: number;
+}
+
 interface ClockState {
   timeRemaining: number;
   isRunning: boolean;
@@ -52,27 +71,92 @@ interface GameState {
   period: string;
 }
 
+const baseHomeTeam: TeamState = {
+  name: "Home Team",
+  abbreviation: "HOM",
+  score: 0,
+  shots: 0,
+  timeouts: 1,
+  logo: "",
+  color: "#3b82f6",
+  penalties: [],
+};
+
+const baseAwayTeam: TeamState = {
+  name: "Away Team",
+  abbreviation: "AWY",
+  score: 0,
+  shots: 0,
+  timeouts: 1,
+  logo: "",
+  color: "#ef4444",
+  penalties: [],
+};
+
+function extractTeamIdentity(team: TeamState): TeamIdentity {
+  return {
+    name: team.name,
+    abbreviation: team.abbreviation,
+    logo: team.logo,
+    color: team.color,
+  };
+}
+
+function applyTeamIdentity(team: TeamState, updates?: Partial<TeamIdentity>): TeamState {
+  if (!updates) return team;
+  return {
+    ...team,
+    name: updates.name ?? team.name,
+    abbreviation: updates.abbreviation ?? team.abbreviation,
+    logo: updates.logo ?? team.logo,
+    color: updates.color ?? team.color,
+  };
+}
+
+function readTeamDefaultsFromDisk(): TeamDefaults | null {
+  try {
+    if (!existsSync(TEAM_DEFAULTS_FILE)) return null;
+    const data = JSON.parse(readFileSync(TEAM_DEFAULTS_FILE, "utf-8"));
+    if (!data?.homeTeam || !data?.awayTeam) return null;
+    return data as TeamDefaults;
+  } catch (error) {
+    console.error("Error reading team defaults:", error);
+    return null;
+  }
+}
+
+function writeTeamDefaultsToDisk(defaults: TeamDefaults) {
+  try {
+    writeFileSync(TEAM_DEFAULTS_FILE, JSON.stringify(defaults, null, 2));
+  } catch (error) {
+    console.error("Error saving team defaults:", error);
+  }
+}
+
+function readTeamPresetsFromDisk(): TeamPreset[] {
+  try {
+    if (!existsSync(TEAM_PRESETS_FILE)) return [];
+    const data = JSON.parse(readFileSync(TEAM_PRESETS_FILE, "utf-8"));
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error("Error reading team presets:", error);
+    return [];
+  }
+}
+
+function writeTeamPresetsToDisk(presets: TeamPreset[]) {
+  try {
+    writeFileSync(TEAM_PRESETS_FILE, JSON.stringify(presets, null, 2));
+  } catch (error) {
+    console.error("Error saving team presets:", error);
+  }
+}
+
+const persistedDefaults = readTeamDefaultsFromDisk();
+
 let gameState: GameState = {
-  homeTeam: {
-    name: "Home Team",
-    abbreviation: "HOM",
-    score: 0,
-    shots: 0,
-    timeouts: 1,
-    logo: "",
-    color: "#3b82f6",
-    penalties: [],
-  },
-  awayTeam: {
-    name: "Away Team",
-    abbreviation: "AWY",
-    score: 0,
-    shots: 0,
-    timeouts: 1,
-    logo: "",
-    color: "#ef4444",
-    penalties: [],
-  },
+  homeTeam: applyTeamIdentity(baseHomeTeam, persistedDefaults?.homeTeam),
+  awayTeam: applyTeamIdentity(baseAwayTeam, persistedDefaults?.awayTeam),
   clock: {
     timeRemaining: 20 * 60 * 1000,
     isRunning: false,
@@ -82,6 +166,13 @@ let gameState: GameState = {
 };
 
 let clockInterval: NodeJS.Timeout | null = null;
+
+function persistCurrentTeamDefaults() {
+  writeTeamDefaultsToDisk({
+    homeTeam: extractTeamIdentity(gameState.homeTeam),
+    awayTeam: extractTeamIdentity(gameState.awayTeam),
+  });
+}
 
 function startClockInterval() {
   if (clockInterval) {
@@ -126,6 +217,9 @@ io.on("connection", (socket) => {
 
   socket.on("updateGameState", (updates: Partial<GameState>) => {
     gameState = { ...gameState, ...updates };
+    if (updates.homeTeam || updates.awayTeam) {
+      persistCurrentTeamDefaults();
+    }
     io.emit("gameState", gameState);
   });
 
@@ -200,6 +294,78 @@ app.post("/api/shortcuts", (req, res) => {
   } catch (error) {
     console.error("Error saving shortcuts:", error);
     res.status(500).json({ success: false, error: "Failed to save shortcuts" });
+  }
+});
+
+app.get("/api/team-defaults", (req, res) => {
+  res.json({
+    homeTeam: extractTeamIdentity(gameState.homeTeam),
+    awayTeam: extractTeamIdentity(gameState.awayTeam),
+  });
+});
+
+app.post("/api/team-defaults", (req, res) => {
+  try {
+    const updates = req.body as Partial<TeamDefaults>;
+    gameState.homeTeam = applyTeamIdentity(gameState.homeTeam, updates.homeTeam);
+    gameState.awayTeam = applyTeamIdentity(gameState.awayTeam, updates.awayTeam);
+    persistCurrentTeamDefaults();
+    io.emit("gameState", gameState);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error saving team defaults:", error);
+    res.status(500).json({ success: false, error: "Failed to save team defaults" });
+  }
+});
+
+app.get("/api/team-presets", (req, res) => {
+  res.json(readTeamPresetsFromDisk());
+});
+
+app.post("/api/team-presets", (req, res) => {
+  try {
+    const payload = req.body as Partial<TeamPreset>;
+    const name = String(payload.name ?? "").trim();
+    if (!name) {
+      return res.status(400).json({ success: false, error: "Preset name is required" });
+    }
+
+    const homeTeam = payload.homeTeam ?? extractTeamIdentity(gameState.homeTeam);
+    const awayTeam = payload.awayTeam ?? extractTeamIdentity(gameState.awayTeam);
+
+    const presets = readTeamPresetsFromDisk();
+    const existingIndex = presets.findIndex((preset) => preset.name.toLowerCase() === name.toLowerCase());
+    const nextPreset: TeamPreset = {
+      name,
+      homeTeam,
+      awayTeam,
+      updatedAt: Date.now(),
+    };
+
+    if (existingIndex >= 0) {
+      presets[existingIndex] = nextPreset;
+    } else {
+      presets.push(nextPreset);
+    }
+
+    writeTeamPresetsToDisk(presets);
+    res.json({ success: true, presets });
+  } catch (error) {
+    console.error("Error saving team preset:", error);
+    res.status(500).json({ success: false, error: "Failed to save team preset" });
+  }
+});
+
+app.delete("/api/team-presets/:name", (req, res) => {
+  try {
+    const name = decodeURIComponent(req.params.name);
+    const presets = readTeamPresetsFromDisk();
+    const filtered = presets.filter((preset) => preset.name.toLowerCase() !== name.toLowerCase());
+    writeTeamPresetsToDisk(filtered);
+    res.json({ success: true, presets: filtered });
+  } catch (error) {
+    console.error("Error deleting team preset:", error);
+    res.status(500).json({ success: false, error: "Failed to delete team preset" });
   }
 });
 

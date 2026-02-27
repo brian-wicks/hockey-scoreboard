@@ -5,7 +5,7 @@ import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 
 export default function ControlPanel() {
   const { gameState, connect, updateState, startClock, stopClock, setClock, loadShortcuts } = useStore();
-  const [activeTab, setActiveTab] = useState<"controls" | "settings">("controls");
+  const [activeTab, setActiveTab] = useState<"controls" | "settings" | "presets">("controls");
 
   useKeyboardShortcuts(activeTab === "controls");
 
@@ -53,6 +53,14 @@ export default function ControlPanel() {
             <Settings size={16} />
             Settings
           </button>
+          <button
+            onClick={() => setActiveTab("presets")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === "presets" ? "bg-indigo-600 text-white" : "bg-zinc-800 hover:bg-zinc-700"
+            }`}
+          >
+            Presets
+          </button>
         </div>
       </header>
 
@@ -89,8 +97,10 @@ export default function ControlPanel() {
 
             <TeamControls team="away" state={awayTeam} updateState={updateState} gameState={gameState} />
           </div>
-        ) : (
+        ) : activeTab === "settings" ? (
           <SettingsPanel gameState={gameState} updateState={updateState} />
+        ) : (
+          <PresetsPanel gameState={gameState} updateState={updateState} />
         )}
       </main>
     </div>
@@ -479,6 +489,204 @@ function SettingsPanel({ gameState, updateState }: { gameState: GameState, updat
             />
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+interface TeamIdentity {
+  name: string;
+  abbreviation: string;
+  logo: string;
+  color: string;
+}
+
+interface TeamPreset {
+  name: string;
+  homeTeam: TeamIdentity;
+  awayTeam: TeamIdentity;
+  updatedAt: number;
+}
+
+function pickTeamIdentity(team: TeamState): TeamIdentity {
+  return {
+    name: team.name,
+    abbreviation: team.abbreviation,
+    logo: team.logo,
+    color: team.color,
+  };
+}
+
+function applyTeamIdentity(team: TeamState, identity: TeamIdentity): TeamState {
+  return {
+    ...team,
+    name: identity.name,
+    abbreviation: identity.abbreviation,
+    logo: identity.logo,
+    color: identity.color,
+  };
+}
+
+function PresetsPanel({ gameState, updateState }: { gameState: GameState; updateState: any }) {
+  const [presets, setPresets] = useState<TeamPreset[]>([]);
+  const [presetName, setPresetName] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [savingDefaults, setSavingDefaults] = useState(false);
+  const [error, setError] = useState("");
+
+  const loadPresets = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch("http://localhost:3000/api/team-presets");
+      const data = await response.json();
+      setPresets(Array.isArray(data) ? data : []);
+    } catch (loadError) {
+      console.error(loadError);
+      setError("Failed to load presets");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPresets();
+  }, []);
+
+  const savePreset = async () => {
+    const name = presetName.trim();
+    if (!name) return;
+
+    setError("");
+    try {
+      const response = await fetch("http://localhost:3000/api/team-presets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          homeTeam: pickTeamIdentity(gameState.homeTeam),
+          awayTeam: pickTeamIdentity(gameState.awayTeam),
+        }),
+      });
+      const data = await response.json();
+      setPresets(Array.isArray(data?.presets) ? data.presets : []);
+      setPresetName("");
+    } catch (saveError) {
+      console.error(saveError);
+      setError("Failed to save preset");
+    }
+  };
+
+  const loadPresetIntoGame = (preset: TeamPreset) => {
+    updateState({
+      homeTeam: applyTeamIdentity(gameState.homeTeam, preset.homeTeam),
+      awayTeam: applyTeamIdentity(gameState.awayTeam, preset.awayTeam),
+    });
+  };
+
+  const deletePreset = async (name: string) => {
+    setError("");
+    try {
+      const response = await fetch(`http://localhost:3000/api/team-presets/${encodeURIComponent(name)}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+      setPresets(Array.isArray(data?.presets) ? data.presets : []);
+    } catch (deleteError) {
+      console.error(deleteError);
+      setError("Failed to delete preset");
+    }
+  };
+
+  const saveDefaultsNow = async () => {
+    setSavingDefaults(true);
+    setError("");
+    try {
+      await fetch("http://localhost:3000/api/team-defaults", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          homeTeam: pickTeamIdentity(gameState.homeTeam),
+          awayTeam: pickTeamIdentity(gameState.awayTeam),
+        }),
+      });
+    } catch (defaultsError) {
+      console.error(defaultsError);
+      setError("Failed to save defaults");
+    } finally {
+      setSavingDefaults(false);
+    }
+  };
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+      <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+        <div>
+          <h2 className="text-xl font-bold text-zinc-100">Team Presets</h2>
+          <p className="text-sm text-zinc-400 mt-1">Save and recall home/away team settings for repeat matchups.</p>
+        </div>
+        <button
+          onClick={saveDefaultsNow}
+          disabled={savingDefaults}
+          className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 rounded-lg text-sm font-medium"
+        >
+          {savingDefaults ? "Saving..." : "Save Current as Defaults"}
+        </button>
+      </div>
+
+      <div className="mt-5 flex gap-3">
+        <input
+          type="text"
+          value={presetName}
+          onChange={(e) => setPresetName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && savePreset()}
+          className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none"
+          placeholder="Preset name (example: Wolves vs Falcons)"
+        />
+        <button
+          onClick={savePreset}
+          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-medium"
+        >
+          Save Preset
+        </button>
+      </div>
+
+      {error && <div className="mt-3 text-sm text-red-400">{error}</div>}
+
+      <div className="mt-5 border border-zinc-800 rounded-lg overflow-hidden">
+        {loading ? (
+          <div className="p-4 text-sm text-zinc-400">Loading presets...</div>
+        ) : presets.length === 0 ? (
+          <div className="p-4 text-sm text-zinc-500 italic">No presets saved yet.</div>
+        ) : (
+          <div className="divide-y divide-zinc-800">
+            {presets
+              .slice()
+              .sort((a, b) => b.updatedAt - a.updatedAt)
+              .map((preset) => (
+                <div key={preset.name} className="p-4 flex items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-zinc-100 truncate">{preset.name}</div>
+                    <div className="text-sm text-zinc-400 truncate">
+                      {preset.homeTeam.abbreviation} vs {preset.awayTeam.abbreviation}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => loadPresetIntoGame(preset)}
+                    className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 rounded text-sm font-medium"
+                  >
+                    Load
+                  </button>
+                  <button
+                    onClick={() => deletePreset(preset.name)}
+                    className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded text-sm font-medium"
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+          </div>
+        )}
       </div>
     </div>
   );
