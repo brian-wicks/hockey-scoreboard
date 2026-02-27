@@ -375,7 +375,7 @@ app.get("*", (req, res) => {
   res.sendFile(join(__dirname, "dist", "index.html"));
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3696;
 
 httpServer.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

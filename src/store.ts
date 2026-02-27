@@ -92,7 +92,7 @@ export const useStore = create<StoreState>((set, get) => ({
   keyboardShortcuts: [...defaultShortcuts],
 
   connect: () => {
-    const socket = io("http://localhost:3000");
+    const socket = io("http://localhost:3696");
 
     socket.on("connect", () => {
       console.log("Connected to server");
@@ -155,7 +155,7 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ keyboardShortcuts: shortcuts });
 
     // Save to server
-    fetch("http://localhost:3000/api/shortcuts", {
+    fetch("http://localhost:3696/api/shortcuts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(shortcuts),
@@ -166,7 +166,7 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ keyboardShortcuts: [...defaultShortcuts] });
 
     // Save to server
-    fetch("http://localhost:3000/api/shortcuts", {
+    fetch("http://localhost:3696/api/shortcuts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(defaultShortcuts),
@@ -175,7 +175,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   loadShortcuts: async () => {
     try {
-      const response = await fetch("http://localhost:3000/api/shortcuts");
+      const response = await fetch("http://localhost:3696/api/shortcuts");
       const data = await response.json();
       if (data && Array.isArray(data)) {
         const existingActions = new Set(data.map((shortcut: KeyboardShortcut) => shortcut.action));
