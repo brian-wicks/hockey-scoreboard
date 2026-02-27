@@ -140,7 +140,10 @@ function PenaltyTimer({ penalty, clock }: any) {
       const minutes = Math.floor(totalSeconds / 60);
       const seconds = totalSeconds % 60;
 
-      setDisplay(`${penalty.playerNumber} - ${minutes}:${seconds.toString().padStart(2, "0")}`);
+      const timeDisplay = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+      let playerNumber = String(penalty.playerNumber ?? "").trim();
+      playerNumber = playerNumber == "00" ? "" : playerNumber;
+      setDisplay(playerNumber ? `${playerNumber} - ${timeDisplay}` : timeDisplay);
 
       if (clock.isRunning) {
         animationFrameId = requestAnimationFrame(updateDisplay);
