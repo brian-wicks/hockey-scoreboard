@@ -25,7 +25,7 @@ export default function ControlPanel() {
       <header className="bg-zinc-900 border-b border-zinc-800 p-4 flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
-          Hockey Overlay Control
+          Hockey Scoreboard
         </h1>
         <div className="flex gap-2">
           <a
