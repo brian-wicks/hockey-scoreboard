@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore, TeamState, GameState, KeyboardShortcut, Penalty } from "../store";
 import { Play, Square, Settings, Minus, Plus, Link as LinkIcon, Keyboard, X } from "lucide-react";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
@@ -98,6 +98,8 @@ export default function ControlPanel() {
 }
 
 function TeamControls({ team, state, updateState }: { team: "home" | "away", state: TeamState, updateState: any, gameState: GameState }) {
+  const [focusPenaltyId, setFocusPenaltyId] = useState<string | null>(null);
+
   const updateTeam = (updates: Partial<TeamState>) => {
     updateState({ [`${team}Team`]: { ...state, ...updates } });
   };
@@ -155,6 +157,7 @@ function TeamControls({ team, state, updateState }: { team: "home" | "away", sta
             onClick={() => {
               const newPenalty = { id: Math.random().toString(36).substr(2, 9), playerNumber: "00", timeRemaining: 120000, duration: 120000 };
               updateTeam({ penalties: [...state.penalties, newPenalty] });
+              setFocusPenaltyId(newPenalty.id);
             }}
             className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded text-sm font-medium flex items-center gap-1"
           >
@@ -175,6 +178,8 @@ function TeamControls({ team, state, updateState }: { team: "home" | "away", sta
                 const newPenalties = state.penalties.filter((_, index) => index !== i);
                 updateTeam({ penalties: newPenalties });
               }}
+              autoFocusPlayer={p.id === focusPenaltyId}
+              onAutoFocusHandled={() => setFocusPenaltyId((current) => (current === p.id ? null : current))}
             />
           ))}
           {state.penalties.length === 0 && (
@@ -468,9 +473,29 @@ function SettingsPanel({ gameState, updateState }: { gameState: GameState, updat
   );
 }
 
-function PenaltyItem({ penalty, onChange, onRemove }: { penalty: Penalty; onChange: (penalty: Penalty) => void; onRemove: () => void }) {
+function PenaltyItem({
+  penalty,
+  onChange,
+  onRemove,
+  autoFocusPlayer = false,
+  onAutoFocusHandled,
+}: {
+  penalty: Penalty;
+  onChange: (penalty: Penalty) => void;
+  onRemove: () => void;
+  autoFocusPlayer?: boolean;
+  onAutoFocusHandled?: () => void;
+}) {
   const [editMode, setEditMode] = useState(false);
   const [editValue, setEditValue] = useState("2:00");
+  const playerInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!autoFocusPlayer) return;
+    playerInputRef.current?.focus();
+    playerInputRef.current?.select();
+    onAutoFocusHandled?.();
+  }, [autoFocusPlayer, onAutoFocusHandled]);
 
   const commitPlayerNumber = (value: string) => {
     const nextPlayerNumber = value.replace(/\D/g, "").slice(0, 2);
@@ -501,6 +526,7 @@ function PenaltyItem({ penalty, onChange, onRemove }: { penalty: Penalty; onChan
   return (
     <div className="flex items-center gap-2 bg-zinc-950 p-2 rounded border border-zinc-800">
       <input
+        ref={playerInputRef}
         type="text"
         value={penalty.playerNumber}
         onChange={(e) => {
