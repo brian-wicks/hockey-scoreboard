@@ -37,7 +37,20 @@ export interface KeyboardShortcut {
   ctrl?: boolean;
   shift?: boolean;
   alt?: boolean;
-  action: "toggleClock" | "clockIncrease" | "clockDecrease" | "homeScoreUp" | "awayScoreUp" | "homeShotsUp" | "awayShotsUp" | "homeScoreDown" | "awayScoreDown" | "homeShotsDown" | "awayShotsDown";
+  action:
+    | "toggleClock"
+    | "clockIncrease"
+    | "clockDecrease"
+    | "homeScoreUp"
+    | "awayScoreUp"
+    | "homeShotsUp"
+    | "awayShotsUp"
+    | "homeScoreDown"
+    | "awayScoreDown"
+    | "homeShotsDown"
+    | "awayShotsDown"
+    | "homePenaltyAdd"
+    | "awayPenaltyAdd";
   description: string;
 }
 
@@ -63,12 +76,14 @@ const defaultShortcuts: KeyboardShortcut[] = [
   { key: "ArrowDown", action: "clockDecrease", description: "Decrease Clock" },
   { key: "ArrowLeft", action: "homeScoreUp", description: "Home Score +1" },
   { key: "ArrowRight", action: "awayScoreUp", description: "Away Score +1" },
-  { key: "s", action: "homeShotsUp", description: "Home Shots +1" },
-  { key: "d", action: "awayShotsUp", description: "Away Shots +1" },
+  { key: "ArrowLeft", ctrl: true, action: "homeShotsUp", description: "Home Shots +1" },
+  { key: "ArrowRight", ctrl: true, action: "awayShotsUp", description: "Away Shots +1" },
   { key: "ArrowLeft", shift: true, action: "homeScoreDown", description: "Home Score -1" },
   { key: "ArrowRight", shift: true, action: "awayScoreDown", description: "Away Score -1" },
-  { key: "s", shift: true, action: "homeShotsDown", description: "Home Shots -1" },
-  { key: "d", shift: true, action: "awayShotsDown", description: "Away Shots -1" },
+  { key: "ArrowLeft", ctrl: true, shift: true, action: "homeShotsDown", description: "Home Shots -1" },
+  { key: "ArrowRight", ctrl: true, shift: true, action: "awayShotsDown", description: "Away Shots -1" },
+  { key: "ArrowLeft", alt: true, action: "homePenaltyAdd", description: "Add Home Penalty" },
+  { key: "ArrowRight", alt: true, action: "awayPenaltyAdd", description: "Add Away Penalty" },
 ];
 
 export const useStore = create<StoreState>((set, get) => ({
@@ -163,7 +178,9 @@ export const useStore = create<StoreState>((set, get) => ({
       const response = await fetch("http://localhost:3000/api/shortcuts");
       const data = await response.json();
       if (data && Array.isArray(data)) {
-        set({ keyboardShortcuts: data });
+        const existingActions = new Set(data.map((shortcut: KeyboardShortcut) => shortcut.action));
+        const missingDefaults = defaultShortcuts.filter((shortcut) => !existingActions.has(shortcut.action));
+        set({ keyboardShortcuts: [...data, ...missingDefaults] });
       }
     } catch (error) {
       console.error("Failed to load shortcuts from server:", error);

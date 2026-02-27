@@ -81,6 +81,30 @@ export function useKeyboardShortcuts(isActive: boolean) {
                 awayTeam: { ...gameState.awayTeam, shots: Math.max(0, gameState.awayTeam.shots - 1) },
               });
               break;
+            case "homePenaltyAdd": {
+              const newPenalty = {
+                id: Math.random().toString(36).substr(2, 9),
+                playerNumber: "00",
+                timeRemaining: 120000,
+                duration: 120000,
+              };
+              updateState({
+                homeTeam: { ...gameState.homeTeam, penalties: [...gameState.homeTeam.penalties, newPenalty] },
+              });
+              break;
+            }
+            case "awayPenaltyAdd": {
+              const newPenalty = {
+                id: Math.random().toString(36).substr(2, 9),
+                playerNumber: "00",
+                timeRemaining: 120000,
+                duration: 120000,
+              };
+              updateState({
+                awayTeam: { ...gameState.awayTeam, penalties: [...gameState.awayTeam.penalties, newPenalty] },
+              });
+              break;
+            }
           }
 
           break; // Only trigger the first matching shortcut

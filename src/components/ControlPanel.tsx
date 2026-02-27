@@ -99,10 +99,22 @@ export default function ControlPanel() {
 
 function TeamControls({ team, state, updateState }: { team: "home" | "away", state: TeamState, updateState: any, gameState: GameState }) {
   const [focusPenaltyId, setFocusPenaltyId] = useState<string | null>(null);
+  const previousPenaltyCountRef = useRef(state.penalties.length);
 
   const updateTeam = (updates: Partial<TeamState>) => {
     updateState({ [`${team}Team`]: { ...state, ...updates } });
   };
+
+  useEffect(() => {
+    const previousPenaltyCount = previousPenaltyCountRef.current;
+    if (state.penalties.length > previousPenaltyCount) {
+      const newestPenalty = state.penalties[state.penalties.length - 1];
+      if (newestPenalty) {
+        setFocusPenaltyId(newestPenalty.id);
+      }
+    }
+    previousPenaltyCountRef.current = state.penalties.length;
+  }, [state.penalties]);
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex flex-col gap-6">
@@ -157,7 +169,6 @@ function TeamControls({ team, state, updateState }: { team: "home" | "away", sta
             onClick={() => {
               const newPenalty = { id: Math.random().toString(36).substr(2, 9), playerNumber: "00", timeRemaining: 120000, duration: 120000 };
               updateTeam({ penalties: [...state.penalties, newPenalty] });
-              setFocusPenaltyId(newPenalty.id);
             }}
             className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded text-sm font-medium flex items-center gap-1"
           >
