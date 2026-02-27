@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useStore } from "../store";
 
 export function useKeyboardShortcuts(isActive: boolean) {
-  const { gameState, startClock, stopClock, updateState, keyboardShortcuts } = useStore();
+  const { gameState, startClock, stopClock, clockIncrease, clockDecrease, updateState, keyboardShortcuts } = useStore();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -34,6 +34,12 @@ export function useKeyboardShortcuts(isActive: boolean) {
               } else {
                 startClock();
               }
+              break;
+            case "clockIncrease":
+              clockIncrease();
+              break;
+            case "clockDecrease":
+              clockDecrease();
               break;
             case "homeScoreUp":
               updateState({

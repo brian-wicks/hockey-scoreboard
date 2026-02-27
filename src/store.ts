@@ -37,7 +37,7 @@ export interface KeyboardShortcut {
   ctrl?: boolean;
   shift?: boolean;
   alt?: boolean;
-  action: "toggleClock" | "homeScoreUp" | "awayScoreUp" | "homeShotsUp" | "awayShotsUp" | "homeScoreDown" | "awayScoreDown" | "homeShotsDown" | "awayShotsDown";
+  action: "toggleClock" | "clockIncrease" | "clockDecrease" | "homeScoreUp" | "awayScoreUp" | "homeShotsUp" | "awayShotsUp" | "homeScoreDown" | "awayScoreDown" | "homeShotsDown" | "awayShotsDown";
   description: string;
 }
 
@@ -49,6 +49,8 @@ interface StoreState {
   updateState: (updates: Partial<GameState>) => void;
   startClock: () => void;
   stopClock: () => void;
+  clockIncrease: () => void;
+  clockDecrease: () => void;
   setClock: (timeMs: number) => void;
   updateShortcut: (index: number, shortcut: KeyboardShortcut) => void;
   resetShortcuts: () => void;
@@ -57,12 +59,14 @@ interface StoreState {
 
 const defaultShortcuts: KeyboardShortcut[] = [
   { key: " ", action: "toggleClock", description: "Toggle Clock" },
-  { key: "h", action: "homeScoreUp", description: "Home Score +1" },
-  { key: "a", action: "awayScoreUp", description: "Away Score +1" },
+  { key: "ArrowUp", action: "clockIncrease", description: "Increase Clock" },
+  { key: "ArrowDown", action: "clockDecrease", description: "Decrease Clock" },
+  { key: "ArrowLeft", action: "homeScoreUp", description: "Home Score +1" },
+  { key: "ArrowRight", action: "awayScoreUp", description: "Away Score +1" },
   { key: "s", action: "homeShotsUp", description: "Home Shots +1" },
   { key: "d", action: "awayShotsUp", description: "Away Shots +1" },
-  { key: "h", shift: true, action: "homeScoreDown", description: "Home Score -1" },
-  { key: "a", shift: true, action: "awayScoreDown", description: "Away Score -1" },
+  { key: "ArrowLeft", shift: true, action: "homeScoreDown", description: "Home Score -1" },
+  { key: "ArrowRight", shift: true, action: "awayScoreDown", description: "Away Score -1" },
   { key: "s", shift: true, action: "homeShotsDown", description: "Home Shots -1" },
   { key: "d", shift: true, action: "awayShotsDown", description: "Away Shots -1" },
 ];
@@ -113,6 +117,20 @@ export const useStore = create<StoreState>((set, get) => ({
     const { socket } = get();
     if (socket) {
       socket.emit("setClock", timeMs);
+    }
+  },
+
+  clockIncrease: () => {
+    const { socket } = get();
+    if (socket) {
+      socket.emit("clockIncrease");
+    }
+  },
+
+  clockDecrease: () => {
+    const { socket } = get();
+    if (socket) {
+      socket.emit("clockDecrease");
     }
   },
 

@@ -155,6 +155,16 @@ io.on("connection", (socket) => {
     io.emit("gameState", gameState);
   });
 
+  socket.on("clockIncrease", () => {
+    gameState.clock.timeRemaining += 1000;
+    io.emit("gameState", gameState);
+  });
+
+  socket.on("clockDecrease", () => {
+    gameState.clock.timeRemaining -= 1000;
+    io.emit("gameState", gameState);
+  });
+
   socket.on("disconnect", () => {
     console.log("Client disconnected:", socket.id);
   });

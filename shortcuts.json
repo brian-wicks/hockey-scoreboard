@@ -5,6 +5,16 @@
     "description": "Toggle Clock"
   },
   {
+    "key": "ArrowUp",
+    "action": "clockIncrease",
+    "description": "Increase Clock"
+  },
+  {
+    "key": "ArrowDown",
+    "action": "clockDecrease",
+    "description": "Decrease Clock"
+  },
+  {
     "key": "ArrowLeft",
     "action": "homeScoreUp",
     "description": "Home Score +1",
