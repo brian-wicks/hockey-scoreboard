@@ -105,6 +105,16 @@ export function useKeyboardShortcuts(isActive: boolean) {
               });
               break;
             }
+            case "homePenaltyRemoveEarliest":
+              updateState({
+                homeTeam: { ...gameState.homeTeam, penalties: gameState.homeTeam.penalties.slice(1) },
+              });
+              break;
+            case "awayPenaltyRemoveEarliest":
+              updateState({
+                awayTeam: { ...gameState.awayTeam, penalties: gameState.awayTeam.penalties.slice(1) },
+              });
+              break;
           }
 
           break; // Only trigger the first matching shortcut

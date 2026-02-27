@@ -54,7 +54,9 @@ export interface KeyboardShortcut {
     | "homeShotsDown"
     | "awayShotsDown"
     | "homePenaltyAdd"
-    | "awayPenaltyAdd";
+    | "awayPenaltyAdd"
+    | "homePenaltyRemoveEarliest"
+    | "awayPenaltyRemoveEarliest";
   description: string;
 }
 
@@ -88,6 +90,20 @@ const defaultShortcuts: KeyboardShortcut[] = [
   { key: "ArrowRight", ctrl: true, shift: true, action: "awayShotsDown", description: "Away Shots -1" },
   { key: "ArrowLeft", alt: true, action: "homePenaltyAdd", description: "Add Home Penalty" },
   { key: "ArrowRight", alt: true, action: "awayPenaltyAdd", description: "Add Away Penalty" },
+  {
+    key: "ArrowLeft",
+    shift: true,
+    alt: true,
+    action: "homePenaltyRemoveEarliest",
+    description: "Remove Earliest Home Penalty",
+  },
+  {
+    key: "ArrowRight",
+    shift: true,
+    alt: true,
+    action: "awayPenaltyRemoveEarliest",
+    description: "Remove Earliest Away Penalty",
+  },
 ];
 
 export const useStore = create<StoreState>((set, get) => ({
