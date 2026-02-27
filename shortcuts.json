@@ -17,61 +17,61 @@
   {
     "key": "ArrowLeft",
     "action": "homeScoreUp",
-    "description": "Home Score +1",
-    "ctrl": false,
-    "shift": false,
-    "alt": false
+    "description": "Home Score +1"
   },
   {
     "key": "ArrowRight",
     "action": "awayScoreUp",
-    "description": "Away Score +1",
-    "ctrl": false,
-    "shift": false,
-    "alt": false
+    "description": "Away Score +1"
   },
   {
-    "key": "s",
+    "key": "ArrowLeft",
+    "ctrl": true,
     "action": "homeShotsUp",
-    "description": "Home Shots +1",
-    "ctrl": false,
-    "shift": false,
-    "alt": false
+    "description": "Home Shots +1"
   },
   {
-    "key": "d",
+    "key": "ArrowRight",
+    "ctrl": true,
     "action": "awayShotsUp",
-    "description": "Away Shots +1",
-    "ctrl": false,
-    "shift": false,
-    "alt": false
+    "description": "Away Shots +1"
   },
   {
     "key": "ArrowLeft",
     "shift": true,
     "action": "homeScoreDown",
-    "description": "Home Score -1",
-    "ctrl": false,
-    "alt": false
+    "description": "Home Score -1"
   },
   {
     "key": "ArrowRight",
     "shift": true,
     "action": "awayScoreDown",
-    "description": "Away Score -1",
-    "ctrl": false,
-    "alt": false
+    "description": "Away Score -1"
   },
   {
-    "key": "s",
+    "key": "ArrowLeft",
+    "ctrl": true,
     "shift": true,
     "action": "homeShotsDown",
     "description": "Home Shots -1"
   },
   {
-    "key": "d",
+    "key": "ArrowRight",
+    "ctrl": true,
     "shift": true,
     "action": "awayShotsDown",
     "description": "Away Shots -1"
+  },
+  {
+    "key": "ArrowLeft",
+    "alt": true,
+    "action": "homePenaltyAdd",
+    "description": "Add Home Penalty"
+  },
+  {
+    "key": "ArrowRight",
+    "alt": true,
+    "action": "awayPenaltyAdd",
+    "description": "Add Away Penalty"
   }
 ]
