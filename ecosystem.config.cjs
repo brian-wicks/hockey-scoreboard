@@ -17,14 +17,17 @@ module.exports = {
       env: {
         NODE_ENV: "development",
         PORT: 3696,
+        VITE_BASE_URL: "http://localhost:3696",
       },
       env_staging: {
         NODE_ENV: "staging",
         PORT: 3697,
+        VITE_BASE_URL: "https://stage-scoreboard.brianwicks.co.uk",
       },
       env_production: {
         NODE_ENV: "production",
         PORT: 3696,
+        VITE_BASE_URL: "https://scoreboard.brianwicks.co.uk",
       },
     },
   ],
@@ -37,6 +40,11 @@ module.exports = {
       ref: "origin/main",
       repo: "https://github.com/brian-wicks/hockey-scoreboard.git",
       path: "/home/brianw/hockey-scoreboard/stage",
+      env: {
+        NODE_ENV: "staging",
+        PORT: 3697,
+        VITE_BASE_URL: "https://stage.scoreboard.brianwicks.co.uk",
+      },
       "post-deploy":
         "npm ci && npm run build && pm2 startOrReload ecosystem.config.cjs --env staging",
     },
@@ -46,6 +54,11 @@ module.exports = {
       ref: "origin/main",
       repo: "https://github.com/brian-wicks/hockey-scoreboard.git",
       path: "/home/brianw/hockey-scoreboard/prod",
+      env: {
+        NODE_ENV: "production",
+        PORT: 3696,
+        VITE_BASE_URL: "https://scoreboard.brianwicks.co.uk",
+      },
       "post-deploy":
         "npm ci && npm run build && pm2 startOrReload ecosystem.config.cjs --env production",
     },
