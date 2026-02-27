@@ -80,7 +80,7 @@ export default function Overlay() {
         </div>
 
         {/* Center Clock & Period */}
-        <div className="flex flex-col items-center justify-center px-6 bg-black/50 min-w-[140px] border-x border-white/10">
+        <div className="flex flex-col items-center justify-center px-6 bg-black/50 min-w-35 border-x border-white/10">
           <div className="text-3xl font-mono font-bold tracking-tighter text-yellow-400">
             {displayTime}
           </div>
