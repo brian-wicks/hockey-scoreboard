@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { useStore, TeamState, GameState, KeyboardShortcut, Penalty } from "../store";
 import { Play, Square, Settings, Minus, Plus, Link as LinkIcon, Keyboard, X } from "lucide-react";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
+import { formatClockDisplay } from "../utils/clock";
 
 export default function ControlPanel() {
-  const { gameState, connect, updateState, startClock, stopClock, setClock, loadShortcuts } = useStore();
+  const { gameState, connect, updateState, startClock, stopClock, setClock, loadShortcuts, serverTimeOffsetMs } = useStore();
   const [activeTab, setActiveTab] = useState<"controls" | "settings" | "presets">("controls");
 
   useKeyboardShortcuts(activeTab === "controls");
@@ -70,7 +71,7 @@ export default function ControlPanel() {
             <TeamControls team="home" state={homeTeam} updateState={updateState} gameState={gameState} />
             
             <div className="flex flex-col gap-6">
-              <ClockControl clock={clock} period={period} startClock={startClock} stopClock={stopClock} setClock={setClock} updateState={updateState} gameState={gameState} />
+              <ClockControl clock={clock} period={period} startClock={startClock} stopClock={stopClock} setClock={setClock} serverTimeOffsetMs={serverTimeOffsetMs} />
               
               <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
                 <h2 className="text-lg font-semibold mb-4 text-zinc-300 uppercase tracking-wider">Game Actions</h2>
@@ -212,7 +213,7 @@ function TeamControls({ team, state, updateState }: { team: "home" | "away", sta
   );
 }
 
-function ClockControl({ clock, period, startClock, stopClock, setClock }: any) {
+function ClockControl({ clock, period, startClock, stopClock, setClock, serverTimeOffsetMs }: any) {
   const [displayTime, setDisplayTime] = useState("20:00");
   const [editMode, setEditMode] = useState(false);
   const [editValue, setEditValue] = useState("20:00");
@@ -223,21 +224,12 @@ function ClockControl({ clock, period, startClock, stopClock, setClock }: any) {
     const updateDisplay = () => {
       let currentRemaining = clock.timeRemaining;
       if (clock.isRunning) {
-        const elapsed = Date.now() - clock.lastUpdate;
+        const now = Date.now() + (serverTimeOffsetMs ?? 0);
+        const elapsed = now - clock.lastUpdate;
         currentRemaining = Math.max(0, clock.timeRemaining - elapsed);
       }
       
-      const totalSeconds = Math.ceil(currentRemaining / 1000);
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-      
-      if (currentRemaining <= 60000 && currentRemaining > 0) {
-        // Last minute: show tenths
-        const tenths = Math.floor((currentRemaining % 1000) / 100);
-        setDisplayTime(`${seconds}.${tenths}`);
-      } else {
-        setDisplayTime(`${minutes}:${seconds.toString().padStart(2, "0")}`);
-      }
+      setDisplayTime(formatClockDisplay(currentRemaining));
       
       if (clock.isRunning) {
         animationFrameId = requestAnimationFrame(updateDisplay);
@@ -246,7 +238,7 @@ function ClockControl({ clock, period, startClock, stopClock, setClock }: any) {
 
     updateDisplay();
     return () => cancelAnimationFrame(animationFrameId);
-  }, [clock.isRunning, clock.timeRemaining, clock.lastUpdate]);
+  }, [clock.isRunning, clock.timeRemaining, clock.lastUpdate, serverTimeOffsetMs]);
 
   const parseTime = (input: string): number | null => {
     input = input.trim();

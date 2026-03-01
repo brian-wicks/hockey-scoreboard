@@ -34,6 +34,7 @@ export interface GameState {
   awayTeam: TeamState;
   clock: ClockState;
   period: string;
+  serverTime?: number;
 }
 
 export interface KeyboardShortcut {
@@ -63,6 +64,7 @@ export interface KeyboardShortcut {
 interface StoreState {
   socket: Socket | null;
   gameState: GameState | null;
+  serverTimeOffsetMs: number;
   keyboardShortcuts: KeyboardShortcut[];
   connect: () => void;
   updateState: (updates: Partial<GameState>) => void;
@@ -109,6 +111,7 @@ const defaultShortcuts: KeyboardShortcut[] = [
 export const useStore = create<StoreState>((set, get) => ({
   socket: null,
   gameState: null,
+  serverTimeOffsetMs: 0,
   keyboardShortcuts: [...defaultShortcuts],
 
   connect: () => {
@@ -119,7 +122,9 @@ export const useStore = create<StoreState>((set, get) => ({
     });
 
     socket.on("gameState", (state: GameState) => {
-      set({ gameState: state });
+      const serverTime = typeof state.serverTime === "number" ? state.serverTime : null;
+      const serverTimeOffsetMs = serverTime === null ? get().serverTimeOffsetMs : serverTime - Date.now();
+      set({ gameState: state, serverTimeOffsetMs });
     });
 
     set({ socket });

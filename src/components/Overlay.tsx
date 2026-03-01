@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
+import { formatClockDisplay } from "../utils/clock";
 
 const GOAL_STING_DURATION_MS = 1900;
 const GOAL_SCORE_REVEAL_MS = 280;
@@ -79,7 +80,7 @@ function useAnimatedPenalties(penalties: any[]): AnimatedPenalty[] {
 }
 
 export default function Overlay() {
-  const { gameState, connect } = useStore();
+  const { gameState, connect, serverTimeOffsetMs } = useStore();
   const [displayTime, setDisplayTime] = useState("20:00");
   const [displayScores, setDisplayScores] = useState({ home: 0, away: 0 });
   const [goalSting, setGoalSting] = useState<{ active: boolean; team: GoalTeam }>({
@@ -153,20 +154,12 @@ export default function Overlay() {
     const updateDisplay = () => {
       let currentRemaining = gameState.clock.timeRemaining;
       if (gameState.clock.isRunning) {
-        const elapsed = Date.now() - gameState.clock.lastUpdate;
+        const now = Date.now() + (serverTimeOffsetMs ?? 0);
+        const elapsed = now - gameState.clock.lastUpdate;
         currentRemaining = Math.max(0, gameState.clock.timeRemaining - elapsed);
       }
       
-      const totalSeconds = Math.ceil(currentRemaining / 1000);
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-      
-      if (currentRemaining <= 60000 && currentRemaining > 0) {
-        const tenths = Math.floor((currentRemaining % 1000) / 100);
-        setDisplayTime(`${seconds}.${tenths}`);
-      } else {
-        setDisplayTime(`${minutes}:${seconds.toString().padStart(2, "0")}`);
-      }
+      setDisplayTime(formatClockDisplay(currentRemaining));
       
       if (gameState.clock.isRunning) {
         animationFrameId = requestAnimationFrame(updateDisplay);
@@ -175,7 +168,7 @@ export default function Overlay() {
 
     updateDisplay();
     return () => cancelAnimationFrame(animationFrameId);
-  }, [gameState?.clock.isRunning, gameState?.clock.timeRemaining, gameState?.clock.lastUpdate]);
+  }, [gameState?.clock.isRunning, gameState?.clock.timeRemaining, gameState?.clock.lastUpdate, serverTimeOffsetMs]);
 
   useEffect(() => {
     if (!gameState) return;

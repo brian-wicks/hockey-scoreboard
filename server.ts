@@ -1,6 +1,6 @@
 import express from "express";
 import { createServer } from "http";
-import { Server } from "socket.io";
+import { Server, Socket } from "socket.io";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { readFileSync, writeFileSync, existsSync } from "fs";
@@ -167,6 +167,18 @@ let gameState: GameState = {
 
 let clockInterval: NodeJS.Timeout | null = null;
 
+function buildGameStatePayload() {
+  return { ...gameState, serverTime: Date.now() };
+}
+
+function emitGameState() {
+  io.emit("gameState", buildGameStatePayload());
+}
+
+function emitGameStateTo(socket: Socket) {
+  socket.emit("gameState", buildGameStatePayload());
+}
+
 function persistCurrentTeamDefaults() {
   writeTeamDefaultsToDisk({
     homeTeam: extractTeamIdentity(gameState.homeTeam),
@@ -196,7 +208,7 @@ function startClockInterval() {
           .filter((p) => p.timeRemaining > 100); // Keep penalties with more than 0.1s remaining
       });
 
-      io.emit("gameState", gameState);
+      emitGameState();
 
       if (gameState.clock.timeRemaining <= 0) {
         gameState.clock.isRunning = false;
@@ -213,21 +225,21 @@ io.on("connection", (socket) => {
   console.log("Client connected:", socket.id);
 
   // Send current game state to new client
-  socket.emit("gameState", gameState);
+  emitGameStateTo(socket);
 
   socket.on("updateGameState", (updates: Partial<GameState>) => {
     gameState = { ...gameState, ...updates };
     if (updates.homeTeam || updates.awayTeam) {
       persistCurrentTeamDefaults();
     }
-    io.emit("gameState", gameState);
+    emitGameState();
   });
 
   socket.on("startClock", () => {
     if (!gameState.clock.isRunning) {
       gameState.clock.isRunning = true;
       gameState.clock.lastUpdate = Date.now();
-      io.emit("gameState", gameState);
+      emitGameState();
       startClockInterval();
     }
   });
@@ -247,24 +259,24 @@ io.on("connection", (socket) => {
       });
       gameState.clock.isRunning = false;
       gameState.clock.lastUpdate = now;
-      io.emit("gameState", gameState);
+      emitGameState();
     }
   });
 
   socket.on("setClock", (timeMs: number) => {
     gameState.clock.timeRemaining = timeMs;
     gameState.clock.lastUpdate = Date.now();
-    io.emit("gameState", gameState);
+    emitGameState();
   });
 
   socket.on("clockIncrease", () => {
     gameState.clock.timeRemaining += 1000;
-    io.emit("gameState", gameState);
+    emitGameState();
   });
 
   socket.on("clockDecrease", () => {
     gameState.clock.timeRemaining -= 1000;
-    io.emit("gameState", gameState);
+    emitGameState();
   });
 
   socket.on("disconnect", () => {
