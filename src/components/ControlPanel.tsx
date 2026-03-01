@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore, TeamState, GameState, KeyboardShortcut, Penalty } from "../store";
-import { Play, Square, Settings, Minus, Plus, Link as LinkIcon, Keyboard, X } from "lucide-react";
+import { Play, Square, Settings, Minus, Plus, Link as LinkIcon, Keyboard, X, Bookmark } from "lucide-react";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { formatClockDisplay } from "../utils/clock";
 
@@ -43,24 +43,27 @@ export default function ControlPanel() {
               activeTab === "controls" ? "bg-indigo-600 text-white" : "bg-zinc-800 hover:bg-zinc-700"
             }`}
           >
-            Controls
+            Home
           </button>
           <button
             onClick={() => setActiveTab("settings")}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
               activeTab === "settings" ? "bg-indigo-600 text-white" : "bg-zinc-800 hover:bg-zinc-700"
             }`}
+            aria-label="Settings"
+            title="Settings"
           >
             <Settings size={16} />
-            Settings
           </button>
           <button
             onClick={() => setActiveTab("presets")}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               activeTab === "presets" ? "bg-indigo-600 text-white" : "bg-zinc-800 hover:bg-zinc-700"
             }`}
+            aria-label="Presets"
+            title="Presets"
           >
-            Presets
+            <Bookmark size={16} />
           </button>
         </div>
       </header>
@@ -129,8 +132,18 @@ function TeamControls({ team, state, updateState }: { team: "home" | "away", sta
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex flex-col gap-6">
-      <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
-        <h2 className="text-2xl font-bold" style={{ color: state.color }}>{state.name}</h2>
+      <div className="flex items-center justify-between pb-4">
+        <div className="flex items-center gap-3">
+          <span className="w-1.5 h-10 rounded-full" style={{ backgroundColor: state.color }} />
+          {state.logo && (
+            <img
+              src={state.logo}
+              alt={state.abbreviation}
+              className="h-8 w-8 object-contain"
+            />
+          )}
+          <h2 className="text-2xl font-bold text-zinc-100">{state.name}</h2>
+        </div>
         <span className="text-zinc-500 font-mono">{state.abbreviation}</span>
       </div>
 
@@ -346,6 +359,11 @@ function ClockControl({ clock, period, startClock, stopClock, setClock, serverTi
 
 function SettingsPanel({ gameState, updateState }: { gameState: GameState, updateState: any }) {
   const { keyboardShortcuts, updateShortcut, resetShortcuts } = useStore();
+  const normalizeHexInput = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return trimmed;
+    return trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+  };
   const updateTeam = (team: "home" | "away", updates: Partial<TeamState>) => {
     updateState({ [`${team}Team`]: { ...gameState[`${team}Team`], ...updates } });
   };
@@ -396,7 +414,7 @@ function SettingsPanel({ gameState, updateState }: { gameState: GameState, updat
               <input 
                 type="text" 
                 value={gameState.homeTeam.color}
-                onChange={(e) => updateTeam("home", { color: e.target.value })}
+                onChange={(e) => updateTeam("home", { color: normalizeHexInput(e.target.value) })}
                 className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none font-mono"
               />
             </div>
@@ -448,7 +466,7 @@ function SettingsPanel({ gameState, updateState }: { gameState: GameState, updat
               <input 
                 type="text" 
                 value={gameState.awayTeam.color}
-                onChange={(e) => updateTeam("away", { color: e.target.value })}
+                onChange={(e) => updateTeam("away", { color: normalizeHexInput(e.target.value) })}
                 className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none font-mono"
               />
             </div>
