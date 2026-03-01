@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore, TeamState, GameState, KeyboardShortcut, Penalty } from "../store";
 import { Play, Square, Settings, Minus, Plus, Link as LinkIcon, Keyboard, X } from "lucide-react";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
@@ -525,12 +525,16 @@ function PresetsPanel({ gameState, updateState }: { gameState: GameState; update
   const [loading, setLoading] = useState(true);
   const [savingDefaults, setSavingDefaults] = useState(false);
   const [error, setError] = useState("");
+  const baseUrl = useMemo(() => {
+    const envBase = import.meta.env.VITE_BASE_URL || window.location.origin;
+    return envBase.replace(/\/+$/, "");
+  }, []);
 
   const loadPresets = async () => {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("http://localhost:3000/api/team-presets");
+      const response = await fetch(`${baseUrl}/api/team-presets`);
       const data = await response.json();
       setPresets(Array.isArray(data) ? data : []);
     } catch (loadError) {
@@ -551,7 +555,7 @@ function PresetsPanel({ gameState, updateState }: { gameState: GameState; update
 
     setError("");
     try {
-      const response = await fetch("http://localhost:3000/api/team-presets", {
+      const response = await fetch(`${baseUrl}/api/team-presets`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -579,7 +583,7 @@ function PresetsPanel({ gameState, updateState }: { gameState: GameState; update
   const deletePreset = async (name: string) => {
     setError("");
     try {
-      const response = await fetch(`http://localhost:3000/api/team-presets/${encodeURIComponent(name)}`, {
+      const response = await fetch(`${baseUrl}/api/team-presets/${encodeURIComponent(name)}`, {
         method: "DELETE",
       });
       const data = await response.json();
@@ -594,7 +598,7 @@ function PresetsPanel({ gameState, updateState }: { gameState: GameState; update
     setSavingDefaults(true);
     setError("");
     try {
-      await fetch("http://localhost:3000/api/team-defaults", {
+      await fetch(`${baseUrl}/api/team-defaults`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
