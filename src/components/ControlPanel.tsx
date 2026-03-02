@@ -12,7 +12,7 @@ export default function ControlPanel() {
 
   useEffect(() => {
     connect();
-    loadShortcuts();
+    void loadShortcuts();
   }, [connect, loadShortcuts]);
 
   if (!gameState) {
@@ -564,7 +564,7 @@ function PresetsPanel({ gameState, updateState }: { gameState: GameState; update
   };
 
   useEffect(() => {
-    loadPresets();
+    void loadPresets();
   }, []);
 
   const savePreset = async () => {
