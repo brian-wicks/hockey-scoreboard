@@ -210,19 +210,6 @@ function TeamControls({ team, state, updateState }: { team: "home" | "away", sta
         </div>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <span className="text-zinc-400 uppercase tracking-wider text-sm font-semibold">Timeouts</span>
-        <div className="flex items-center justify-between">
-          <button onClick={() => updateTeam({ timeouts: Math.max(0, state.timeouts - 1) })} className="w-10 h-10 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-300">
-            <Minus size={20} />
-          </button>
-          <span className="text-3xl font-mono font-bold w-12 text-center">{state.timeouts}</span>
-          <button onClick={() => updateTeam({ timeouts: state.timeouts + 1 })} className="w-10 h-10 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-300">
-            <Plus size={20} />
-          </button>
-        </div>
-      </div>
-
       <div className="pt-4 border-t border-zinc-800">
         <div className="flex items-center justify-between mb-4">
           <span className="text-zinc-400 uppercase tracking-wider text-sm font-semibold">Penalties</span>

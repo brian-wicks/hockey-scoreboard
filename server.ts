@@ -268,12 +268,12 @@ io.on("connection", (socket) => {
   });
 
   socket.on("clockIncrease", () => {
-    gameState.clock.timeRemaining += 1000;
+    gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining + 1000);
     emitGameState();
   });
 
   socket.on("clockDecrease", () => {
-    gameState.clock.timeRemaining -= 1000;
+    gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining - 1000);
     emitGameState();
   });
 
