@@ -6,3 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+.idea
+id_rsa
+qodana.sarif.json
+qodana.yaml
