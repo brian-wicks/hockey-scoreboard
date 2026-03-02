@@ -32,7 +32,21 @@ export default function OverlayStyle({ embedded = false }: { embedded?: boolean 
         )}
 
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-zinc-300 uppercase tracking-wider mb-4">Layout</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-zinc-300 uppercase tracking-wider">Layout</h2>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-zinc-400 uppercase tracking-wider">Theme</span>
+              <button
+                type="button"
+                onClick={() =>
+                  updateState({ overlayTheme: gameState.overlayTheme === "light" ? "dark" : "light" })
+                }
+                className="px-3 py-1.5 rounded-full text-xs font-semibold border border-zinc-700 bg-zinc-950 hover:bg-zinc-800 transition"
+              >
+                {gameState.overlayTheme === "light" ? "Light" : "Dark"}
+              </button>
+            </div>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <button
               type="button"

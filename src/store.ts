@@ -39,6 +39,7 @@ export interface GameState {
   overlayVisible: boolean;
   overlayLayout: "main" | "corner";
   overlayCorner: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+  overlayTheme: "dark" | "light";
   serverTime?: number;
 }
 

@@ -73,6 +73,7 @@ interface GameState {
   overlayVisible: boolean;
   overlayLayout: "main" | "corner";
   overlayCorner: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+  overlayTheme: "dark" | "light";
 }
 
 const baseHomeTeam: TeamState = {
@@ -170,6 +171,7 @@ let gameState: GameState = {
   overlayVisible: true,
   overlayLayout: "main",
   overlayCorner: "top-left",
+  overlayTheme: "light",
 };
 
 let clockInterval: NodeJS.Timeout | null = null;

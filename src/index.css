@@ -30,6 +30,22 @@
     inset 0 -1px 0 rgba(255, 255, 255, 0.1);
 }
 
+.goal-sting-overlay.goal-sting-light {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(244, 244, 245, 0.98) 15%,
+      rgba(244, 244, 245, 0.98) 85%,
+      rgba(255, 255, 255, 0) 100%
+    );
+  border-top: 1px solid rgba(39, 39, 42, 0.22);
+  border-bottom: 1px solid rgba(39, 39, 42, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -1px 0 rgba(24, 24, 27, 0.08);
+}
+
 .goal-sting-banner {
   width: 100%;
   padding: 0 1.1rem;
@@ -54,6 +70,21 @@
   box-shadow:
     0 0 12px rgba(255, 255, 255, 0.2),
     0 0 10px rgba(255, 255, 255, 0.08);
+}
+
+.goal-sting-overlay.goal-sting-light .goal-sting-line {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(24, 24, 27, 0) 0%,
+      rgba(24, 24, 27, 0.18) 24%,
+      var(--goal-sting-color) 50%,
+      rgba(24, 24, 27, 0.18) 76%,
+      rgba(24, 24, 27, 0) 100%
+    );
+  box-shadow:
+    0 0 10px rgba(24, 24, 27, 0.12),
+    0 0 8px rgba(24, 24, 27, 0.08);
 }
 
 .goal-sting-label {
@@ -83,6 +114,23 @@
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
 }
 
+.goal-sting-overlay.goal-sting-light .goal-sting-label {
+  color: #111827;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.75) 0%,
+      rgba(255, 255, 255, 0.45) 100%
+    ),
+    var(--goal-sting-color);
+  border: 1px solid rgba(24, 24, 27, 0.25);
+  box-shadow:
+    0 8px 18px rgba(24, 24, 27, 0.2),
+    0 0 14px rgba(24, 24, 27, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.45);
+}
+
 .goal-sting-logo {
   width: 3.25rem;
   height: 3.25rem;
@@ -92,6 +140,12 @@
   border: 1px solid rgba(255, 255, 255, 0.35);
   padding: 0.25rem;
   filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.45));
+}
+
+.goal-sting-overlay.goal-sting-light .goal-sting-logo {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(24, 24, 27, 0.24);
+  filter: drop-shadow(0 4px 10px rgba(24, 24, 27, 0.25));
 }
 
 .goal-sting-text {
@@ -151,32 +205,17 @@
   }
 }
 
-.penalty-item-enter {
-  animation: penaltyDropDown 260ms ease-out forwards;
+.penalty-item {
+  max-height: 40px;
+  transition:
+    max-height 260ms ease,
+    padding-top 260ms ease,
+    padding-bottom 260ms ease;
 }
 
+.penalty-item-enter,
 .penalty-item-exit {
-  animation: penaltyDropUp 260ms ease-in forwards;
-}
-
-@keyframes penaltyDropDown {
-  0% {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes penaltyDropUp {
-  0% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
 }

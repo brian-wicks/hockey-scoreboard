@@ -21,11 +21,13 @@ interface AnimatedPenalty {
 
 function useAnimatedPenalties(penalties: any[]): AnimatedPenalty[] {
   const [animatedPenalties, setAnimatedPenalties] = useState<AnimatedPenalty[]>([]);
-  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const enterTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const exitTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   useEffect(() => {
     setAnimatedPenalties((current) => {
       const nextById = new Map(penalties.map((penalty) => [penalty.id, penalty]));
+      const currentById = new Set(current.map((item) => item.id));
 
       const nextItems = current.map((item) => {
         const nextPenalty = nextById.get(item.id);
@@ -33,14 +35,14 @@ function useAnimatedPenalties(penalties: any[]): AnimatedPenalty[] {
           return {
             ...item,
             ...nextPenalty,
-            animState: item.animState === "exiting" ? "exiting" : item.animState,
+            animState: item.animState === "entering" ? "entering" : "idle",
           };
         }
         return item.animState === "exiting" ? item : { ...item, animState: "exiting" };
       });
 
       penalties.forEach((penalty) => {
-        if (!current.some((item) => item.id === penalty.id)) {
+        if (!currentById.has(penalty.id)) {
           nextItems.push({ ...penalty, animState: "entering" });
         }
       });
@@ -51,28 +53,41 @@ function useAnimatedPenalties(penalties: any[]): AnimatedPenalty[] {
 
   useEffect(() => {
     animatedPenalties.forEach((item) => {
-      if (item.animState === "idle" || timersRef.current.has(item.id)) return;
+      if (item.animState === "entering" && !enterTimersRef.current.has(item.id)) {
+        const timer = setTimeout(() => {
+          setAnimatedPenalties((current) =>
+            current.map((penalty) =>
+              penalty.id === item.id && penalty.animState === "entering"
+                ? { ...penalty, animState: "idle" }
+                : penalty,
+            ),
+          );
+          enterTimersRef.current.delete(item.id);
+        }, 16);
+        enterTimersRef.current.set(item.id, timer);
+      }
 
-      const timer = setTimeout(() => {
-        setAnimatedPenalties((current) => {
-          if (item.animState === "entering") {
-            return current.map((penalty) =>
-              penalty.id === item.id ? { ...penalty, animState: "idle" } : penalty,
-            );
+      if (item.animState === "exiting" && !exitTimersRef.current.has(item.id)) {
+        const timer = setTimeout(() => {
+          setAnimatedPenalties((current) => current.filter((penalty) => penalty.id !== item.id));
+          exitTimersRef.current.delete(item.id);
+          const enterTimer = enterTimersRef.current.get(item.id);
+          if (enterTimer) {
+            clearTimeout(enterTimer);
+            enterTimersRef.current.delete(item.id);
           }
-          return current.filter((penalty) => penalty.id !== item.id);
-        });
-        timersRef.current.delete(item.id);
-      }, PENALTY_ANIMATION_MS);
-
-      timersRef.current.set(item.id, timer);
+        }, PENALTY_ANIMATION_MS);
+        exitTimersRef.current.set(item.id, timer);
+      }
     });
   }, [animatedPenalties]);
 
   useEffect(() => {
     return () => {
-      timersRef.current.forEach((timer) => clearTimeout(timer));
-      timersRef.current.clear();
+      enterTimersRef.current.forEach((timer) => clearTimeout(timer));
+      exitTimersRef.current.forEach((timer) => clearTimeout(timer));
+      enterTimersRef.current.clear();
+      exitTimersRef.current.clear();
     };
   }, []);
 
@@ -154,6 +169,8 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
   const overlayVisible = gameState?.overlayVisible ?? true;
   const overlayLayout = gameState?.overlayLayout ?? "main";
   const overlayCorner = gameState?.overlayCorner ?? "top-left";
+  const overlayTheme = gameState?.overlayTheme ?? "dark";
+  const isLight = overlayTheme === "light";
 
   useEffect(() => {
     if (!gameState) return;
@@ -262,6 +279,13 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
     );
   }
 
+  const borderClass = isLight ? "border-zinc-400" : "border-zinc-600";
+  const bgClass = isLight ? "bg-zinc-100 text-zinc-900" : "bg-zinc-900 text-zinc-100";
+  const mutedText = isLight ? "text-zinc-700" : "text-zinc-300";
+  const subtleText = isLight ? "text-zinc-600" : "text-zinc-400";
+  const dividerBg = isLight ? "bg-zinc-300" : "bg-zinc-700";
+  const scoreBg = isLight ? "bg-zinc-200" : "bg-zinc-800";
+
   return (
     <div
       className={`${
@@ -270,40 +294,37 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
     >
       {renderedLayout === "corner" ? (
         <div className={`absolute ${cornerPosition} z-20`}>
-          <div className="rounded-lg border border-white/10 bg-black/75 backdrop-blur-md shadow-xl px-3 py-2 min-w-[180px]">
-            <div className="flex items-center justify-between text-xs font-semibold text-zinc-300">
-              <span className="font-bold text-white">{homeTeam.abbreviation}</span>
-              <span className="text-yellow-400 font-mono">{displayTime}</span>
-              <span className="font-bold text-white">{awayTeam.abbreviation}</span>
+          <div className={`border ${borderClass} ${bgClass} px-3 py-2 min-w-[180px]`}>
+            <div className={`flex items-center justify-between text-xs font-semibold ${mutedText}`}>
+              <span className="font-bold">{homeTeam.abbreviation}</span>
+              <span className={`${isLight ? "text-amber-700" : "text-yellow-400"} font-mono`}>{displayTime}</span>
+              <span className="font-bold">{awayTeam.abbreviation}</span>
             </div>
             <div className="mt-1 flex items-center justify-between text-lg font-mono font-bold">
               <span>{displayScores.home}</span>
-              <span className="text-xs font-semibold text-zinc-400 uppercase">{period}</span>
+              <span className={`text-xs font-semibold uppercase ${subtleText}`}>{period}</span>
               <span>{displayScores.away}</span>
             </div>
-            <div className="mt-2 h-1 w-full rounded-full overflow-hidden bg-white/10">
+            <div className={`mt-2 h-1 w-full overflow-hidden ${dividerBg}`}>
               <div className="h-full" style={{ width: "100%", backgroundColor: homeTeam.color }} />
             </div>
           </div>
         </div>
       ) : (
         <div className="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-stretch gap-1">
-          <div className="relative px-4 py-1 rounded-md border border-white/10 bg-black/75 backdrop-blur-md flex items-center gap-4 overflow-hidden">
+          <div className={`relative px-4 py-1 border ${borderClass} ${bgClass} flex items-center gap-4 overflow-hidden`}>
             <span className="w-10 text-right font-mono text-lg font-bold">{homeTeam.shots}</span>
-            <span className="flex-1 text-center text-xs font-bold tracking-[0.2em] uppercase text-zinc-300">Shots</span>
+            <span className={`flex-1 text-center text-xs font-bold tracking-[0.2em] uppercase ${mutedText}`}>Shots</span>
             <span className="w-10 text-left font-mono text-lg font-bold">{awayTeam.shots}</span>
           </div>
 
           {/* Scoreboard Bug - Top Center */}
-          <div
-            className={`relative flex items-stretch shadow-2xl border border-white/10 backdrop-blur-md bg-black/80 rounded-t-lg ${
-              homePenalties.length > 0 ? "rounded-bl-none" : "rounded-bl-lg"
-            } ${awayPenalties.length > 0 ? "rounded-br-none" : "rounded-br-lg"}`}
-          >
+          <div className={`relative z-30 flex items-stretch border ${borderClass} ${bgClass}`}>
+            <div className={`absolute inset-x-0 bottom-0 h-px ${borderClass}`} />
             {goalSting.active && (
-              <div className="absolute inset-0 overflow-hidden rounded-lg pointer-events-none z-20">
+              <div className="absolute inset-0 overflow-hidden pointer-events-none z-20">
                 <div
-                  className={`goal-sting-overlay ${goalSting.team === "home" ? "goal-sting-home" : "goal-sting-away"}`}
+                  className={`goal-sting-overlay ${isLight ? "goal-sting-light" : ""} ${goalSting.team === "home" ? "goal-sting-home" : "goal-sting-away"}`}
                   style={
                     {
                       "--goal-sting-color": goalSting.team === "home" ? homeTeam.color : awayTeam.color,
@@ -331,33 +352,62 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
             {/* Home Team */}
             <div className="relative">
               <div className="flex items-center h-14">
-                <div 
-                  className={`w-2 h-full rounded-tl-lg ${homePenalties.length > 0 ? "rounded-bl-none" : "rounded-bl-lg"}`}
-                  style={{ backgroundColor: homeTeam.color }} 
-                />
+                <div className="w-2 h-full" style={{ backgroundColor: homeTeam.color }} />
                 {homeTeam.logo && (
-                  <div className="pl-3 flex items-center justify-center">
-                    <img src={homeTeam.logo} alt={homeTeam.abbreviation} className="h-8 w-8 object-contain" />
+                  <div className="pl-3 w-8 h-8 flex items-center justify-center overflow-visible">
+                    <img src={homeTeam.logo} alt={homeTeam.abbreviation} className="h-8 w-8 scale-150 object-contain" />
                   </div>
                 )}
                 <div className="px-4 font-bold text-2xl tracking-wider w-24 text-center">
                   {homeTeam.abbreviation}
                 </div>
-                <div className="px-4 bg-white/10 h-full flex items-center justify-center font-mono text-3xl font-bold w-16">
+                <div className={`px-4 ${scoreBg} h-full flex items-center justify-center font-mono text-3xl font-bold w-16`}>
                   {displayScores.home}
                 </div>
               </div>
+            </div>
 
+            {/* Center Clock & Period */}
+              <div className={`flex flex-col items-center justify-center px-6 h-14 ${bgClass} min-w-35 border-x ${borderClass}`}>
+                <div className={`text-3xl font-mono font-bold tracking-tighter ${isLight ? "text-amber-700" : "text-yellow-400"}`}>
+                  {displayTime}
+                </div>
+                <div className={`text-xs font-bold tracking-widest uppercase mt-1 ${subtleText}`}>
+                  {period}
+                </div>
+              </div>
+
+            {/* Away Team */}
+            <div className="relative">
+              <div className="flex items-center h-14">
+                <div className={`px-4 ${scoreBg} h-full flex items-center justify-center font-mono text-3xl font-bold w-16`}>
+                  {displayScores.away}
+                </div>
+                <div className="px-4 font-bold text-2xl tracking-wider w-24 text-center">
+                  {awayTeam.abbreviation}
+                </div>
+                {awayTeam.logo && (
+                  <div className="pr-3 w-8 h-8 flex items-center justify-center overflow-visible">
+                    <img src={awayTeam.logo} alt={awayTeam.abbreviation} className="h-8 w-8 scale-150 object-contain" />
+                  </div>
+                )}
+                <div className="w-2 h-full" style={{ backgroundColor: awayTeam.color }} />
+              </div>
+            </div>
+          </div>
+
+          <div className="absolute top-full left-0 right-0 z-20 flex">
+            <div className="w-1/2 pr-[70px]">
               {homePenalties.length > 0 && (
                 <div
-                  className="absolute top-full left-0 right-0 z-10 overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out"
+                  className="overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out"
                   style={{
                     maxHeight: `${homePenalties.length * 40}px`,
                     opacity: homePenalties.length > 0 ? 1 : 0,
                     transform: homePenalties.length > 0 ? "translateY(0)" : "translateY(-8px)",
                   }}
                 >
-                  <div className="flex flex-col bg-red-600/95 text-xs font-mono font-bold rounded-b-md overflow-hidden shadow-xl">
+                  <div className="flex flex-col text-xs font-mono font-bold overflow-hidden">
                     {homePenalties.map((p) => (
                       <PenaltyTimer
                         key={p.id}
@@ -376,46 +426,17 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
               )}
             </div>
 
-            {/* Center Clock & Period */}
-            <div className="flex flex-col items-center justify-center px-6 h-14 bg-black/50 min-w-35 border-x border-white/10">
-              <div className="text-3xl font-mono font-bold tracking-tighter text-yellow-400">
-                {displayTime}
-              </div>
-              <div className="text-xs font-bold tracking-widest text-zinc-400 uppercase mt-1">
-                {period}
-              </div>
-            </div>
-
-            {/* Away Team */}
-            <div className="relative">
-              <div className="flex items-center h-14">
-                <div className="px-4 bg-white/10 h-full flex items-center justify-center font-mono text-3xl font-bold w-16">
-                  {displayScores.away}
-                </div>
-                <div className="px-4 font-bold text-2xl tracking-wider w-24 text-center">
-                  {awayTeam.abbreviation}
-                </div>
-                {awayTeam.logo && (
-                  <div className="pr-3 flex items-center justify-center">
-                    <img src={awayTeam.logo} alt={awayTeam.abbreviation} className="h-8 w-8 object-contain" />
-                  </div>
-                )}
-                <div 
-                  className={`w-2 h-full rounded-tr-lg ${awayPenalties.length > 0 ? "rounded-br-none" : "rounded-br-lg"}`}
-                  style={{ backgroundColor: awayTeam.color }} 
-                />
-              </div>
-
+            <div className="w-1/2 pl-[70px]">
               {awayPenalties.length > 0 && (
                 <div
-                  className="absolute top-full left-0 right-0 z-10 overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out"
+                  className="overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out"
                   style={{
                     maxHeight: `${awayPenalties.length * 40}px`,
                     opacity: awayPenalties.length > 0 ? 1 : 0,
                     transform: awayPenalties.length > 0 ? "translateY(0)" : "translateY(-8px)",
                   }}
                 >
-                  <div className="flex flex-col bg-red-600/95 text-xs font-mono font-bold rounded-b-md overflow-hidden shadow-xl">
+                  <div className="flex flex-col text-xs font-mono font-bold overflow-hidden">
                     {awayPenalties.map((p) => (
                       <PenaltyTimer
                         key={p.id}
@@ -454,7 +475,7 @@ function PenaltyTimer({ penalty, className = "" }: { penalty: any; className?: s
   }, [penalty.timeRemaining, penalty.playerNumber]);
 
   return (
-    <div className={`px-3 py-1 border-t border-white/20 flex justify-center items-center ${className}`}>
+    <div className={`penalty-item px-3 py-1 bg-red-600 border-t border-red-200/70 flex justify-center items-center ${className}`}>
       <span>{display}</span>
     </div>
   );
