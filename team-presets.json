@@ -14,5 +14,101 @@
       "color": "#0d4c37"
     },
     "updatedAt": 1772158957419
+  },
+  {
+    "name": "Newcastle Wildcats v Hull Ice Hogs",
+    "homeTeam": {
+      "name": "Newcastle Wildcats",
+      "abbreviation": "NEW",
+      "logo": "https://buiha.org.uk/assets/img/icon/md/newcastle.png",
+      "color": "#002444"
+    },
+    "awayTeam": {
+      "name": "Hull Ice Hogs",
+      "abbreviation": "HUL",
+      "logo": "https://buiha.org.uk/assets/img/icon/md/hull.png",
+      "color": "#a6c7ea"
+    },
+    "updatedAt": 1772414486602
+  },
+  {
+    "name": "Newcastle Wildcats v Glasgow Stags",
+    "homeTeam": {
+      "name": "Newcastle Wildcats",
+      "abbreviation": "NEW",
+      "logo": "https://buiha.org.uk/assets/img/icon/md/newcastle.png",
+      "color": "#002444"
+    },
+    "awayTeam": {
+      "name": "Glasgow Stags",
+      "abbreviation": "GLA",
+      "logo": "https://buiha.org.uk/assets/img/icon/md/glasgow.png",
+      "color": "#fcd500"
+    },
+    "updatedAt": 1772414549508
+  },
+  {
+    "name": "Newcastle Wildcats v Nottingham Mavericks",
+    "homeTeam": {
+      "name": "Newcastle Wildcats",
+      "abbreviation": "NEW",
+      "logo": "https://buiha.org.uk/assets/img/icon/md/newcastle.png",
+      "color": "#002444"
+    },
+    "awayTeam": {
+      "name": "Nottingham Mavericks",
+      "abbreviation": "NOT",
+      "logo": "https://buiha.org.uk/assets/img/icon/md/nottingham.png",
+      "color": "#2a762c"
+    },
+    "updatedAt": 1772414596630
+  },
+  {
+    "name": "Newcastle Wildcats v Manchester Metros",
+    "homeTeam": {
+      "name": "Newcastle Wildcats",
+      "abbreviation": "NEW",
+      "logo": "https://buiha.org.uk/assets/img/icon/md/newcastle.png",
+      "color": "#002444"
+    },
+    "awayTeam": {
+      "name": "Manchester Metros",
+      "abbreviation": "MAN",
+      "logo": "https://buiha.org.uk/assets/img/icon/md/manchester.png",
+      "color": "#fe0006"
+    },
+    "updatedAt": 1772414631266
+  },
+  {
+    "name": "Newcastle Wildcats v Northumbria Kings",
+    "homeTeam": {
+      "name": "Newcastle Wildcats",
+      "abbreviation": "NEW",
+      "logo": "https://buiha.org.uk/assets/img/icon/md/newcastle.png",
+      "color": "#002444"
+    },
+    "awayTeam": {
+      "name": "Northumbria Kings",
+      "abbreviation": "NOR",
+      "logo": "https://buiha.org.uk/assets/img/icon/md/northumbria.png",
+      "color": "#dc092a"
+    },
+    "updatedAt": 1772414680986
+  },
+  {
+    "name": "Newcastle Wildcats v Sheffield Bears",
+    "homeTeam": {
+      "name": "Newcastle Wildcats",
+      "abbreviation": "NEW",
+      "logo": "https://buiha.org.uk/assets/img/icon/md/newcastle.png",
+      "color": "#002444"
+    },
+    "awayTeam": {
+      "name": "Sheffield Bears",
+      "abbreviation": "SHE",
+      "logo": "https://buiha.org.uk/assets/img/icon/md/sheffield.png",
+      "color": "#e4c603"
+    },
+    "updatedAt": 1772414923472
   }
 ]
