@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Play, Square } from "lucide-react";
 import { ClockState } from "../../store";
-import { formatClockDisplay } from "../../utils/clock";
+import { formatClockDisplay, parseTimeInputMs } from "../../utils/clock";
 
 interface ClockControlProps {
   clock: ClockState;
@@ -46,44 +46,8 @@ export default function ClockControl({
     return () => cancelAnimationFrame(animationFrameId);
   }, [clock.isRunning, clock.timeRemaining, clock.lastUpdate, serverTimeOffsetMs]);
 
-  const parseTime = (input: string): number | null => {
-    const trimmed = input.trim();
-
-    if (trimmed.includes(":")) {
-      const parts = trimmed.split(":");
-      if (parts.length === 2) {
-        const mins = parseInt(parts[0], 10);
-        const secs = parseInt(parts[1], 10);
-        if (!isNaN(mins) && !isNaN(secs)) {
-          return (mins * 60 + secs) * 1000;
-        }
-      }
-      return null;
-    }
-
-    const digits = trimmed.replace(/\D/g, "");
-    if (!digits) return null;
-
-    const num = parseInt(digits, 10);
-    if (isNaN(num)) return null;
-
-    if (digits.length <= 2) {
-      return num * 1000;
-    }
-
-    if (digits.length === 3) {
-      const mins = parseInt(digits[0], 10);
-      const secs = parseInt(digits.slice(1), 10);
-      return (mins * 60 + secs) * 1000;
-    }
-
-    const secs = parseInt(digits.slice(-2), 10);
-    const mins = parseInt(digits.slice(0, -2), 10);
-    return (mins * 60 + secs) * 1000;
-  };
-
   const handleSetClock = () => {
-    const timeMs = parseTime(editValue);
+    const timeMs = parseTimeInputMs(editValue);
     if (timeMs !== null) {
       setClock(timeMs);
     }
