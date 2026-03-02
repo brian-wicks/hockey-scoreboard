@@ -83,7 +83,7 @@ export function useKeyboardShortcuts(isActive: boolean) {
               break;
             case "homePenaltyAdd": {
               const newPenalty = {
-                id: Math.random().toString(36).substr(2, 9),
+                id: Math.random().toString(36).slice(2, 11),
                 playerNumber: "00",
                 timeRemaining: 120000,
                 duration: 120000,
@@ -95,7 +95,7 @@ export function useKeyboardShortcuts(isActive: boolean) {
             }
             case "awayPenaltyAdd": {
               const newPenalty = {
-                id: Math.random().toString(36).substr(2, 9),
+                id: Math.random().toString(36).slice(2, 11),
                 playerNumber: "00",
                 timeRemaining: 120000,
                 duration: 120000,

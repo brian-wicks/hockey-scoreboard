@@ -191,7 +191,7 @@ function TeamControls({ team, state, updateState }: { team: "home" | "away", sta
           <span className="text-zinc-400 uppercase tracking-wider text-sm font-semibold">Penalties</span>
           <button
             onClick={() => {
-              const newPenalty = { id: Math.random().toString(36).substr(2, 9), playerNumber: "00", timeRemaining: 120000, duration: 120000 };
+              const newPenalty = { id: Math.random().toString(36).slice(2, 11), playerNumber: "00", timeRemaining: 120000, duration: 120000 };
               updateTeam({ penalties: [...state.penalties, newPenalty] });
             }}
             className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded text-sm font-medium flex items-center gap-1"
