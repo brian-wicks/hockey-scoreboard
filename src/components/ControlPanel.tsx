@@ -396,6 +396,14 @@ function ClockControl({ clock, period, startClock, stopClock, setClock, serverTi
 
 function SettingsPanel({ gameState, updateState }: { gameState: GameState, updateState: any }) {
   const { keyboardShortcuts, updateShortcut, resetShortcuts } = useStore();
+  const [homeName, setHomeName] = useState(gameState.homeTeam.name);
+  const [homeAbbr, setHomeAbbr] = useState(gameState.homeTeam.abbreviation);
+  const [homeLogo, setHomeLogo] = useState(gameState.homeTeam.logo);
+  const [homeColorText, setHomeColorText] = useState(gameState.homeTeam.color);
+  const [awayName, setAwayName] = useState(gameState.awayTeam.name);
+  const [awayAbbr, setAwayAbbr] = useState(gameState.awayTeam.abbreviation);
+  const [awayLogo, setAwayLogo] = useState(gameState.awayTeam.logo);
+  const [awayColorText, setAwayColorText] = useState(gameState.awayTeam.color);
   const normalizeHexInput = (value: string) => {
     const trimmed = value.trim();
     if (!trimmed) return trimmed;
@@ -404,6 +412,20 @@ function SettingsPanel({ gameState, updateState }: { gameState: GameState, updat
   const updateTeam = (team: "home" | "away", updates: Partial<TeamState>) => {
     updateState({ [`${team}Team`]: { ...gameState[`${team}Team`], ...updates } });
   };
+  const commitTeamField = (team: "home" | "away", updates: Partial<TeamState>) => {
+    updateTeam(team, updates);
+  };
+
+  useEffect(() => {
+    setHomeName(gameState.homeTeam.name);
+    setHomeAbbr(gameState.homeTeam.abbreviation);
+    setHomeLogo(gameState.homeTeam.logo);
+    setHomeColorText(gameState.homeTeam.color);
+    setAwayName(gameState.awayTeam.name);
+    setAwayAbbr(gameState.awayTeam.abbreviation);
+    setAwayLogo(gameState.awayTeam.logo);
+    setAwayColorText(gameState.awayTeam.color);
+  }, [gameState.homeTeam, gameState.awayTeam]);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -414,8 +436,16 @@ function SettingsPanel({ gameState, updateState }: { gameState: GameState, updat
             <label className="block text-sm font-medium text-zinc-400 mb-1">Team Name</label>
             <input 
               type="text" 
-              value={gameState.homeTeam.name}
-              onChange={(e) => updateTeam("home", { name: e.target.value })}
+              value={homeName}
+              onChange={(e) => setHomeName(e.target.value)}
+              onBlur={() => commitTeamField("home", { name: homeName })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitTeamField("home", { name: homeName });
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
               className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none"
             />
           </div>
@@ -424,8 +454,16 @@ function SettingsPanel({ gameState, updateState }: { gameState: GameState, updat
             <input 
               type="text" 
               maxLength={3}
-              value={gameState.homeTeam.abbreviation}
-              onChange={(e) => updateTeam("home", { abbreviation: e.target.value.toUpperCase() })}
+              value={homeAbbr}
+              onChange={(e) => setHomeAbbr(e.target.value.toUpperCase())}
+              onBlur={() => commitTeamField("home", { abbreviation: homeAbbr.toUpperCase() })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitTeamField("home", { abbreviation: homeAbbr.toUpperCase() });
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
               className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none font-mono"
             />
           </div>
@@ -433,8 +471,16 @@ function SettingsPanel({ gameState, updateState }: { gameState: GameState, updat
             <label className="block text-sm font-medium text-zinc-400 mb-1">Logo URL</label>
             <input 
               type="text" 
-              value={gameState.homeTeam.logo}
-              onChange={(e) => updateTeam("home", { logo: e.target.value })}
+              value={homeLogo}
+              onChange={(e) => setHomeLogo(e.target.value)}
+              onBlur={() => commitTeamField("home", { logo: homeLogo })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitTeamField("home", { logo: homeLogo });
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
               placeholder="https://example.com/logo.png"
               className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none"
             />
@@ -450,8 +496,16 @@ function SettingsPanel({ gameState, updateState }: { gameState: GameState, updat
               />
               <input 
                 type="text" 
-                value={gameState.homeTeam.color}
-                onChange={(e) => updateTeam("home", { color: normalizeHexInput(e.target.value) })}
+                value={homeColorText}
+                onChange={(e) => setHomeColorText(e.target.value)}
+                onBlur={() => commitTeamField("home", { color: normalizeHexInput(homeColorText) })}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    commitTeamField("home", { color: normalizeHexInput(homeColorText) });
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
                 className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none font-mono"
               />
             </div>
@@ -466,8 +520,16 @@ function SettingsPanel({ gameState, updateState }: { gameState: GameState, updat
             <label className="block text-sm font-medium text-zinc-400 mb-1">Team Name</label>
             <input 
               type="text" 
-              value={gameState.awayTeam.name}
-              onChange={(e) => updateTeam("away", { name: e.target.value })}
+              value={awayName}
+              onChange={(e) => setAwayName(e.target.value)}
+              onBlur={() => commitTeamField("away", { name: awayName })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitTeamField("away", { name: awayName });
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
               className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none"
             />
           </div>
@@ -476,8 +538,16 @@ function SettingsPanel({ gameState, updateState }: { gameState: GameState, updat
             <input 
               type="text" 
               maxLength={3}
-              value={gameState.awayTeam.abbreviation}
-              onChange={(e) => updateTeam("away", { abbreviation: e.target.value.toUpperCase() })}
+              value={awayAbbr}
+              onChange={(e) => setAwayAbbr(e.target.value.toUpperCase())}
+              onBlur={() => commitTeamField("away", { abbreviation: awayAbbr.toUpperCase() })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitTeamField("away", { abbreviation: awayAbbr.toUpperCase() });
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
               className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none font-mono"
             />
           </div>
@@ -485,8 +555,16 @@ function SettingsPanel({ gameState, updateState }: { gameState: GameState, updat
             <label className="block text-sm font-medium text-zinc-400 mb-1">Logo URL</label>
             <input 
               type="text" 
-              value={gameState.awayTeam.logo}
-              onChange={(e) => updateTeam("away", { logo: e.target.value })}
+              value={awayLogo}
+              onChange={(e) => setAwayLogo(e.target.value)}
+              onBlur={() => commitTeamField("away", { logo: awayLogo })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitTeamField("away", { logo: awayLogo });
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
               placeholder="https://example.com/logo.png"
               className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none"
             />
@@ -502,8 +580,16 @@ function SettingsPanel({ gameState, updateState }: { gameState: GameState, updat
               />
               <input 
                 type="text" 
-                value={gameState.awayTeam.color}
-                onChange={(e) => updateTeam("away", { color: normalizeHexInput(e.target.value) })}
+                value={awayColorText}
+                onChange={(e) => setAwayColorText(e.target.value)}
+                onBlur={() => commitTeamField("away", { color: normalizeHexInput(awayColorText) })}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    commitTeamField("away", { color: normalizeHexInput(awayColorText) });
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
                 className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none font-mono"
               />
             </div>
@@ -879,13 +965,23 @@ function PenaltyItem({
           value={reasonQuery}
           onChange={(e) => {
             setReasonQuery(e.target.value);
-            onChange({ ...penalty, infraction: e.target.value });
           }}
           onFocus={() => setReasonOpen(true)}
-          onBlur={() => setReasonOpen(false)}
+          onBlur={() => {
+            onChange({ ...penalty, infraction: reasonQuery });
+            setReasonOpen(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              onChange({ ...penalty, infraction: reasonQuery });
+              setReasonOpen(false);
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
           className="bg-zinc-800 text-zinc-200 rounded p-1 text-sm font-mono w-16"
-        placeholder="Reason"
-      />
+          placeholder="Reason"
+        />
         {reasonOpen && (
           <div className="absolute left-0 top-full mt-1 z-20 w-48 max-h-56 overflow-auto rounded-md border border-zinc-800 bg-zinc-950 shadow-lg">
             {reasonOptions.length === 0 ? (
