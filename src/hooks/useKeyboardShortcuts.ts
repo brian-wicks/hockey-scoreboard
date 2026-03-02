@@ -87,6 +87,7 @@ export function useKeyboardShortcuts(isActive: boolean) {
                 playerNumber: "00",
                 timeRemaining: 120000,
                 duration: 120000,
+                infraction: "",
               };
               updateState({
                 homeTeam: { ...gameState.homeTeam, penalties: [...gameState.homeTeam.penalties, newPenalty] },
@@ -99,6 +100,7 @@ export function useKeyboardShortcuts(isActive: boolean) {
                 playerNumber: "00",
                 timeRemaining: 120000,
                 duration: 120000,
+                infraction: "",
               };
               updateState({
                 awayTeam: { ...gameState.awayTeam, penalties: [...gameState.awayTeam.penalties, newPenalty] },

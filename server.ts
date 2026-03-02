@@ -28,6 +28,7 @@ interface Penalty {
   playerNumber: string;
   timeRemaining: number;
   duration: number;
+  infraction: string;
 }
 
 interface TeamState {

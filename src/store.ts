@@ -11,6 +11,7 @@ export interface Penalty {
   playerNumber: string;
   timeRemaining: number;
   duration: number;
+  infraction: string;
 }
 
 export interface TeamState {

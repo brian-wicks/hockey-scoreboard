@@ -4,6 +4,44 @@ import { Play, Square, Settings, Minus, Plus, Link as LinkIcon, Keyboard, X, Boo
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { formatClockDisplay } from "../utils/clock";
 
+const PENALTY_OPTIONS = [
+  "",
+  "HOOK",
+  "HOLD",
+  "TRIP",
+  "INT",
+  "SLASH",
+  "HI-ST",
+  "CROSS",
+  "ROUGH",
+  "ELBOW",
+  "KNEE",
+  "DEL",
+  "TMM",
+  "HLD-ST",
+  "USC",
+  "G-INT",
+  "DIVE",
+  "POG",
+  "HI-ST+",
+  "SPEAR",
+  "FIGHT",
+  "BOARD",
+  "CHARG",
+  "CFB",
+  "SPEAR+",
+  "BUTT",
+  "H-BUT",
+  "CLIP",
+  "MISC",
+  "GM",
+  "MATCH",
+  "GMISC",
+  "G-PUCK",
+  "G-COV",
+  "G-CRES",
+] as const;
+
 export default function ControlPanel() {
   const { gameState, connect, updateState, startClock, stopClock, setClock, loadShortcuts, serverTimeOffsetMs } = useStore();
   const [activeTab, setActiveTab] = useState<"controls" | "settings" | "presets">("controls");
@@ -147,9 +185,9 @@ function TeamControls({ team, state, updateState }: { team: "home" | "away", sta
         <span className="text-zinc-500 font-mono">{state.abbreviation}</span>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2">
         <span className="text-zinc-400 uppercase tracking-wider text-sm font-semibold">Score</span>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between">
           <button onClick={() => updateTeam({ score: Math.max(0, state.score - 1) })} className="w-12 h-12 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-300">
             <Minus size={24} />
           </button>
@@ -160,9 +198,9 @@ function TeamControls({ team, state, updateState }: { team: "home" | "away", sta
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2">
         <span className="text-zinc-400 uppercase tracking-wider text-sm font-semibold">Shots</span>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between">
           <button onClick={() => updateTeam({ shots: Math.max(0, state.shots - 1) })} className="w-10 h-10 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-300">
             <Minus size={20} />
           </button>
@@ -173,9 +211,9 @@ function TeamControls({ team, state, updateState }: { team: "home" | "away", sta
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2">
         <span className="text-zinc-400 uppercase tracking-wider text-sm font-semibold">Timeouts</span>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between">
           <button onClick={() => updateTeam({ timeouts: Math.max(0, state.timeouts - 1) })} className="w-10 h-10 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-300">
             <Minus size={20} />
           </button>
@@ -191,7 +229,7 @@ function TeamControls({ team, state, updateState }: { team: "home" | "away", sta
           <span className="text-zinc-400 uppercase tracking-wider text-sm font-semibold">Penalties</span>
           <button
             onClick={() => {
-              const newPenalty = { id: Math.random().toString(36).slice(2, 11), playerNumber: "00", timeRemaining: 120000, duration: 120000 };
+              const newPenalty = { id: Math.random().toString(36).slice(2, 11), playerNumber: "00", timeRemaining: 120000, duration: 120000, infraction: "" };
               updateTeam({ penalties: [...state.penalties, newPenalty] });
             }}
             className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded text-sm font-medium flex items-center gap-1"
@@ -752,6 +790,7 @@ function PenaltyItem({
 }) {
   const [editMode, setEditMode] = useState(false);
   const [editValue, setEditValue] = useState("2:00");
+  const [playerValue, setPlayerValue] = useState(penalty.playerNumber);
   const playerInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -760,6 +799,10 @@ function PenaltyItem({
     playerInputRef.current?.select();
     onAutoFocusHandled?.();
   }, [autoFocusPlayer, onAutoFocusHandled]);
+
+  useEffect(() => {
+    setPlayerValue(penalty.playerNumber);
+  }, [penalty.playerNumber]);
 
   const commitPlayerNumber = (value: string) => {
     const nextPlayerNumber = value.replace(/\D/g, "").slice(0, 2);
@@ -774,40 +817,84 @@ function PenaltyItem({
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
 
-  const handleTimeChange = () => {
-    const parts = editValue.split(":");
-    if (parts.length === 2) {
-      const mins = parseInt(parts[0]);
-      const secs = parseInt(parts[1]);
-      if (!isNaN(mins) && !isNaN(secs)) {
-        const timeMs = (mins * 60 + secs) * 1000;
-        onChange({ ...penalty, timeRemaining: timeMs, duration: timeMs });
+  const parsePenaltyTime = (input: string): number | null => {
+    const trimmed = input.trim();
+    if (!trimmed) return null;
+    if (trimmed.includes(":")) {
+      const parts = trimmed.split(":");
+      if (parts.length === 2) {
+        const mins = parseInt(parts[0], 10);
+        const secs = parseInt(parts[1], 10);
+        if (!isNaN(mins) && !isNaN(secs)) {
+          return (mins * 60 + secs) * 1000;
+        }
       }
+      return null;
+    }
+
+    const digits = trimmed.replace(/\D/g, "");
+    if (!digits) return null;
+
+    const num = parseInt(digits, 10);
+    if (isNaN(num)) return null;
+
+    if (digits.length <= 2) {
+      return num * 1000;
+    }
+
+    if (digits.length === 3) {
+      const mins = parseInt(digits[0], 10);
+      const secs = parseInt(digits.slice(1), 10);
+      return (mins * 60 + secs) * 1000;
+    }
+
+    const secs = parseInt(digits.slice(-2), 10);
+    const mins = parseInt(digits.slice(0, -2), 10);
+    return (mins * 60 + secs) * 1000;
+  };
+
+  const handleTimeChange = (value: string) => {
+    const timeMs = parsePenaltyTime(value);
+    if (timeMs !== null) {
+      onChange({ ...penalty, timeRemaining: timeMs, duration: timeMs });
     }
     setEditMode(false);
   };
 
   return (
     <div className="flex items-center gap-2 bg-zinc-950 p-2 rounded border border-zinc-800">
+      <select
+        value={penalty.infraction}
+        onChange={(e) => onChange({ ...penalty, infraction: e.target.value })}
+        className="bg-zinc-800 text-zinc-200 rounded p-1 text-sm font-mono"
+      >
+        {PENALTY_OPTIONS.map((code) => (
+          <option key={code || "none"} value={code}>
+            {code || "NONE"}
+          </option>
+        ))}
+      </select>
       <input
         ref={playerInputRef}
         type="text"
-        value={penalty.playerNumber}
+        value={playerValue}
         onChange={(e) => {
-          const nextPlayerNumber = commitPlayerNumber(e.target.value);
-          if (nextPlayerNumber.length === 2) {
-            e.currentTarget.blur();
-          }
+          const nextPlayerNumber = e.target.value.replace(/\D/g, "").slice(0, 2);
+          setPlayerValue(nextPlayerNumber);
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
-            commitPlayerNumber((e.target as HTMLInputElement).value);
+            const committed = commitPlayerNumber((e.target as HTMLInputElement).value);
+            setPlayerValue(committed);
             e.currentTarget.blur();
           }
         }}
         onFocus={(e) => e.currentTarget.select()}
-        onBlur={(e) => commitPlayerNumber(e.target.value)}
+        onBlur={(e) => {
+          const committed = commitPlayerNumber(e.target.value);
+          setPlayerValue(committed);
+        }}
         className="w-12 bg-zinc-800 text-center rounded p-1 text-sm font-mono"
         placeholder="#"
         inputMode="numeric"
@@ -818,10 +905,11 @@ function PenaltyItem({
             type="text"
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleTimeChange()}
-            onBlur={handleTimeChange}
-            className="bg-zinc-800 rounded p-1 text-sm font-mono flex-1 text-center"
+            onKeyDown={(e) => e.key === "Enter" && handleTimeChange((e.target as HTMLInputElement).value)}
+            onBlur={(e) => handleTimeChange(e.target.value)}
+            className="bg-zinc-800 rounded p-1 text-sm font-mono w-24 text-center"
             autoFocus
+            onFocus={(e) => e.currentTarget.select()}
             placeholder="M:SS"
           />
         </div>
