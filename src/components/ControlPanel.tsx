@@ -366,7 +366,8 @@ function ClockControl({ clock, period, startClock, stopClock, setClock, serverTi
         ) : (
           <button 
             onClick={startClock}
-            className="flex-1 flex items-center justify-center gap-2 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-lg transition-colors"
+            disabled={clock.timeRemaining <= 0}
+            className="flex-1 flex items-center justify-center gap-2 py-4 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-900 disabled:text-emerald-200/60 text-white rounded-xl font-bold text-lg transition-colors"
           >
             <Play fill="currentColor" size={20} /> START
           </button>

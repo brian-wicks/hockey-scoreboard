@@ -209,15 +209,16 @@ function startClockInterval() {
           .filter((p) => p.timeRemaining > 100); // Keep penalties with more than 0.1s remaining
       });
 
-      emitGameState();
-
       if (gameState.clock.timeRemaining <= 0) {
+        gameState.clock.timeRemaining = 0;
         gameState.clock.isRunning = false;
         if (clockInterval) {
           clearInterval(clockInterval);
           clockInterval = null;
         }
       }
+
+      emitGameState();
     }
   }, 100);
 }
@@ -234,7 +235,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("startClock", () => {
-    if (!gameState.clock.isRunning) {
+    if (!gameState.clock.isRunning && gameState.clock.timeRemaining > 0) {
       gameState.clock.isRunning = true;
       gameState.clock.lastUpdate = Date.now();
       emitGameState();
