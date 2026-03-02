@@ -3,17 +3,32 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import ControlPanel from "./components/ControlPanel";
-import Overlay from "./components/Overlay";
+import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
+import AppFooter from './components/AppFooter';
+import ChangelogPage from './components/ChangelogPage';
+import ControlPanel from './components/ControlPanel';
+import Overlay from './components/Overlay';
+
+function AppRoutes() {
+  const location = useLocation();
+  const showFooter = location.pathname !== '/overlay';
+
+  return (
+    <>
+      <Routes>
+        <Route path="/" element={<ControlPanel />} />
+        <Route path="/overlay" element={<Overlay />} />
+        <Route path="/changelog" element={<ChangelogPage />} />
+      </Routes>
+      {showFooter && <AppFooter />}
+    </>
+  );
+}
 
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<ControlPanel />} />
-        <Route path="/overlay" element={<Overlay />} />
-      </Routes>
+      <AppRoutes />
     </BrowserRouter>
   );
 }
