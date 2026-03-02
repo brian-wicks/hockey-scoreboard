@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { io, Socket } from "socket.io-client";
 
 const normalizeBaseUrl = (url: string) => url.replace(/\/+$/, "");
+// @ts-ignore
 const baseUrl = import.meta.env.VITE_BASE_URL || window.location.origin;
 const BASE_URL = normalizeBaseUrl(baseUrl);
 

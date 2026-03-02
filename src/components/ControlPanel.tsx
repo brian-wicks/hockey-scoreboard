@@ -544,6 +544,7 @@ function PresetsPanel({ gameState, updateState }: { gameState: GameState; update
   const [savingDefaults, setSavingDefaults] = useState(false);
   const [error, setError] = useState("");
   const baseUrl = useMemo(() => {
+    // @ts-ignore
     const envBase = import.meta.env.VITE_BASE_URL || window.location.origin;
     return envBase.replace(/\/+$/, "");
   }, []);
