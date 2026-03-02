@@ -5,41 +5,40 @@ import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { formatClockDisplay } from "../utils/clock";
 
 const PENALTY_OPTIONS = [
-  "",
-  "HOOK",
-  "HOLD",
-  "TRIP",
-  "INT",
-  "SLASH",
-  "HI-ST",
-  "CROSS",
-  "ROUGH",
-  "ELBOW",
-  "KNEE",
-  "DEL",
-  "TMM",
-  "HLD-ST",
-  "USC",
-  "G-INT",
-  "DIVE",
-  "POG",
-  "HI-ST+",
-  "SPEAR",
-  "FIGHT",
-  "BOARD",
-  "CHARG",
-  "CFB",
-  "SPEAR+",
-  "BUTT",
-  "H-BUT",
-  "CLIP",
-  "MISC",
-  "GM",
-  "MATCH",
-  "GMISC",
-  "G-PUCK",
-  "G-COV",
-  "G-CRES",
+  { code: "HOOK", label: "Hooking" },
+  { code: "HOLD", label: "Holding" },
+  { code: "TRIP", label: "Tripping" },
+  { code: "INT", label: "Interference" },
+  { code: "SLASH", label: "Slashing" },
+  { code: "HI-ST", label: "High-Sticking" },
+  { code: "CROSS", label: "Cross-Checking" },
+  { code: "ROUGH", label: "Roughing" },
+  { code: "ELBOW", label: "Elbowing" },
+  { code: "KNEE", label: "Kneeing" },
+  { code: "DEL", label: "Delay of Game" },
+  { code: "TMM", label: "Too Many Men" },
+  { code: "HLD-ST", label: "Holding the Stick" },
+  { code: "USC", label: "Unsportsmanlike Conduct" },
+  { code: "G-INT", label: "Goalie Interference" },
+  { code: "DIVE", label: "Embellishment/Diving" },
+  { code: "POG", label: "Puck Over the Glass" },
+  { code: "HI-ST+", label: "High-Sticking (Blood)" },
+  { code: "SPEAR", label: "Spearing (Minor)" },
+  { code: "FIGHT", label: "Fighting" },
+  { code: "BOARD", label: "Boarding" },
+  { code: "CHARG", label: "Charging" },
+  { code: "CFB", label: "Checking from Behind" },
+  { code: "SPEAR+", label: "Spearing (Major)" },
+  { code: "BUTT", label: "Butt-Ending" },
+  { code: "H-BUT", label: "Head-Butting" },
+  { code: "CLIP", label: "Clipping" },
+  { code: "MISC", label: "Misconduct" },
+  { code: "GM", label: "Game Misconduct" },
+  { code: "MATCH", label: "Match Penalty" },
+  { code: "GMISC", label: "Gross Misconduct" },
+  { code: "G-PUCK", label: "Handling the Puck" },
+  { code: "G-COV", label: "Covering the Puck" },
+  { code: "G-CRES", label: "Leaving the Crease" },
 ] as const;
 
 export default function ControlPanel() {
@@ -791,6 +790,8 @@ function PenaltyItem({
   const [editMode, setEditMode] = useState(false);
   const [editValue, setEditValue] = useState("2:00");
   const [playerValue, setPlayerValue] = useState(penalty.playerNumber);
+  const [reasonOpen, setReasonOpen] = useState(false);
+  const [reasonQuery, setReasonQuery] = useState(penalty.infraction);
   const playerInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -803,6 +804,16 @@ function PenaltyItem({
   useEffect(() => {
     setPlayerValue(penalty.playerNumber);
   }, [penalty.playerNumber]);
+
+  useEffect(() => {
+    setReasonQuery(penalty.infraction);
+  }, [penalty.infraction]);
+
+  const reasonOptions = PENALTY_OPTIONS.filter((option) => {
+    const query = reasonQuery.trim().toLowerCase();
+    if (!query) return true;
+    return option.code.toLowerCase().includes(query) || option.label.toLowerCase().includes(query);
+  });
 
   const commitPlayerNumber = (value: string) => {
     const nextPlayerNumber = value.replace(/\D/g, "").slice(0, 2);
@@ -863,17 +874,43 @@ function PenaltyItem({
 
   return (
     <div className="flex items-center gap-2 bg-zinc-950 p-2 rounded border border-zinc-800">
-      <select
-        value={penalty.infraction}
-        onChange={(e) => onChange({ ...penalty, infraction: e.target.value })}
-        className="bg-zinc-800 text-zinc-200 rounded p-1 text-sm font-mono"
-      >
-        {PENALTY_OPTIONS.map((code) => (
-          <option key={code || "none"} value={code}>
-            {code || "NONE"}
-          </option>
-        ))}
-      </select>
+      <div className="relative">
+        <input
+          value={reasonQuery}
+          onChange={(e) => {
+            setReasonQuery(e.target.value);
+            onChange({ ...penalty, infraction: e.target.value });
+          }}
+          onFocus={() => setReasonOpen(true)}
+          onBlur={() => setReasonOpen(false)}
+          className="bg-zinc-800 text-zinc-200 rounded p-1 text-sm font-mono w-16"
+        placeholder="Reason"
+      />
+        {reasonOpen && (
+          <div className="absolute left-0 top-full mt-1 z-20 w-48 max-h-56 overflow-auto rounded-md border border-zinc-800 bg-zinc-950 shadow-lg">
+            {reasonOptions.length === 0 ? (
+              <div className="px-2 py-1 text-xs text-zinc-500">No matches</div>
+            ) : (
+              reasonOptions.map((option) => (
+                <button
+                  key={option.code}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onChange({ ...penalty, infraction: option.code });
+                    setReasonQuery(option.code);
+                    setReasonOpen(false);
+                  }}
+                  className="w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800"
+                >
+                  <span className="font-mono">{option.code}</span>
+                  <span className="text-zinc-400"> — {option.label}</span>
+                </button>
+              ))
+            )}
+          </div>
+        )}
+      </div>
       <input
         ref={playerInputRef}
         type="text"
@@ -926,7 +963,7 @@ function PenaltyItem({
       )}
       <button
         onClick={onRemove}
-        className="p-1.5 text-red-400 hover:bg-red-400/10 rounded"
+        className="p-1.5 text-red-400 hover:bg-red-400/10 rounded shrink-0"
       >
         <Minus size={16} />
       </button>
