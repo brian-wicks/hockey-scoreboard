@@ -70,6 +70,9 @@ interface GameState {
   awayTeam: TeamState;
   clock: ClockState;
   period: string;
+  overlayVisible: boolean;
+  overlayLayout: "main" | "corner";
+  overlayCorner: "top-left" | "top-right" | "bottom-left" | "bottom-right";
 }
 
 const baseHomeTeam: TeamState = {
@@ -164,6 +167,9 @@ let gameState: GameState = {
     lastUpdate: Date.now(),
   },
   period: "1st",
+  overlayVisible: true,
+  overlayLayout: "main",
+  overlayCorner: "top-left",
 };
 
 let clockInterval: NodeJS.Timeout | null = null;

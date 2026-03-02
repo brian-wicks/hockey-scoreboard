@@ -36,6 +36,9 @@ export interface GameState {
   awayTeam: TeamState;
   clock: ClockState;
   period: string;
+  overlayVisible: boolean;
+  overlayLayout: "main" | "corner";
+  overlayCorner: "top-left" | "top-right" | "bottom-left" | "bottom-right";
   serverTime?: number;
 }
 

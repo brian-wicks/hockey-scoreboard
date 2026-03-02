@@ -79,8 +79,10 @@ function useAnimatedPenalties(penalties: any[]): AnimatedPenalty[] {
   return animatedPenalties;
 }
 
-export default function Overlay() {
+export default function Overlay({ embedded = false, skipConnect = false }: { embedded?: boolean; skipConnect?: boolean } = {}) {
   const { gameState, connect, serverTimeOffsetMs } = useStore();
+  const [renderedLayout, setRenderedLayout] = useState<"main" | "corner">("main");
+  const [renderedCorner, setRenderedCorner] = useState<"top-left" | "top-right" | "bottom-left" | "bottom-right">("top-right");
   const [displayTime, setDisplayTime] = useState("20:00");
   const [displayScores, setDisplayScores] = useState({ home: 0, away: 0 });
   const [goalSting, setGoalSting] = useState<{ active: boolean; team: GoalTeam }>({
@@ -138,14 +140,30 @@ export default function Overlay() {
   };
 
   useEffect(() => {
-    connect();
-  }, [connect]);
+    if (!skipConnect) {
+      connect();
+    }
+  }, [connect, skipConnect]);
 
   useEffect(() => {
     return () => {
       clearStingTimers();
     };
   }, []);
+
+  const overlayVisible = gameState?.overlayVisible ?? true;
+  const overlayLayout = gameState?.overlayLayout ?? "main";
+  const overlayCorner = gameState?.overlayCorner ?? "top-left";
+
+  useEffect(() => {
+    if (!gameState) return;
+    if (renderedLayout !== overlayLayout) {
+      setRenderedLayout(overlayLayout);
+    }
+    if (renderedCorner !== overlayCorner) {
+      setRenderedCorner(overlayCorner);
+    }
+  }, [gameState, overlayLayout, overlayCorner, renderedLayout, renderedCorner]);
 
   useEffect(() => {
     if (!gameState) return;
@@ -225,157 +243,199 @@ export default function Overlay() {
 
   const { homeTeam, awayTeam, period } = gameState;
   const scoringTeamData = goalSting.team === "home" ? homeTeam : awayTeam;
+  const cornerPosition =
+    renderedCorner === "top-left"
+      ? "top-4 left-4"
+      : renderedCorner === "top-right"
+        ? "top-4 right-4"
+        : renderedCorner === "bottom-left"
+          ? "bottom-4 left-4"
+          : "bottom-4 right-4";
+
+  if (!overlayVisible) {
+    return (
+      <div
+        className={`${
+          embedded ? "relative w-full h-full" : "w-screen h-screen"
+        } overflow-hidden bg-transparent font-sans text-white`}
+      />
+    );
+  }
 
   return (
-    <div className="w-screen h-screen overflow-hidden bg-transparent font-sans text-white">
-      <div className="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-stretch gap-1">
-        <div className="px-4 py-1 rounded-md border border-white/10 bg-black/75 backdrop-blur-md flex items-center gap-4">
-          <span className="w-10 text-right font-mono text-lg font-bold">{homeTeam.shots}</span>
-          <span className="flex-1 text-center text-xs font-bold tracking-[0.2em] uppercase text-zinc-300">Shots</span>
-          <span className="w-10 text-left font-mono text-lg font-bold">{awayTeam.shots}</span>
+    <div
+      className={`${
+        embedded ? "relative w-full h-full" : "w-screen h-screen"
+      } overflow-hidden bg-transparent font-sans text-white`}
+    >
+      {renderedLayout === "corner" ? (
+        <div className={`absolute ${cornerPosition} z-20`}>
+          <div className="rounded-lg border border-white/10 bg-black/75 backdrop-blur-md shadow-xl px-3 py-2 min-w-[180px]">
+            <div className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+              <span className="font-bold text-white">{homeTeam.abbreviation}</span>
+              <span className="text-yellow-400 font-mono">{displayTime}</span>
+              <span className="font-bold text-white">{awayTeam.abbreviation}</span>
+            </div>
+            <div className="mt-1 flex items-center justify-between text-lg font-mono font-bold">
+              <span>{displayScores.home}</span>
+              <span className="text-xs font-semibold text-zinc-400 uppercase">{period}</span>
+              <span>{displayScores.away}</span>
+            </div>
+            <div className="mt-2 h-1 w-full rounded-full overflow-hidden bg-white/10">
+              <div className="h-full" style={{ width: "100%", backgroundColor: homeTeam.color }} />
+            </div>
+          </div>
         </div>
+      ) : (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-stretch gap-1">
+          <div className="relative px-4 py-1 rounded-md border border-white/10 bg-black/75 backdrop-blur-md flex items-center gap-4 overflow-hidden">
+            <span className="w-10 text-right font-mono text-lg font-bold">{homeTeam.shots}</span>
+            <span className="flex-1 text-center text-xs font-bold tracking-[0.2em] uppercase text-zinc-300">Shots</span>
+            <span className="w-10 text-left font-mono text-lg font-bold">{awayTeam.shots}</span>
+          </div>
 
-        {/* Scoreboard Bug - Top Center */}
-        <div
-          className={`relative flex items-stretch shadow-2xl border border-white/10 backdrop-blur-md bg-black/80 rounded-t-lg ${
-            homePenalties.length > 0 ? "rounded-bl-none" : "rounded-bl-lg"
-          } ${awayPenalties.length > 0 ? "rounded-br-none" : "rounded-br-lg"}`}
-        >
-          {goalSting.active && (
-            <div className="absolute inset-0 overflow-hidden rounded-lg pointer-events-none z-20">
-              <div
-                className={`goal-sting-overlay ${goalSting.team === "home" ? "goal-sting-home" : "goal-sting-away"}`}
-                style={
-                  {
-                    "--goal-sting-color": goalSting.team === "home" ? homeTeam.color : awayTeam.color,
-                  } as Record<string, string>
-                }
-              >
-                <div className="goal-sting-banner">
-                  <span className="goal-sting-line" />
-                  <span className="goal-sting-label">
-                    {scoringTeamData.logo && (
-                      <img
-                        src={scoringTeamData.logo}
-                        alt={scoringTeamData.abbreviation}
-                        className="goal-sting-logo"
+          {/* Scoreboard Bug - Top Center */}
+          <div
+            className={`relative flex items-stretch shadow-2xl border border-white/10 backdrop-blur-md bg-black/80 rounded-t-lg ${
+              homePenalties.length > 0 ? "rounded-bl-none" : "rounded-bl-lg"
+            } ${awayPenalties.length > 0 ? "rounded-br-none" : "rounded-br-lg"}`}
+          >
+            {goalSting.active && (
+              <div className="absolute inset-0 overflow-hidden rounded-lg pointer-events-none z-20">
+                <div
+                  className={`goal-sting-overlay ${goalSting.team === "home" ? "goal-sting-home" : "goal-sting-away"}`}
+                  style={
+                    {
+                      "--goal-sting-color": goalSting.team === "home" ? homeTeam.color : awayTeam.color,
+                    } as Record<string, string>
+                  }
+                >
+                  <div className="goal-sting-banner">
+                    <span className="goal-sting-line" />
+                    <span className="goal-sting-label">
+                      {scoringTeamData.logo && (
+                        <img
+                          src={scoringTeamData.logo}
+                          alt={scoringTeamData.abbreviation}
+                          className="goal-sting-logo"
+                        />
+                      )}
+                      <span className="goal-sting-text">GOAL!</span>
+                    </span>
+                    <span className="goal-sting-line" />
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Home Team */}
+            <div className="relative">
+              <div className="flex items-center h-14">
+                <div 
+                  className={`w-2 h-full rounded-tl-lg ${homePenalties.length > 0 ? "rounded-bl-none" : "rounded-bl-lg"}`}
+                  style={{ backgroundColor: homeTeam.color }} 
+                />
+                {homeTeam.logo && (
+                  <div className="pl-3 flex items-center justify-center">
+                    <img src={homeTeam.logo} alt={homeTeam.abbreviation} className="h-8 w-8 object-contain" />
+                  </div>
+                )}
+                <div className="px-4 font-bold text-2xl tracking-wider w-24 text-center">
+                  {homeTeam.abbreviation}
+                </div>
+                <div className="px-4 bg-white/10 h-full flex items-center justify-center font-mono text-3xl font-bold w-16">
+                  {displayScores.home}
+                </div>
+              </div>
+
+              {homePenalties.length > 0 && (
+                <div
+                  className="absolute top-full left-0 right-0 z-10 overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out"
+                  style={{
+                    maxHeight: `${homePenalties.length * 40}px`,
+                    opacity: homePenalties.length > 0 ? 1 : 0,
+                    transform: homePenalties.length > 0 ? "translateY(0)" : "translateY(-8px)",
+                  }}
+                >
+                  <div className="flex flex-col bg-red-600/95 text-xs font-mono font-bold rounded-b-md overflow-hidden shadow-xl">
+                    {homePenalties.map((p) => (
+                      <PenaltyTimer
+                        key={p.id}
+                        penalty={p}
+                        className={
+                          p.animState === "entering"
+                            ? "penalty-item-enter"
+                            : p.animState === "exiting"
+                              ? "penalty-item-exit"
+                              : ""
+                        }
                       />
-                    )}
-                    <span className="goal-sting-text">GOAL!</span>
-                  </span>
-                  <span className="goal-sting-line" />
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Home Team */}
-          <div className="relative">
-            <div className="flex items-center h-14">
-              <div 
-                className={`w-2 h-full rounded-tl-lg ${homePenalties.length > 0 ? "rounded-bl-none" : "rounded-bl-lg"}`}
-                style={{ backgroundColor: homeTeam.color }} 
-              />
-              {homeTeam.logo && (
-                <div className="pl-3 flex items-center justify-center">
-                  <img src={homeTeam.logo} alt={homeTeam.abbreviation} className="h-8 w-8 object-contain" />
+                    ))}
+                  </div>
                 </div>
               )}
-              <div className="px-4 font-bold text-2xl tracking-wider w-24 text-center">
-                {homeTeam.abbreviation}
+            </div>
+
+            {/* Center Clock & Period */}
+            <div className="flex flex-col items-center justify-center px-6 h-14 bg-black/50 min-w-35 border-x border-white/10">
+              <div className="text-3xl font-mono font-bold tracking-tighter text-yellow-400">
+                {displayTime}
               </div>
-              <div className="px-4 bg-white/10 h-full flex items-center justify-center font-mono text-3xl font-bold w-16">
-                {displayScores.home}
+              <div className="text-xs font-bold tracking-widest text-zinc-400 uppercase mt-1">
+                {period}
               </div>
             </div>
 
-            {homePenalties.length > 0 && (
-              <div
-                className="absolute top-full left-0 right-0 z-10 overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out"
-                style={{
-                  maxHeight: `${homePenalties.length * 40}px`,
-                  opacity: homePenalties.length > 0 ? 1 : 0,
-                  transform: homePenalties.length > 0 ? "translateY(0)" : "translateY(-8px)",
-                }}
-              >
-                <div className="flex flex-col bg-red-600/95 text-xs font-mono font-bold rounded-b-md overflow-hidden shadow-xl">
-                  {homePenalties.map((p) => (
-                    <PenaltyTimer
-                      key={p.id}
-                      penalty={p}
-                      className={
-                        p.animState === "entering"
-                          ? "penalty-item-enter"
-                          : p.animState === "exiting"
-                            ? "penalty-item-exit"
-                            : ""
-                      }
-                    />
-                  ))}
+            {/* Away Team */}
+            <div className="relative">
+              <div className="flex items-center h-14">
+                <div className="px-4 bg-white/10 h-full flex items-center justify-center font-mono text-3xl font-bold w-16">
+                  {displayScores.away}
                 </div>
+                <div className="px-4 font-bold text-2xl tracking-wider w-24 text-center">
+                  {awayTeam.abbreviation}
+                </div>
+                {awayTeam.logo && (
+                  <div className="pr-3 flex items-center justify-center">
+                    <img src={awayTeam.logo} alt={awayTeam.abbreviation} className="h-8 w-8 object-contain" />
+                  </div>
+                )}
+                <div 
+                  className={`w-2 h-full rounded-tr-lg ${awayPenalties.length > 0 ? "rounded-br-none" : "rounded-br-lg"}`}
+                  style={{ backgroundColor: awayTeam.color }} 
+                />
               </div>
-            )}
-          </div>
 
-          {/* Center Clock & Period */}
-          <div className="flex flex-col items-center justify-center px-6 h-14 bg-black/50 min-w-35 border-x border-white/10">
-            <div className="text-3xl font-mono font-bold tracking-tighter text-yellow-400">
-              {displayTime}
-            </div>
-            <div className="text-xs font-bold tracking-widest text-zinc-400 uppercase mt-1">
-              {period}
-            </div>
-          </div>
-
-          {/* Away Team */}
-          <div className="relative">
-            <div className="flex items-center h-14">
-              <div className="px-4 bg-white/10 h-full flex items-center justify-center font-mono text-3xl font-bold w-16">
-                {displayScores.away}
-              </div>
-              <div className="px-4 font-bold text-2xl tracking-wider w-24 text-center">
-                {awayTeam.abbreviation}
-              </div>
-              {awayTeam.logo && (
-                <div className="pr-3 flex items-center justify-center">
-                  <img src={awayTeam.logo} alt={awayTeam.abbreviation} className="h-8 w-8 object-contain" />
+              {awayPenalties.length > 0 && (
+                <div
+                  className="absolute top-full left-0 right-0 z-10 overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out"
+                  style={{
+                    maxHeight: `${awayPenalties.length * 40}px`,
+                    opacity: awayPenalties.length > 0 ? 1 : 0,
+                    transform: awayPenalties.length > 0 ? "translateY(0)" : "translateY(-8px)",
+                  }}
+                >
+                  <div className="flex flex-col bg-red-600/95 text-xs font-mono font-bold rounded-b-md overflow-hidden shadow-xl">
+                    {awayPenalties.map((p) => (
+                      <PenaltyTimer
+                        key={p.id}
+                        penalty={p}
+                        className={
+                          p.animState === "entering"
+                            ? "penalty-item-enter"
+                            : p.animState === "exiting"
+                              ? "penalty-item-exit"
+                              : ""
+                        }
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
-              <div 
-                className={`w-2 h-full rounded-tr-lg ${awayPenalties.length > 0 ? "rounded-br-none" : "rounded-br-lg"}`}
-                style={{ backgroundColor: awayTeam.color }} 
-              />
             </div>
-
-            {awayPenalties.length > 0 && (
-              <div
-                className="absolute top-full left-0 right-0 z-10 overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out"
-                style={{
-                  maxHeight: `${awayPenalties.length * 40}px`,
-                  opacity: awayPenalties.length > 0 ? 1 : 0,
-                  transform: awayPenalties.length > 0 ? "translateY(0)" : "translateY(-8px)",
-                }}
-              >
-                <div className="flex flex-col bg-red-600/95 text-xs font-mono font-bold rounded-b-md overflow-hidden shadow-xl">
-                  {awayPenalties.map((p) => (
-                    <PenaltyTimer
-                      key={p.id}
-                      penalty={p}
-                      className={
-                        p.animState === "entering"
-                          ? "penalty-item-enter"
-                          : p.animState === "exiting"
-                            ? "penalty-item-exit"
-                            : ""
-                      }
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

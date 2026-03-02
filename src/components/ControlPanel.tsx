@@ -3,6 +3,7 @@ import { useStore, TeamState, GameState, KeyboardShortcut, Penalty } from "../st
 import { Play, Square, Settings, Minus, Plus, Link as LinkIcon, Keyboard, X, Bookmark } from "lucide-react";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { formatClockDisplay } from "../utils/clock";
+import OverlayStyle from "./OverlayStyle";
 
 const PENALTY_OPTIONS = [
   { code: "HOOK", label: "Hooking" },
@@ -56,7 +57,7 @@ export default function ControlPanel() {
     return <div className="flex items-center justify-center h-screen bg-zinc-950 text-white">Connecting...</div>;
   }
 
-  const { homeTeam, awayTeam, clock, period } = gameState;
+  const { homeTeam, awayTeam, clock, period, overlayVisible } = gameState;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex flex-col">
@@ -107,42 +108,60 @@ export default function ControlPanel() {
 
       <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
         {activeTab === "controls" ? (
-          <div className="grid grid-cols-1 min-[950px]:grid-cols-3 gap-6">
-            <TeamControls team="home" state={homeTeam} updateState={updateState} gameState={gameState} />
-            
-            <div className="flex flex-col gap-6">
-              <ClockControl clock={clock} period={period} startClock={startClock} stopClock={stopClock} setClock={setClock} serverTimeOffsetMs={serverTimeOffsetMs} />
+          <div className="flex flex-col gap-6">
+            <div className="grid grid-cols-1 min-[950px]:grid-cols-3 gap-6">
+              <TeamControls team="home" state={homeTeam} updateState={updateState} gameState={gameState} />
               
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                <h2 className="text-lg font-semibold mb-4 text-zinc-300 uppercase tracking-wider">Game Actions</h2>
-                <div className="grid grid-cols-2 gap-4">
-                  <button 
-                    onClick={() => updateState({ period: "1st" })}
-                    className={`p-3 rounded-lg font-medium ${period === "1st" ? "bg-indigo-600" : "bg-zinc-800 hover:bg-zinc-700"}`}
-                  >1st Period</button>
-                  <button 
-                    onClick={() => updateState({ period: "2nd" })}
-                    className={`p-3 rounded-lg font-medium ${period === "2nd" ? "bg-indigo-600" : "bg-zinc-800 hover:bg-zinc-700"}`}
-                  >2nd Period</button>
-                  <button 
-                    onClick={() => updateState({ period: "3rd" })}
-                    className={`p-3 rounded-lg font-medium ${period === "3rd" ? "bg-indigo-600" : "bg-zinc-800 hover:bg-zinc-700"}`}
-                  >3rd Period</button>
-                  <button 
-                    onClick={() => updateState({ period: "OT" })}
-                    className={`p-3 rounded-lg font-medium ${period === "OT" ? "bg-indigo-600" : "bg-zinc-800 hover:bg-zinc-700"}`}
-                  >Overtime</button>
+              <div className="flex flex-col gap-6">
+                <ClockControl clock={clock} period={period} startClock={startClock} stopClock={stopClock} setClock={setClock} serverTimeOffsetMs={serverTimeOffsetMs} />
+                
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                  <h2 className="text-lg font-semibold mb-4 text-zinc-300 uppercase tracking-wider">Game Actions</h2>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button 
+                      onClick={() => updateState({ period: "1st" })}
+                      className={`p-3 rounded-lg font-medium ${period === "1st" ? "bg-indigo-600" : "bg-zinc-800 hover:bg-zinc-700"}`}
+                    >1st Period</button>
+                    <button 
+                      onClick={() => updateState({ period: "2nd" })}
+                      className={`p-3 rounded-lg font-medium ${period === "2nd" ? "bg-indigo-600" : "bg-zinc-800 hover:bg-zinc-700"}`}
+                    >2nd Period</button>
+                    <button 
+                      onClick={() => updateState({ period: "3rd" })}
+                      className={`p-3 rounded-lg font-medium ${period === "3rd" ? "bg-indigo-600" : "bg-zinc-800 hover:bg-zinc-700"}`}
+                    >3rd Period</button>
+                    <button 
+                      onClick={() => updateState({ period: "OT" })}
+                      className={`p-3 rounded-lg font-medium ${period === "OT" ? "bg-indigo-600" : "bg-zinc-800 hover:bg-zinc-700"}`}
+                    >Overtime</button>
+                  </div>
                 </div>
               </div>
+
+              <TeamControls team="away" state={awayTeam} updateState={updateState} gameState={gameState} />
             </div>
 
-            <TeamControls team="away" state={awayTeam} updateState={updateState} gameState={gameState} />
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex flex-col gap-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-zinc-200 uppercase tracking-wider">Overlay</h2>
+                  <p className="text-sm text-zinc-500">Show/hide the overlay and adjust layout settings.</p>
+                </div>
+                <button
+                  onClick={() => updateState({ overlayVisible: !overlayVisible })}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-zinc-800 hover:bg-zinc-700"
+                >
+                  {overlayVisible ? "Hide Overlay" : "Show Overlay"}
+                </button>
+              </div>
+              <OverlayStyle embedded />
+            </div>
           </div>
         ) : activeTab === "settings" ? (
           <SettingsPanel gameState={gameState} updateState={updateState} />
-        ) : (
+        ) : activeTab === "presets" ? (
           <PresetsPanel gameState={gameState} updateState={updateState} />
-        )}
+        ) : null}
       </main>
     </div>
   );
