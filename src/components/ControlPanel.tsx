@@ -70,7 +70,7 @@ export default function ControlPanel() {
 
       <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
         {activeTab === "controls" ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 min-[950px]:grid-cols-3 gap-6">
             <TeamControls team="home" state={homeTeam} updateState={updateState} gameState={gameState} />
             
             <div className="flex flex-col gap-6">
