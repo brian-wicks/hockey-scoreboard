@@ -229,9 +229,6 @@ io.on("connection", (socket) => {
 
   socket.on("updateGameState", (updates: Partial<GameState>) => {
     gameState = { ...gameState, ...updates };
-    if (updates.homeTeam || updates.awayTeam) {
-      persistCurrentTeamDefaults();
-    }
     emitGameState();
   });
 

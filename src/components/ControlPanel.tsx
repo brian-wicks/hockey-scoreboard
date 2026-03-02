@@ -668,36 +668,66 @@ function PresetsPanel({ gameState, updateState }: { gameState: GameState; update
 
       {error && <div className="mt-3 text-sm text-red-400">{error}</div>}
 
-      <div className="mt-5 border border-zinc-800 rounded-lg overflow-hidden">
+      <div className="mt-5">
         {loading ? (
           <div className="p-4 text-sm text-zinc-400">Loading presets...</div>
         ) : presets.length === 0 ? (
           <div className="p-4 text-sm text-zinc-500 italic">No presets saved yet.</div>
         ) : (
-          <div className="divide-y divide-zinc-800">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {presets
               .slice()
               .sort((a, b) => b.updatedAt - a.updatedAt)
               .map((preset) => (
-                <div key={preset.name} className="p-4 flex items-center gap-4">
-                  <div className="flex-1 min-w-0">
+                <div key={preset.name} className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
                     <div className="font-semibold text-zinc-100 truncate">{preset.name}</div>
-                    <div className="text-sm text-zinc-400 truncate">
-                      {preset.homeTeam.abbreviation} vs {preset.awayTeam.abbreviation}
+                  </div>
+                  <div className="flex items-center justify-center gap-4">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-20 h-20 flex items-center justify-center overflow-hidden">
+                        {preset.homeTeam.logo ? (
+                          <img
+                            src={preset.homeTeam.logo}
+                            alt={preset.homeTeam.abbreviation}
+                            className="h-20 w-20 object-contain"
+                          />
+                        ) : (
+                          <span className="text-sm font-bold text-zinc-400">{preset.homeTeam.abbreviation}</span>
+                        )}
+                      </div>
+                      <span className="text-xs font-mono text-zinc-400">{preset.homeTeam.abbreviation}</span>
+                    </div>
+                    <span className="text-zinc-500 text-sm font-semibold">VS</span>
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-20 h-20 flex items-center justify-center overflow-hidden">
+                        {preset.awayTeam.logo ? (
+                          <img
+                            src={preset.awayTeam.logo}
+                            alt={preset.awayTeam.abbreviation}
+                            className="h-20 w-20 object-contain"
+                          />
+                        ) : (
+                          <span className="text-sm font-bold text-zinc-400">{preset.awayTeam.abbreviation}</span>
+                        )}
+                      </div>
+                      <span className="text-xs font-mono text-zinc-400">{preset.awayTeam.abbreviation}</span>
                     </div>
                   </div>
-                  <button
-                    onClick={() => loadPresetIntoGame(preset)}
-                    className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 rounded text-sm font-medium"
-                  >
-                    Load
-                  </button>
-                  <button
-                    onClick={() => deletePreset(preset.name)}
-                    className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded text-sm font-medium"
-                  >
-                    Delete
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => loadPresetIntoGame(preset)}
+                      className="flex-1 px-3 py-2 bg-emerald-700 hover:bg-emerald-600 rounded text-sm font-medium"
+                    >
+                      Load
+                    </button>
+                    <button
+                      onClick={() => deletePreset(preset.name)}
+                      className="flex-1 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded text-sm font-medium"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
           </div>
