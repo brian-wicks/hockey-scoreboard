@@ -1,5 +1,5 @@
 export function formatClockDisplay(currentRemainingMs: number): string {
-  if (currentRemainingMs < 60000 && currentRemainingMs > 0) {
+  if (currentRemainingMs < 60000 && currentRemainingMs >= 0) {
     const seconds = Math.floor(currentRemainingMs / 1000) % 60;
     const tenths = Math.floor((currentRemainingMs % 1000) / 100);
     return `${seconds}.${tenths}`;
