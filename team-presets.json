@@ -5,15 +5,24 @@
       "name": "Newcastle Wildcats",
       "abbreviation": "NEW",
       "logo": "https://buiha.org.uk/assets/img/icon/md/newcastle.png",
-      "color": "#002444"
+      "color": "#002444",
+      "players": [
+        {
+          "id": "w11xhaswi",
+          "jerseyNumber": "1",
+          "name": "THEO",
+          "position": "NM"
+        }
+      ]
     },
     "awayTeam": {
       "name": "Leeds Gryphons",
       "abbreviation": "LEE",
       "logo": "https://buiha.org.uk/assets/img/icon/md/leeds.png",
-      "color": "#0d4c37"
+      "color": "#0d4c37",
+      "players": []
     },
-    "updatedAt": 1772158957419
+    "updatedAt": 1772579535985
   },
   {
     "name": "Newcastle Wildcats v Hull Ice Hogs",
@@ -21,13 +30,15 @@
       "name": "Newcastle Wildcats",
       "abbreviation": "NEW",
       "logo": "https://buiha.org.uk/assets/img/icon/md/newcastle.png",
-      "color": "#002444"
+      "color": "#002444",
+      "players": []
     },
     "awayTeam": {
       "name": "Hull Ice Hogs",
       "abbreviation": "HUL",
       "logo": "https://buiha.org.uk/assets/img/icon/md/hull.png",
-      "color": "#a6c7ea"
+      "color": "#a6c7ea",
+      "players": []
     },
     "updatedAt": 1772414486602
   },
@@ -37,13 +48,15 @@
       "name": "Newcastle Wildcats",
       "abbreviation": "NEW",
       "logo": "https://buiha.org.uk/assets/img/icon/md/newcastle.png",
-      "color": "#002444"
+      "color": "#002444",
+      "players": []
     },
     "awayTeam": {
       "name": "Glasgow Stags",
       "abbreviation": "GLA",
       "logo": "https://buiha.org.uk/assets/img/icon/md/glasgow.png",
-      "color": "#fcd500"
+      "color": "#fcd500",
+      "players": []
     },
     "updatedAt": 1772414549508
   },
@@ -53,13 +66,15 @@
       "name": "Newcastle Wildcats",
       "abbreviation": "NEW",
       "logo": "https://buiha.org.uk/assets/img/icon/md/newcastle.png",
-      "color": "#002444"
+      "color": "#002444",
+      "players": []
     },
     "awayTeam": {
       "name": "Nottingham Mavericks",
       "abbreviation": "NOT",
       "logo": "https://buiha.org.uk/assets/img/icon/md/nottingham.png",
-      "color": "#2a762c"
+      "color": "#2a762c",
+      "players": []
     },
     "updatedAt": 1772414596630
   },
@@ -69,13 +84,15 @@
       "name": "Newcastle Wildcats",
       "abbreviation": "NEW",
       "logo": "https://buiha.org.uk/assets/img/icon/md/newcastle.png",
-      "color": "#002444"
+      "color": "#002444",
+      "players": []
     },
     "awayTeam": {
       "name": "Manchester Metros",
       "abbreviation": "MAN",
       "logo": "https://buiha.org.uk/assets/img/icon/md/manchester.png",
-      "color": "#fe0006"
+      "color": "#fe0006",
+      "players": []
     },
     "updatedAt": 1772414631266
   },
@@ -85,13 +102,15 @@
       "name": "Newcastle Wildcats",
       "abbreviation": "NEW",
       "logo": "https://buiha.org.uk/assets/img/icon/md/newcastle.png",
-      "color": "#002444"
+      "color": "#002444",
+      "players": []
     },
     "awayTeam": {
       "name": "Northumbria Kings",
       "abbreviation": "NOR",
       "logo": "https://buiha.org.uk/assets/img/icon/md/northumbria.png",
-      "color": "#dc092a"
+      "color": "#dc092a",
+      "players": []
     },
     "updatedAt": 1772414680986
   },
@@ -101,13 +120,15 @@
       "name": "Newcastle Wildcats",
       "abbreviation": "NEW",
       "logo": "https://buiha.org.uk/assets/img/icon/md/newcastle.png",
-      "color": "#002444"
+      "color": "#002444",
+      "players": []
     },
     "awayTeam": {
       "name": "Sheffield Bears",
       "abbreviation": "SHE",
       "logo": "https://buiha.org.uk/assets/img/icon/md/sheffield.png",
-      "color": "#e4c603"
+      "color": "#e4c603",
+      "players": []
     },
     "updatedAt": 1772414923472
   }

@@ -22,6 +22,7 @@ app.use(express.json());
 const SHORTCUTS_FILE = join(__dirname, "shortcuts.json");
 const TEAM_DEFAULTS_FILE = join(__dirname, "team-defaults.json");
 const TEAM_PRESETS_FILE = join(__dirname, "team-presets.json");
+const TEAM_LIBRARY_FILE = join(__dirname, "team-library.json");
 
 interface Penalty {
   id: string;
@@ -80,13 +81,25 @@ interface TeamIdentity {
   color: string;
 }
 
+interface TeamPresetTeam extends TeamIdentity {
+  players: TeamPlayer[];
+}
+
 interface TeamDefaults {
   homeTeam: TeamIdentity;
   awayTeam: TeamIdentity;
 }
 
 interface TeamPreset extends TeamDefaults {
+  homeTeam: TeamPresetTeam;
+  awayTeam: TeamPresetTeam;
   name: string;
+  updatedAt: number;
+}
+
+interface SavedTeam {
+  name: string;
+  team: TeamPresetTeam;
   updatedAt: number;
 }
 
@@ -141,6 +154,41 @@ function extractTeamIdentity(team: TeamState): TeamIdentity {
   };
 }
 
+function normalizeTeamPlayers(players: unknown): TeamPlayer[] {
+  if (!Array.isArray(players)) return [];
+  return players.map((player, index) => {
+    const raw = (player ?? {}) as Partial<TeamPlayer>;
+    const rawPosition = String(raw.position ?? "").toUpperCase();
+    const position: PlayerPosition = rawPosition === "C" || rawPosition === "A" || rawPosition === "NM" ? rawPosition : "";
+    return {
+      id: String(raw.id ?? Math.random().toString(36).slice(2, 11) ?? `p-${Date.now()}-${index}`),
+      jerseyNumber: String(raw.jerseyNumber ?? "")
+        .replace(/\D/g, "")
+        .slice(0, 2),
+      name: String(raw.name ?? "").trim(),
+      position,
+    };
+  });
+}
+
+function extractPresetTeam(team: TeamState): TeamPresetTeam {
+  return {
+    ...extractTeamIdentity(team),
+    players: normalizeTeamPlayers(team.players),
+  };
+}
+
+function normalizePresetTeam(data: unknown): TeamPresetTeam {
+  const raw = (data ?? {}) as Partial<TeamPresetTeam>;
+  return {
+    name: String(raw.name ?? "").trim(),
+    abbreviation: String(raw.abbreviation ?? "").trim(),
+    logo: String(raw.logo ?? "").trim(),
+    color: String(raw.color ?? "").trim(),
+    players: normalizeTeamPlayers(raw.players),
+  };
+}
+
 function applyTeamIdentity(team: TeamState, updates?: Partial<TeamIdentity>): TeamState {
   if (!updates) return team;
   return {
@@ -176,7 +224,21 @@ function readTeamPresetsFromDisk(): TeamPreset[] {
   try {
     if (!existsSync(TEAM_PRESETS_FILE)) return [];
     const data = JSON.parse(readFileSync(TEAM_PRESETS_FILE, "utf-8"));
-    return Array.isArray(data) ? data : [];
+    if (!Array.isArray(data)) return [];
+    return data
+      .map((preset) => {
+        const raw = (preset ?? {}) as Partial<TeamPreset>;
+        const name = String(raw.name ?? "").trim();
+        if (!name) return null;
+
+        return {
+          name,
+          homeTeam: normalizePresetTeam(raw.homeTeam),
+          awayTeam: normalizePresetTeam(raw.awayTeam),
+          updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : Date.now(),
+        } as TeamPreset;
+      })
+      .filter((preset): preset is TeamPreset => Boolean(preset));
   } catch (error) {
     console.error("Error reading team presets:", error);
     return [];
@@ -188,6 +250,37 @@ function writeTeamPresetsToDisk(presets: TeamPreset[]) {
     writeFileSync(TEAM_PRESETS_FILE, JSON.stringify(presets, null, 2));
   } catch (error) {
     console.error("Error saving team presets:", error);
+  }
+}
+
+function readTeamLibraryFromDisk(): SavedTeam[] {
+  try {
+    if (!existsSync(TEAM_LIBRARY_FILE)) return [];
+    const data = JSON.parse(readFileSync(TEAM_LIBRARY_FILE, "utf-8"));
+    if (!Array.isArray(data)) return [];
+    return data
+      .map((entry) => {
+        const raw = (entry ?? {}) as Partial<SavedTeam>;
+        const name = String(raw.name ?? "").trim();
+        if (!name) return null;
+        return {
+          name,
+          team: normalizePresetTeam(raw.team),
+          updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : Date.now(),
+        } as SavedTeam;
+      })
+      .filter((entry): entry is SavedTeam => Boolean(entry));
+  } catch (error) {
+    console.error("Error reading team library:", error);
+    return [];
+  }
+}
+
+function writeTeamLibraryToDisk(teams: SavedTeam[]) {
+  try {
+    writeFileSync(TEAM_LIBRARY_FILE, JSON.stringify(teams, null, 2));
+  } catch (error) {
+    console.error("Error saving team library:", error);
   }
 }
 
@@ -588,8 +681,8 @@ app.post("/api/team-presets", (req, res) => {
       return res.status(400).json({ success: false, error: "Preset name is required" });
     }
 
-    const homeTeam = payload.homeTeam ?? extractTeamIdentity(gameState.homeTeam);
-    const awayTeam = payload.awayTeam ?? extractTeamIdentity(gameState.awayTeam);
+    const homeTeam = payload.homeTeam ? normalizePresetTeam(payload.homeTeam) : extractPresetTeam(gameState.homeTeam);
+    const awayTeam = payload.awayTeam ? normalizePresetTeam(payload.awayTeam) : extractPresetTeam(gameState.awayTeam);
 
     const presets = readTeamPresetsFromDisk();
     const existingIndex = presets.findIndex((preset) => preset.name.toLowerCase() === name.toLowerCase());
@@ -624,6 +717,54 @@ app.delete("/api/team-presets/:name", (req, res) => {
   } catch (error) {
     console.error("Error deleting team preset:", error);
     res.status(500).json({ success: false, error: "Failed to delete team preset" });
+  }
+});
+
+app.get("/api/teams", (req, res) => {
+  res.json(readTeamLibraryFromDisk());
+});
+
+app.post("/api/teams", (req, res) => {
+  try {
+    const payload = req.body as Partial<SavedTeam>;
+    const name = String(payload.name ?? "").trim();
+    if (!name) {
+      return res.status(400).json({ success: false, error: "Team name is required" });
+    }
+
+    const team = payload.team ? normalizePresetTeam(payload.team) : extractPresetTeam(gameState.homeTeam);
+    const teams = readTeamLibraryFromDisk();
+    const existingIndex = teams.findIndex((entry) => entry.name.toLowerCase() === name.toLowerCase());
+    const nextEntry: SavedTeam = {
+      name,
+      team,
+      updatedAt: Date.now(),
+    };
+
+    if (existingIndex >= 0) {
+      teams[existingIndex] = nextEntry;
+    } else {
+      teams.push(nextEntry);
+    }
+
+    writeTeamLibraryToDisk(teams);
+    res.json({ success: true, teams });
+  } catch (error) {
+    console.error("Error saving team entry:", error);
+    res.status(500).json({ success: false, error: "Failed to save team entry" });
+  }
+});
+
+app.delete("/api/teams/:name", (req, res) => {
+  try {
+    const name = decodeURIComponent(req.params.name);
+    const teams = readTeamLibraryFromDisk();
+    const filtered = teams.filter((entry) => entry.name.toLowerCase() !== name.toLowerCase());
+    writeTeamLibraryToDisk(filtered);
+    res.json({ success: true, teams: filtered });
+  } catch (error) {
+    console.error("Error deleting team entry:", error);
+    res.status(500).json({ success: false, error: "Failed to delete team entry" });
   }
 });
 

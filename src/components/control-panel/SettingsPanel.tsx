@@ -9,6 +9,25 @@ interface SettingsPanelProps {
   updateState: UpdateGameState;
 }
 
+interface TeamPresetTeam {
+  name: string;
+  abbreviation: string;
+  logo: string;
+  color: string;
+  players: TeamPlayer[];
+}
+
+interface SavedTeam {
+  name: string;
+  team: TeamPresetTeam;
+  updatedAt: number;
+}
+
+interface SaveConflictState {
+  side: "home" | "away";
+  preferredName: string;
+}
+
 const SHORTCUT_GROUPS = [
   {
     title: "Clock",
@@ -47,6 +66,18 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
   const [awayAbbr, setAwayAbbr] = useState(gameState.awayTeam.abbreviation);
   const [awayLogo, setAwayLogo] = useState(gameState.awayTeam.logo);
   const [awayColorText, setAwayColorText] = useState(gameState.awayTeam.color);
+  const [savedTeams, setSavedTeams] = useState<SavedTeam[]>([]);
+  const [homeSaveStatus, setHomeSaveStatus] = useState("");
+  const [awaySaveStatus, setAwaySaveStatus] = useState("");
+  const [savingHomeTeam, setSavingHomeTeam] = useState(false);
+  const [savingAwayTeam, setSavingAwayTeam] = useState(false);
+  const [saveConflict, setSaveConflict] = useState<SaveConflictState | null>(null);
+
+  const baseUrl = (() => {
+    // @ts-ignore
+    const envBase = import.meta.env.VITE_BASE_URL || window.location.origin;
+    return envBase.replace(/\/+$/, "");
+  })();
 
   const normalizeHexInput = (value: string) => {
     const trimmed = value.trim();
@@ -93,6 +124,124 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
     updateTeam(team, updates);
   };
 
+  const mapTeamToPreset = (team: TeamState): TeamPresetTeam => ({
+    name: team.name,
+    abbreviation: team.abbreviation,
+    logo: team.logo,
+    color: team.color,
+    players: (team.players ?? [])
+      .map((player) => ({ ...player }))
+      .sort((a, b) => {
+        const aNumber = Number.parseInt(a.jerseyNumber, 10);
+        const bNumber = Number.parseInt(b.jerseyNumber, 10);
+        const aValid = Number.isFinite(aNumber);
+        const bValid = Number.isFinite(bNumber);
+        if (aValid && bValid) return aNumber - bNumber;
+        if (aValid) return -1;
+        if (bValid) return 1;
+        return a.jerseyNumber.localeCompare(b.jerseyNumber);
+      }),
+  });
+
+  const loadSavedTeams = async () => {
+    try {
+      const response = await fetch(`${baseUrl}/api/teams`);
+      const data = await response.json();
+      setSavedTeams(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const persistTeam = async (side: "home" | "away", saveName: string) => {
+    if (side === "home") {
+      setSavingHomeTeam(true);
+      setHomeSaveStatus("");
+    } else {
+      setSavingAwayTeam(true);
+      setAwaySaveStatus("");
+    }
+
+    try {
+      const teamSource =
+        side === "home"
+          ? {
+              ...gameState.homeTeam,
+              name: homeName,
+              abbreviation: homeAbbr.toUpperCase(),
+              logo: homeLogo,
+              color: normalizeHexInput(homeColorText),
+            }
+          : {
+              ...gameState.awayTeam,
+              name: awayName,
+              abbreviation: awayAbbr.toUpperCase(),
+              logo: awayLogo,
+              color: normalizeHexInput(awayColorText),
+            };
+      const response = await fetch(`${baseUrl}/api/teams`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: saveName,
+          team: mapTeamToPreset(teamSource),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save team");
+      }
+
+      const data = await response.json();
+      setSavedTeams(Array.isArray(data?.teams) ? data.teams : []);
+      if (side === "home") {
+        setHomeSaveStatus(`Team saved as "${saveName}".`);
+      } else {
+        setAwaySaveStatus(`Team saved as "${saveName}".`);
+      }
+    } catch (error) {
+      console.error(error);
+      if (side === "home") {
+        setHomeSaveStatus("Failed to save team.");
+      } else {
+        setAwaySaveStatus("Failed to save team.");
+      }
+    } finally {
+      if (side === "home") {
+        setSavingHomeTeam(false);
+      } else {
+        setSavingAwayTeam(false);
+      }
+    }
+  };
+
+  const saveTeam = async (side: "home" | "away") => {
+    const preferredName = (side === "home" ? homeName : awayName).trim();
+    const statusSetter = side === "home" ? setHomeSaveStatus : setAwaySaveStatus;
+
+    if (!preferredName) {
+      statusSetter("Team name is required.");
+      return;
+    }
+
+    const existing = savedTeams.find((entry) => entry.name.toLowerCase() === preferredName.toLowerCase());
+    if (existing) {
+      setSaveConflict({
+        side,
+        preferredName,
+      });
+      return;
+    }
+
+    await persistTeam(side, preferredName);
+  };
+
+  const confirmOverwriteSave = async () => {
+    if (!saveConflict) return;
+    await persistTeam(saveConflict.side, saveConflict.preferredName);
+    setSaveConflict(null);
+  };
+
   useEffect(() => {
     setHomeName(gameState.homeTeam.name);
     setHomeAbbr(gameState.homeTeam.abbreviation);
@@ -103,6 +252,10 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
     setAwayLogo(gameState.awayTeam.logo);
     setAwayColorText(gameState.awayTeam.color);
   }, [gameState.homeTeam, gameState.awayTeam]);
+
+  useEffect(() => {
+    void loadSavedTeams();
+  }, []);
 
   const shortcutsByAction = new Map(keyboardShortcuts.map((shortcut, index) => [shortcut.action, { shortcut, index }]));
   const groupedActions = new Set(SHORTCUT_GROUPS.flatMap((group) => [...group.actions]));
@@ -246,6 +399,18 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
               )}
             </div>
           </div>
+          <div className="pt-3 border-t border-zinc-800">
+            <label className="block text-sm font-medium text-zinc-400 mb-1">Save Team</label>
+            <button
+              type="button"
+              onClick={() => saveTeam("home")}
+              disabled={savingHomeTeam}
+              className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 rounded-lg text-sm font-medium"
+            >
+              {savingHomeTeam ? "Saving..." : "Save Team"}
+            </button>
+            {homeSaveStatus && <div className="text-xs text-zinc-500 mt-1">{homeSaveStatus}</div>}
+          </div>
         </div>
       </div>
 
@@ -383,6 +548,18 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
               )}
             </div>
           </div>
+          <div className="pt-3 border-t border-zinc-800">
+            <label className="block text-sm font-medium text-zinc-400 mb-1">Save Team</label>
+            <button
+              type="button"
+              onClick={() => saveTeam("away")}
+              disabled={savingAwayTeam}
+              className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 rounded-lg text-sm font-medium"
+            >
+              {savingAwayTeam ? "Saving..." : "Save Team"}
+            </button>
+            {awaySaveStatus && <div className="text-xs text-zinc-500 mt-1">{awaySaveStatus}</div>}
+          </div>
         </div>
       </div>
 
@@ -445,6 +622,33 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
           Tip: click any shortcut button and press a new key combination to remap.
         </div>
       </div>
+
+      {saveConflict && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-zinc-900 border border-zinc-700 rounded-xl p-5">
+            <h3 className="text-lg font-semibold text-zinc-100">Team Name Already Exists</h3>
+            <p className="text-sm text-zinc-400 mt-2">
+              A team named "{saveConflict.preferredName}" already exists. Overwrite it?
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSaveConflict(null)}
+                className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmOverwriteSave}
+                className="px-3 py-2 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-sm font-medium"
+              >
+                Overwrite
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
