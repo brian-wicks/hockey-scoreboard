@@ -14,6 +14,27 @@ export interface Penalty {
   infraction: string;
 }
 
+export type EventType = "goal" | "goal_revoked" | "penalty_added" | "penalty_over_notice";
+
+export interface GameEvent {
+  id: string;
+  type: EventType;
+  team: "home" | "away";
+  penaltyId?: string;
+  period: string;
+  clockTime: string;
+  endClockTime?: string;
+  playerNumber?: string;
+  infraction?: string;
+  scorer?: string;
+  assist1?: string;
+  assist2?: string;
+  removalReason?: "manual" | "expired";
+  note?: string;
+  readOnly?: boolean;
+  createdAt: number;
+}
+
 export interface TeamState {
   name: string;
   abbreviation: string;
@@ -36,6 +57,7 @@ export interface GameState {
   awayTeam: TeamState;
   clock: ClockState;
   period: string;
+  eventLog: GameEvent[];
   overlayVisible: boolean;
   overlayLayout: "main" | "corner";
   overlayCorner: "top-left" | "top-right" | "bottom-left" | "bottom-right";

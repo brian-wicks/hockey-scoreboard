@@ -31,6 +31,27 @@ interface Penalty {
   infraction: string;
 }
 
+type EventType = "goal" | "goal_revoked" | "penalty_added" | "penalty_over_notice";
+
+interface GameEvent {
+  id: string;
+  type: EventType;
+  team: "home" | "away";
+  penaltyId?: string;
+  period: string;
+  clockTime: string;
+  endClockTime?: string;
+  playerNumber?: string;
+  infraction?: string;
+  scorer?: string;
+  assist1?: string;
+  assist2?: string;
+  removalReason?: "manual" | "expired";
+  note?: string;
+  readOnly?: boolean;
+  createdAt: number;
+}
+
 interface TeamState {
   name: string;
   abbreviation: string;
@@ -70,6 +91,7 @@ interface GameState {
   awayTeam: TeamState;
   clock: ClockState;
   period: string;
+  eventLog: GameEvent[];
   overlayVisible: boolean;
   overlayLayout: "main" | "corner";
   overlayCorner: "top-left" | "top-right" | "bottom-left" | "bottom-right";
@@ -168,6 +190,7 @@ let gameState: GameState = {
     lastUpdate: Date.now(),
   },
   period: "1st",
+  eventLog: [],
   overlayVisible: true,
   overlayLayout: "main",
   overlayCorner: "top-left",
@@ -175,6 +198,175 @@ let gameState: GameState = {
 };
 
 let clockInterval: NodeJS.Timeout | null = null;
+
+function formatClockTime(timeRemainingMs: number): string {
+  const totalSeconds = Math.ceil(Math.max(0, timeRemainingMs) / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function createBaseEvent(type: EventType, team: "home" | "away"): Omit<GameEvent, "id" | "createdAt"> {
+  return {
+    type,
+    team,
+    period: gameState.period,
+    clockTime: formatClockTime(gameState.clock.timeRemaining),
+  };
+}
+
+function appendEvent(event: Omit<GameEvent, "id" | "createdAt">) {
+  gameState.eventLog = [
+    ...gameState.eventLog,
+    {
+      id: Math.random().toString(36).slice(2, 11),
+      createdAt: Date.now(),
+      ...event,
+    },
+  ];
+}
+
+function getMostRecentGoalDetails(team: "home" | "away"): Pick<GameEvent, "scorer" | "assist1" | "assist2"> {
+  const latestGoal = [...gameState.eventLog]
+    .reverse()
+    .find((event) => event.type === "goal" && event.team === team);
+  return {
+    scorer: latestGoal?.scorer ?? "",
+    assist1: latestGoal?.assist1 ?? "",
+    assist2: latestGoal?.assist2 ?? "",
+  };
+}
+
+function getPenaltyDiff(previous: Penalty[], next: Penalty[]) {
+  const prevById = new Map(previous.map((penalty) => [penalty.id, penalty]));
+  const nextById = new Map(next.map((penalty) => [penalty.id, penalty]));
+  const added = next.filter((penalty) => !prevById.has(penalty.id));
+  const removed = previous.filter((penalty) => !nextById.has(penalty.id));
+  return { added, removed };
+}
+
+function logScoreAndPenaltyChanges(previousState: GameState, nextState: GameState) {
+  const homeGoalDelta = nextState.homeTeam.score - previousState.homeTeam.score;
+  const awayGoalDelta = nextState.awayTeam.score - previousState.awayTeam.score;
+
+  if (homeGoalDelta > 0) {
+    for (let i = 0; i < homeGoalDelta; i += 1) {
+      appendEvent(createBaseEvent("goal", "home"));
+    }
+  } else if (homeGoalDelta < 0) {
+    for (let i = 0; i < Math.abs(homeGoalDelta); i += 1) {
+      appendEvent({
+        ...createBaseEvent("goal_revoked", "home"),
+        ...getMostRecentGoalDetails("home"),
+      });
+    }
+  }
+
+  if (awayGoalDelta > 0) {
+    for (let i = 0; i < awayGoalDelta; i += 1) {
+      appendEvent(createBaseEvent("goal", "away"));
+    }
+  } else if (awayGoalDelta < 0) {
+    for (let i = 0; i < Math.abs(awayGoalDelta); i += 1) {
+      appendEvent({
+        ...createBaseEvent("goal_revoked", "away"),
+        ...getMostRecentGoalDetails("away"),
+      });
+    }
+  }
+
+  const homePenaltyDiff = getPenaltyDiff(previousState.homeTeam.penalties, nextState.homeTeam.penalties);
+  homePenaltyDiff.added.forEach((penalty) =>
+    appendEvent({
+      ...createBaseEvent("penalty_added", "home"),
+      penaltyId: penalty.id,
+      playerNumber: penalty.playerNumber,
+      infraction: penalty.infraction,
+    }),
+  );
+  homePenaltyDiff.removed.forEach((penalty) => closePenaltyEvent("home", penalty, "manual"));
+
+  const awayPenaltyDiff = getPenaltyDiff(previousState.awayTeam.penalties, nextState.awayTeam.penalties);
+  awayPenaltyDiff.added.forEach((penalty) =>
+    appendEvent({
+      ...createBaseEvent("penalty_added", "away"),
+      penaltyId: penalty.id,
+      playerNumber: penalty.playerNumber,
+      infraction: penalty.infraction,
+    }),
+  );
+  awayPenaltyDiff.removed.forEach((penalty) => closePenaltyEvent("away", penalty, "manual"));
+}
+
+function syncActivePenaltyEventDetails(state: GameState) {
+  const activePenalties = new Map<string, Penalty>();
+  state.homeTeam.penalties.forEach((penalty) => activePenalties.set(`home:${penalty.id}`, penalty));
+  state.awayTeam.penalties.forEach((penalty) => activePenalties.set(`away:${penalty.id}`, penalty));
+
+  state.eventLog = state.eventLog.map((event) => {
+    if (event.type !== "penalty_added" || !event.penaltyId) {
+      return event;
+    }
+    const activePenalty = activePenalties.get(`${event.team}:${event.penaltyId}`);
+    if (!activePenalty) {
+      return event;
+    }
+    return {
+      ...event,
+      playerNumber: activePenalty.playerNumber,
+      infraction: activePenalty.infraction,
+    };
+  });
+}
+
+function tickTeamPenalties(team: TeamState, side: "home" | "away", elapsedMs: number): Penalty[] {
+  const nextPenalties: Penalty[] = [];
+
+  team.penalties.forEach((penalty) => {
+    const nextRemaining = Math.max(0, penalty.timeRemaining - elapsedMs);
+    if (nextRemaining > 100) {
+      nextPenalties.push({ ...penalty, timeRemaining: nextRemaining });
+      return;
+    }
+
+    closePenaltyEvent(side, penalty, "expired");
+  });
+
+  return nextPenalties;
+}
+
+function closePenaltyEvent(side: "home" | "away", penalty: Penalty, reason: "manual" | "expired") {
+  const eventIndex = [...gameState.eventLog]
+    .map((event, index) => ({ event, index }))
+    .reverse()
+    .find(({ event }) => event.type === "penalty_added" && event.team === side && event.penaltyId === penalty.id && !event.endClockTime)?.index;
+
+  const endClockTime = formatClockTime(gameState.clock.timeRemaining);
+
+  if (typeof eventIndex === "number") {
+    gameState.eventLog = gameState.eventLog.map((event, index) =>
+      index === eventIndex
+        ? {
+            ...event,
+            playerNumber: penalty.playerNumber,
+            infraction: penalty.infraction,
+            endClockTime,
+            removalReason: reason,
+          }
+        : event,
+    );
+  }
+
+  appendEvent({
+    ...createBaseEvent("penalty_over_notice", side),
+    penaltyId: penalty.id,
+    playerNumber: penalty.playerNumber,
+    infraction: penalty.infraction,
+    removalReason: reason,
+    note: "Penalty is over",
+    readOnly: true,
+  });
+}
 
 function buildGameStatePayload() {
   return { ...gameState, serverTime: Date.now() };
@@ -207,15 +399,8 @@ function startClockInterval() {
       gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining - elapsed);
       gameState.clock.lastUpdate = now;
 
-      // Update penalties (timeRemaining is in milliseconds)
-      [gameState.homeTeam, gameState.awayTeam].forEach((team) => {
-        team.penalties = team.penalties
-          .map((p) => ({
-            ...p,
-            timeRemaining: Math.max(0, p.timeRemaining - elapsed),
-          }))
-          .filter((p) => p.timeRemaining > 100); // Keep penalties with more than 0.1s remaining
-      });
+      gameState.homeTeam.penalties = tickTeamPenalties(gameState.homeTeam, "home", elapsed);
+      gameState.awayTeam.penalties = tickTeamPenalties(gameState.awayTeam, "away", elapsed);
 
       if (gameState.clock.timeRemaining <= 0) {
         gameState.clock.timeRemaining = 0;
@@ -238,7 +423,11 @@ io.on("connection", (socket) => {
   emitGameStateTo(socket);
 
   socket.on("updateGameState", (updates: Partial<GameState>) => {
-    gameState = { ...gameState, ...updates };
+    const previousState = gameState;
+    const nextState: GameState = { ...gameState, ...updates };
+    gameState = nextState;
+    logScoreAndPenaltyChanges(previousState, nextState);
+    syncActivePenaltyEventDetails(gameState);
     emitGameState();
   });
 
@@ -256,14 +445,8 @@ io.on("connection", (socket) => {
       const now = Date.now();
       const elapsed = now - gameState.clock.lastUpdate;
       gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining - elapsed);
-      [gameState.homeTeam, gameState.awayTeam].forEach((team) => {
-        team.penalties = team.penalties
-          .map((p) => ({
-            ...p,
-            timeRemaining: Math.max(0, p.timeRemaining - elapsed),
-          }))
-          .filter((p) => p.timeRemaining > 100);
-      });
+      gameState.homeTeam.penalties = tickTeamPenalties(gameState.homeTeam, "home", elapsed);
+      gameState.awayTeam.penalties = tickTeamPenalties(gameState.awayTeam, "away", elapsed);
       gameState.clock.isRunning = false;
       gameState.clock.lastUpdate = now;
       emitGameState();
