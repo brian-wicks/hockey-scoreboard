@@ -154,11 +154,17 @@
 }
 
 .goal-sting-home {
-  animation: goalStingHome 1900ms ease-in-out forwards;
+  animation-name: goalStingHome;
+  animation-duration: 1900ms;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: forwards;
 }
 
 .goal-sting-away {
-  animation: goalStingAway 1900ms ease-in-out forwards;
+  animation-name: goalStingAway;
+  animation-duration: 1900ms;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: forwards;
 }
 
 @keyframes goalStingHome {
@@ -218,4 +224,214 @@
   max-height: 0;
   padding-top: 0;
   padding-bottom: 0;
+}
+
+.penalty-to-scoreboard-hide {
+  will-change: transform, clip-path;
+  animation: penaltyToScoreboardHide 220ms cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
+
+.penalty-hidden-at-scoreboard {
+  transform: translateY(var(--penalty-hide-shift, -48px));
+  clip-path: inset(50% 0 50% 0);
+}
+
+.penalty-from-scoreboard-show {
+  will-change: transform, clip-path;
+  animation: penaltyFromScoreboardShow 220ms cubic-bezier(0.2, 0.85, 0.2, 1) forwards;
+}
+
+.main-overlay-shots-hide {
+  will-change: transform, clip-path;
+  animation: overlayShotsHide 260ms cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
+
+.main-overlay-shots-hidden-static {
+  transform: translateY(var(--main-shots-hide, 58px));
+  clip-path: inset(100% 0 0 0);
+}
+
+.main-overlay-shots-show {
+  will-change: transform, clip-path;
+  animation: overlayShotsShow 260ms cubic-bezier(0.2, 0.85, 0.2, 1) forwards;
+}
+
+.main-overlay-scoreboard-closing {
+  overflow: hidden;
+  will-change: clip-path;
+  animation: overlayScoreboardClose 320ms cubic-bezier(0.45, 0.1, 0.8, 0.2) forwards;
+}
+
+.main-overlay-scoreboard-opening {
+  overflow: hidden;
+  will-change: clip-path;
+  animation: overlayScoreboardOpen 320ms cubic-bezier(0.2, 0.85, 0.2, 1) forwards;
+}
+
+.main-overlay-home-close {
+  transform-origin: right center;
+  will-change: transform, clip-path;
+  animation: overlayHomeClose 320ms cubic-bezier(0.45, 0.1, 0.8, 0.2) forwards;
+}
+
+.main-overlay-home-open {
+  transform-origin: right center;
+  will-change: transform, clip-path;
+  animation: overlayHomeOpen 320ms cubic-bezier(0.2, 0.85, 0.2, 1) forwards;
+}
+
+.main-overlay-away-close {
+  transform-origin: left center;
+  will-change: transform, clip-path;
+  animation: overlayAwayClose 320ms cubic-bezier(0.45, 0.1, 0.8, 0.2) forwards;
+}
+
+.main-overlay-away-open {
+  transform-origin: left center;
+  will-change: transform, clip-path;
+  animation: overlayAwayOpen 320ms cubic-bezier(0.2, 0.85, 0.2, 1) forwards;
+}
+
+.main-overlay-center-close {
+  transform-origin: center center;
+  will-change: clip-path;
+  animation: overlayCenterClose 320ms cubic-bezier(0.45, 0.1, 0.8, 0.2) forwards;
+}
+
+.main-overlay-center-open {
+  transform-origin: center center;
+  will-change: clip-path;
+  animation: overlayCenterOpen 320ms cubic-bezier(0.2, 0.85, 0.2, 1) forwards;
+}
+
+@keyframes penaltyToScoreboardHide {
+  0% {
+    transform: translateY(0);
+    clip-path: inset(0 0 0 0);
+  }
+  72% {
+    transform: translateY(var(--penalty-hide-shift, -48px));
+    clip-path: inset(0 0 0 0);
+  }
+  100% {
+    transform: translateY(var(--penalty-hide-shift, -48px));
+    clip-path: inset(50% 0 50% 0);
+  }
+}
+
+@keyframes penaltyFromScoreboardShow {
+  0% {
+    transform: translateY(var(--penalty-hide-shift, -48px));
+    clip-path: inset(50% 0 50% 0);
+  }
+  28% {
+    transform: translateY(var(--penalty-hide-shift, -48px));
+    clip-path: inset(0 0 0 0);
+  }
+  100% {
+    transform: translateY(0);
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes overlayShotsHide {
+  from {
+    transform: translateY(0);
+    clip-path: inset(0 0 0 0);
+  }
+  to {
+    transform: translateY(var(--main-shots-hide, 58px));
+    clip-path: inset(100% 0 0 0);
+  }
+}
+
+@keyframes overlayShotsShow {
+  from {
+    transform: translateY(var(--main-shots-hide, 58px));
+    clip-path: inset(100% 0 0 0);
+  }
+  to {
+    transform: translateY(0);
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes overlayHomeClose {
+  from {
+    transform: translateX(0);
+    clip-path: inset(0 0 0 0);
+  }
+  to {
+    transform: translateX(24px);
+    clip-path: inset(0 0 0 100%);
+  }
+}
+
+@keyframes overlayHomeOpen {
+  from {
+    transform: translateX(24px);
+    clip-path: inset(0 0 0 100%);
+  }
+  to {
+    transform: translateX(0);
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes overlayAwayClose {
+  from {
+    transform: translateX(0);
+    clip-path: inset(0 0 0 0);
+  }
+  to {
+    transform: translateX(-24px);
+    clip-path: inset(0 100% 0 0);
+  }
+}
+
+@keyframes overlayAwayOpen {
+  from {
+    transform: translateX(-24px);
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    transform: translateX(0);
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes overlayCenterClose {
+  from {
+    clip-path: inset(0 0 0 0);
+  }
+  to {
+    clip-path: inset(0 50% 0 50%);
+  }
+}
+
+@keyframes overlayCenterOpen {
+  from {
+    clip-path: inset(0 50% 0 50%);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes overlayScoreboardClose {
+  from {
+    clip-path: inset(0 0 0 0);
+  }
+  to {
+    clip-path: inset(0 50% 0 50%);
+  }
+}
+
+@keyframes overlayScoreboardOpen {
+  from {
+    clip-path: inset(0 50% 0 50%);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
 }

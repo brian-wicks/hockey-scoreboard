@@ -1,11 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import { formatClockDisplay } from "../utils/clock";
 
 const GOAL_STING_DURATION_MS = 1900;
 const GOAL_SCORE_REVEAL_MS = 280;
 const PENALTY_ANIMATION_MS = 260;
+const MAIN_HIDE_PENALTY_LIFT_MS = 260;
+const MAIN_HIDE_SCOREBOARD_CLOSE_MS = 320;
+const PENALTY_ROW_HEIGHT_PX = 40;
 type GoalTeam = "home" | "away";
+type MainTransitionStage = "idle" | "hiding-penalties" | "hiding-close" | "showing-open" | "showing-penalties";
 interface GoalEvent {
   team: GoalTeam;
   targetScore: number;
@@ -19,7 +23,7 @@ interface AnimatedPenalty {
   animState: PenaltyAnimState;
 }
 
-function useAnimatedPenalties(penalties: any[]): AnimatedPenalty[] {
+function useAnimatedPenalties(penalties: any[], animationMs: number): AnimatedPenalty[] {
   const [animatedPenalties, setAnimatedPenalties] = useState<AnimatedPenalty[]>([]);
   const enterTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const exitTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -76,11 +80,11 @@ function useAnimatedPenalties(penalties: any[]): AnimatedPenalty[] {
             clearTimeout(enterTimer);
             enterTimersRef.current.delete(item.id);
           }
-        }, PENALTY_ANIMATION_MS);
+        }, animationMs);
         exitTimersRef.current.set(item.id, timer);
       }
     });
-  }, [animatedPenalties]);
+  }, [animatedPenalties, animationMs]);
 
   useEffect(() => {
     return () => {
@@ -104,11 +108,22 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
     active: false,
     team: "home",
   });
+  const [mainTransitionStage, setMainTransitionStage] = useState<MainTransitionStage>("idle");
+  const [keepMainVisibleForHide, setKeepMainVisibleForHide] = useState(false);
   const previousScoresRef = useRef<{ home: number; away: number } | null>(null);
   const stingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hidePenaltyLiftTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hideCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showOpenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showPenaltiesTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previousOverlayVisibleRef = useRef<boolean>(true);
   const stingStateRef = useRef<{ active: boolean; team: GoalTeam | null }>({ active: false, team: null });
   const goalQueueRef = useRef<GoalEvent[]>([]);
+  const shotsPanelRef = useRef<HTMLDivElement | null>(null);
+  const scoreboardPanelRef = useRef<HTMLDivElement | null>(null);
+  const [mainAnimationVars, setMainAnimationVars] = useState({ penaltiesLift: 58, shotsHide: 58, scoreboardHeight: 56 });
+  const mainTransitionStageRef = useRef<MainTransitionStage>("idle");
 
   const clearStingTimers = () => {
     if (stingTimeoutRef.current) {
@@ -128,6 +143,43 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
     setGoalSting((current) => ({ ...current, active: false }));
   };
 
+  const clearMainHideTimers = () => {
+    if (hidePenaltyLiftTimeoutRef.current) {
+      clearTimeout(hidePenaltyLiftTimeoutRef.current);
+      hidePenaltyLiftTimeoutRef.current = null;
+    }
+    if (hideCloseTimeoutRef.current) {
+      clearTimeout(hideCloseTimeoutRef.current);
+      hideCloseTimeoutRef.current = null;
+    }
+    if (showOpenTimeoutRef.current) {
+      clearTimeout(showOpenTimeoutRef.current);
+      showOpenTimeoutRef.current = null;
+    }
+    if (showPenaltiesTimeoutRef.current) {
+      clearTimeout(showPenaltiesTimeoutRef.current);
+      showPenaltiesTimeoutRef.current = null;
+    }
+  };
+
+  const measureMainAnimationVars = () => {
+    const scoreboardHeight = scoreboardPanelRef.current?.offsetHeight ?? 56;
+    const shotsHeight = shotsPanelRef.current?.offsetHeight ?? 36;
+    const next = {
+      penaltiesLift: scoreboardHeight,
+      shotsHide: Math.max(scoreboardHeight, shotsHeight),
+      scoreboardHeight,
+    };
+
+    setMainAnimationVars((current) =>
+      current.penaltiesLift !== next.penaltiesLift ||
+      current.shotsHide !== next.shotsHide ||
+      current.scoreboardHeight !== next.scoreboardHeight
+        ? next
+        : current,
+    );
+  };
+
   const playNextGoalSting = () => {
     const nextGoal = goalQueueRef.current.shift();
     if (!nextGoal) {
@@ -145,13 +197,13 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
         ...current,
         [nextGoal.team]: nextGoal.targetScore,
       }));
-    }, GOAL_SCORE_REVEAL_MS);
+    }, goalScoreRevealMs);
 
     stingTimeoutRef.current = setTimeout(() => {
       stingStateRef.current = { active: false, team: null };
       setGoalSting((current) => ({ ...current, active: false }));
       playNextGoalSting();
-    }, GOAL_STING_DURATION_MS);
+    }, goalStingDurationMs);
   };
 
   useEffect(() => {
@@ -163,6 +215,7 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
   useEffect(() => {
     return () => {
       clearStingTimers();
+      clearMainHideTimers();
     };
   }, []);
 
@@ -170,6 +223,11 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
   const overlayLayout = gameState?.overlayLayout ?? "main";
   const overlayCorner = gameState?.overlayCorner ?? "top-left";
   const overlayTheme = gameState?.overlayTheme ?? "dark";
+  const penaltyAnimationMs = PENALTY_ANIMATION_MS;
+  const mainHidePenaltyLiftMs = MAIN_HIDE_PENALTY_LIFT_MS;
+  const mainHideScoreboardCloseMs = MAIN_HIDE_SCOREBOARD_CLOSE_MS;
+  const goalStingDurationMs = GOAL_STING_DURATION_MS;
+  const goalScoreRevealMs = GOAL_SCORE_REVEAL_MS;
   const isLight = overlayTheme === "light";
 
   useEffect(() => {
@@ -253,8 +311,78 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
     previousScoresRef.current = nextScores;
   }, [gameState?.homeTeam.score, gameState?.awayTeam.score]);
 
-  const homePenalties = useAnimatedPenalties(gameState?.homeTeam.penalties ?? []);
-  const awayPenalties = useAnimatedPenalties(gameState?.awayTeam.penalties ?? []);
+  useLayoutEffect(() => {
+    measureMainAnimationVars();
+    clearMainHideTimers();
+    const wasVisible = previousOverlayVisibleRef.current;
+    previousOverlayVisibleRef.current = overlayVisible;
+
+    if (renderedLayout !== "main") {
+      setMainTransitionStage("idle");
+      mainTransitionStageRef.current = "idle";
+      setKeepMainVisibleForHide(false);
+      return;
+    }
+
+    if (!wasVisible && overlayVisible) {
+      setMainTransitionStage("showing-open");
+      mainTransitionStageRef.current = "showing-open";
+      setKeepMainVisibleForHide(false);
+      showOpenTimeoutRef.current = setTimeout(() => {
+        setMainTransitionStage("showing-penalties");
+        mainTransitionStageRef.current = "showing-penalties";
+        showOpenTimeoutRef.current = null;
+      }, mainHideScoreboardCloseMs);
+      showPenaltiesTimeoutRef.current = setTimeout(() => {
+        setMainTransitionStage("idle");
+        mainTransitionStageRef.current = "idle";
+        showPenaltiesTimeoutRef.current = null;
+      }, mainHideScoreboardCloseMs + mainHidePenaltyLiftMs);
+      return;
+    }
+
+    if (wasVisible && !overlayVisible) {
+      setKeepMainVisibleForHide(true);
+      setMainTransitionStage("hiding-penalties");
+      mainTransitionStageRef.current = "hiding-penalties";
+      hidePenaltyLiftTimeoutRef.current = setTimeout(() => {
+        setMainTransitionStage("hiding-close");
+        mainTransitionStageRef.current = "hiding-close";
+        hidePenaltyLiftTimeoutRef.current = null;
+      }, mainHidePenaltyLiftMs);
+      hideCloseTimeoutRef.current = setTimeout(() => {
+        setKeepMainVisibleForHide(false);
+        setMainTransitionStage("idle");
+        mainTransitionStageRef.current = "idle";
+        hideCloseTimeoutRef.current = null;
+      }, mainHidePenaltyLiftMs + mainHideScoreboardCloseMs);
+      return;
+    }
+
+    if (overlayVisible) {
+      setMainTransitionStage("idle");
+      mainTransitionStageRef.current = "idle";
+      setKeepMainVisibleForHide(false);
+      return;
+    }
+  }, [overlayVisible, renderedLayout, mainHidePenaltyLiftMs, mainHideScoreboardCloseMs]);
+
+  const homePenalties = useAnimatedPenalties(gameState?.homeTeam.penalties ?? [], penaltyAnimationMs);
+  const awayPenalties = useAnimatedPenalties(gameState?.awayTeam.penalties ?? [], penaltyAnimationMs);
+
+  useLayoutEffect(() => {
+    if (renderedLayout !== "main") return;
+
+    if (mainTransitionStageRef.current !== "idle") return;
+    measureMainAnimationVars();
+    const resizeHandler = () => {
+      if (mainTransitionStageRef.current === "idle") {
+        measureMainAnimationVars();
+      }
+    };
+    window.addEventListener("resize", resizeHandler);
+    return () => window.removeEventListener("resize", resizeHandler);
+  }, [renderedLayout, homePenalties.length, awayPenalties.length, gameState?.period]);
 
   if (!gameState) return null;
 
@@ -269,7 +397,10 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
           ? "bottom-4 left-4"
           : "bottom-4 right-4";
 
-  if (!overlayVisible) {
+  const shouldRenderMainHideAnimation =
+    renderedLayout === "main" &&
+    (keepMainVisibleForHide || mainTransitionStage === "showing-open" || mainTransitionStage === "showing-penalties");
+  if (!overlayVisible && !shouldRenderMainHideAnimation) {
     return (
       <div
         className={`${
@@ -281,10 +412,19 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
 
   const borderClass = isLight ? "border-zinc-400" : "border-zinc-600";
   const bgClass = isLight ? "bg-zinc-100 text-zinc-900" : "bg-zinc-900 text-zinc-100";
+  const textClass = isLight ? "text-zinc-900" : "text-zinc-100";
   const mutedText = isLight ? "text-zinc-700" : "text-zinc-300";
   const subtleText = isLight ? "text-zinc-600" : "text-zinc-400";
   const dividerBg = isLight ? "bg-zinc-300" : "bg-zinc-700";
   const scoreBg = isLight ? "bg-zinc-200" : "bg-zinc-800";
+  const penaltiesLifting = mainTransitionStage === "hiding-penalties";
+  const penaltiesHiddenStatic = mainTransitionStage === "hiding-close" || mainTransitionStage === "showing-open";
+  const penaltiesDropping = mainTransitionStage === "showing-penalties";
+  const scoreboardClosing = mainTransitionStage === "hiding-close";
+  const scoreboardOpening = mainTransitionStage === "showing-open";
+  const shotsHiding = mainTransitionStage === "hiding-penalties";
+  const shotsHiddenStatic = mainTransitionStage === "hiding-close" || mainTransitionStage === "showing-open";
+  const shotsShowing = mainTransitionStage === "showing-penalties";
 
   return (
     <div
@@ -311,16 +451,34 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
           </div>
         </div>
       ) : (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-stretch gap-1">
-          <div className={`relative px-4 py-1 border ${borderClass} ${bgClass} flex items-center gap-4 overflow-hidden`}>
+        <div
+          className="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-stretch gap-1"
+          style={
+            {
+              "--main-penalties-lift": `${mainAnimationVars.penaltiesLift}px`,
+              "--main-shots-hide": `${mainAnimationVars.shotsHide}px`,
+              "--main-scoreboard-height": `${mainAnimationVars.scoreboardHeight}px`,
+            } as CSSProperties
+          }
+        >
+          <div
+            ref={shotsPanelRef}
+            className={`relative z-10 px-4 py-1 border ${borderClass} ${bgClass} flex items-center gap-4 overflow-hidden ${
+              shotsHiding ? "main-overlay-shots-hide" : ""
+            } ${shotsHiddenStatic ? "main-overlay-shots-hidden-static" : ""} ${shotsShowing ? "main-overlay-shots-show" : ""}`}
+          >
             <span className="w-10 text-right font-mono text-lg font-bold">{homeTeam.shots}</span>
             <span className={`flex-1 text-center text-xs font-bold tracking-[0.2em] uppercase ${mutedText}`}>Shots</span>
             <span className="w-10 text-left font-mono text-lg font-bold">{awayTeam.shots}</span>
           </div>
 
           {/* Scoreboard Bug - Top Center */}
-          <div className={`relative z-30 flex items-stretch border ${borderClass} ${bgClass}`}>
-            <div className={`absolute inset-x-0 bottom-0 h-px ${borderClass}`} />
+          <div
+            ref={scoreboardPanelRef}
+            className={`relative z-30 flex items-stretch ${textClass} ${
+              scoreboardClosing ? "main-overlay-scoreboard-closing" : ""
+            } ${scoreboardOpening ? "main-overlay-scoreboard-opening" : ""}`}
+          >
             {goalSting.active && (
               <div className="absolute inset-0 overflow-hidden pointer-events-none z-20">
                 <div
@@ -351,7 +509,7 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
             
             {/* Home Team */}
             <div className="relative">
-              <div className="flex items-center h-14">
+              <div className={`flex items-center h-14 ${bgClass} border-y border-l ${borderClass}`}>
                 <div className="w-2 h-full" style={{ backgroundColor: homeTeam.color }} />
                 {homeTeam.logo && (
                   <div className="pl-3 w-8 h-8 flex items-center justify-center overflow-visible">
@@ -368,7 +526,9 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
             </div>
 
             {/* Center Clock & Period */}
-              <div className={`flex flex-col items-center justify-center px-6 h-14 ${bgClass} min-w-35 border-x ${borderClass}`}>
+              <div
+                className={`flex flex-col items-center justify-center px-6 h-14 ${bgClass} min-w-35 border-x border-y ${borderClass}`}
+              >
                 <div className={`text-3xl font-mono font-bold tracking-tighter ${isLight ? "text-amber-700" : "text-yellow-400"}`}>
                   {displayTime}
                 </div>
@@ -379,7 +539,7 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
 
             {/* Away Team */}
             <div className="relative">
-              <div className="flex items-center h-14">
+              <div className={`flex items-center h-14 ${bgClass} border-y border-r ${borderClass}`}>
                 <div className={`px-4 ${scoreBg} h-full flex items-center justify-center font-mono text-3xl font-bold w-16`}>
                   {displayScores.away}
                 </div>
@@ -396,28 +556,32 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
             </div>
           </div>
 
-          <div className="absolute top-full left-0 right-0 z-20 flex">
+          <div
+            className="absolute top-full left-0 right-0 z-20 flex"
+          >
             <div className="w-1/2 pr-[70px]">
               {homePenalties.length > 0 && (
-                <div
-                  className="overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out"
-                  style={{
-                    maxHeight: `${homePenalties.length * 40}px`,
-                    opacity: homePenalties.length > 0 ? 1 : 0,
-                    transform: homePenalties.length > 0 ? "translateY(0)" : "translateY(-8px)",
-                  }}
-                >
+                <div className="overflow-hidden">
                   <div className="flex flex-col text-xs font-mono font-bold overflow-hidden">
-                    {homePenalties.map((p) => (
+                    {homePenalties.map((p, index) => (
                       <PenaltyTimer
                         key={p.id}
                         penalty={p}
+                        style={
+                          {
+                            "--penalty-hide-shift": `${-(mainAnimationVars.scoreboardHeight / 2 + PENALTY_ROW_HEIGHT_PX / 2 + index * PENALTY_ROW_HEIGHT_PX)}px`,
+                          } as CSSProperties
+                        }
                         className={
-                          p.animState === "entering"
+                          `${penaltiesLifting ? " penalty-to-scoreboard-hide" : ""}${
+                            penaltiesHiddenStatic ? " penalty-hidden-at-scoreboard" : ""
+                          }${penaltiesDropping ? " penalty-from-scoreboard-show" : ""}${
+                            p.animState === "entering"
                             ? "penalty-item-enter"
                             : p.animState === "exiting"
                               ? "penalty-item-exit"
                               : ""
+                          }`
                         }
                       />
                     ))}
@@ -428,25 +592,27 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
 
             <div className="w-1/2 pl-[70px]">
               {awayPenalties.length > 0 && (
-                <div
-                  className="overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out"
-                  style={{
-                    maxHeight: `${awayPenalties.length * 40}px`,
-                    opacity: awayPenalties.length > 0 ? 1 : 0,
-                    transform: awayPenalties.length > 0 ? "translateY(0)" : "translateY(-8px)",
-                  }}
-                >
+                <div className="overflow-hidden">
                   <div className="flex flex-col text-xs font-mono font-bold overflow-hidden">
-                    {awayPenalties.map((p) => (
+                    {awayPenalties.map((p, index) => (
                       <PenaltyTimer
                         key={p.id}
                         penalty={p}
+                        style={
+                          {
+                            "--penalty-hide-shift": `${-(mainAnimationVars.scoreboardHeight / 2 + PENALTY_ROW_HEIGHT_PX / 2 + index * PENALTY_ROW_HEIGHT_PX)}px`,
+                          } as CSSProperties
+                        }
                         className={
-                          p.animState === "entering"
+                          `${penaltiesLifting ? " penalty-to-scoreboard-hide" : ""}${
+                            penaltiesHiddenStatic ? " penalty-hidden-at-scoreboard" : ""
+                          }${penaltiesDropping ? " penalty-from-scoreboard-show" : ""}${
+                            p.animState === "entering"
                             ? "penalty-item-enter"
                             : p.animState === "exiting"
                               ? "penalty-item-exit"
                               : ""
+                          }`
                         }
                       />
                     ))}
@@ -461,7 +627,7 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
   );
 }
 
-function PenaltyTimer({ penalty, className = "" }: { penalty: any; className?: string }) {
+function PenaltyTimer({ penalty, className = "", style }: { penalty: any; className?: string; style?: CSSProperties }) {
   const [display, setDisplay] = useState("");
 
   useEffect(() => {
@@ -475,7 +641,10 @@ function PenaltyTimer({ penalty, className = "" }: { penalty: any; className?: s
   }, [penalty.timeRemaining, penalty.playerNumber]);
 
   return (
-    <div className={`penalty-item px-3 py-1 bg-red-600 border-t border-red-200/70 flex justify-center items-center ${className}`}>
+    <div
+      className={`penalty-item px-3 py-1 bg-red-600 border-t border-red-200/70 flex justify-center items-center ${className}`}
+      style={style}
+    >
       <span>{display}</span>
     </div>
   );
