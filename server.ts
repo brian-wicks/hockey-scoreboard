@@ -61,6 +61,16 @@ interface TeamState {
   logo: string;
   color: string;
   penalties: Penalty[];
+  players: TeamPlayer[];
+}
+
+type PlayerPosition = "" | "C" | "A" | "NM";
+
+interface TeamPlayer {
+  id: string;
+  jerseyNumber: string;
+  name: string;
+  position: PlayerPosition;
 }
 
 interface TeamIdentity {
@@ -107,6 +117,7 @@ const baseHomeTeam: TeamState = {
   logo: "",
   color: "#3b82f6",
   penalties: [],
+  players: [],
 };
 
 const baseAwayTeam: TeamState = {
@@ -118,6 +129,7 @@ const baseAwayTeam: TeamState = {
   logo: "",
   color: "#ef4444",
   penalties: [],
+  players: [],
 };
 
 function extractTeamIdentity(team: TeamState): TeamIdentity {
@@ -319,6 +331,45 @@ function syncActivePenaltyEventDetails(state: GameState) {
   });
 }
 
+function syncActivePenaltyStateFromEventLog(state: GameState): GameState {
+  const applyTeam = (teamKey: "homeTeam" | "awayTeam", side: "home" | "away"): TeamState => {
+    const activeEventsByPenaltyId = new Map(
+      state.eventLog
+        .filter((event) => event.type === "penalty_added" && event.team === side && event.penaltyId && !event.endClockTime)
+        .map((event) => [event.penaltyId as string, event]),
+    );
+
+    const nextPenalties = state[teamKey].penalties.map((penalty) => {
+      const sourceEvent = activeEventsByPenaltyId.get(penalty.id);
+      if (!sourceEvent) return penalty;
+
+      const nextPlayerNumber = (sourceEvent.playerNumber ?? penalty.playerNumber).replace(/\D/g, "").slice(0, 2);
+      const nextInfraction = sourceEvent.infraction ?? penalty.infraction;
+
+      if (nextPlayerNumber === penalty.playerNumber && nextInfraction === penalty.infraction) {
+        return penalty;
+      }
+
+      return {
+        ...penalty,
+        playerNumber: nextPlayerNumber,
+        infraction: nextInfraction,
+      };
+    });
+
+    return {
+      ...state[teamKey],
+      penalties: nextPenalties,
+    };
+  };
+
+  return {
+    ...state,
+    homeTeam: applyTeam("homeTeam", "home"),
+    awayTeam: applyTeam("awayTeam", "away"),
+  };
+}
+
 function tickTeamPenalties(team: TeamState, side: "home" | "away", elapsedMs: number): Penalty[] {
   const nextPenalties: Penalty[] = [];
 
@@ -424,7 +475,12 @@ io.on("connection", (socket) => {
 
   socket.on("updateGameState", (updates: Partial<GameState>) => {
     const previousState = gameState;
-    const nextState: GameState = { ...gameState, ...updates };
+    let nextState: GameState = { ...gameState, ...updates };
+
+    if (updates.eventLog) {
+      nextState = syncActivePenaltyStateFromEventLog(nextState);
+    }
+
     gameState = nextState;
     logScoreAndPenaltyChanges(previousState, nextState);
     syncActivePenaltyEventDetails(gameState);

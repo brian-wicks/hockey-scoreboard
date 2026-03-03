@@ -13,6 +13,7 @@ interface TeamControlsProps {
 export default function TeamControls({ team, state, updateState }: TeamControlsProps) {
   const [focusPenaltyId, setFocusPenaltyId] = useState<string | null>(null);
   const previousPenaltyCountRef = useRef(state.penalties.length);
+  const rosterPlayers = state.players ?? [];
 
   const updateTeam = (updates: Partial<TeamState>) => {
     updateState({ [`${team}Team`]: { ...state, ...updates } });
@@ -113,6 +114,7 @@ export default function TeamControls({ team, state, updateState }: TeamControlsP
               }}
               autoFocusPlayer={p.id === focusPenaltyId}
               onAutoFocusHandled={() => setFocusPenaltyId((current) => (current === p.id ? null : current))}
+              rosterPlayers={rosterPlayers}
             />
           ))}
           {state.penalties.length === 0 && (

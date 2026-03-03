@@ -55,7 +55,12 @@ export default function ControlPanel() {
             </div>
 
             <OverlayControlsPanel overlayVisible={overlayVisible} updateState={updateState} />
-            <EventLogPanel eventLog={eventLog} updateState={updateState} />
+            <EventLogPanel
+              eventLog={eventLog}
+              homePlayers={homeTeam.players ?? []}
+              awayPlayers={awayTeam.players ?? []}
+              updateState={updateState}
+            />
           </div>
         ) : activeTab === "settings" ? (
           <SettingsPanel gameState={gameState} updateState={updateState} />

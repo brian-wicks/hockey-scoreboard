@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Keyboard } from "lucide-react";
-import { GameState, TeamState, useStore } from "../../store";
+import { GameState, PlayerPosition, TeamPlayer, TeamState, useStore } from "../../store";
 import { UpdateGameState } from "./types";
 import ShortcutEditor from "./ShortcutEditor";
 
@@ -56,6 +56,37 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
 
   const updateTeam = (team: "home" | "away", updates: Partial<TeamState>) => {
     updateState({ [`${team}Team`]: { ...gameState[`${team}Team`], ...updates } });
+  };
+
+  const sanitizeJerseyNumber = (value: string) => value.replace(/\D/g, "").slice(0, 2);
+
+  const updateTeamPlayers = (team: "home" | "away", nextPlayers: TeamPlayer[]) => {
+    updateTeam(team, { players: nextPlayers });
+  };
+
+  const addTeamPlayer = (team: "home" | "away") => {
+    const currentPlayers = gameState[`${team}Team`].players ?? [];
+    const nextPlayer: TeamPlayer = {
+      id: Math.random().toString(36).slice(2, 11),
+      jerseyNumber: "",
+      name: "",
+      position: "",
+    };
+    updateTeamPlayers(team, [...currentPlayers, nextPlayer]);
+  };
+
+  const updateTeamPlayer = (team: "home" | "away", playerId: string, updates: Partial<TeamPlayer>) => {
+    const currentPlayers = gameState[`${team}Team`].players ?? [];
+    const nextPlayers = currentPlayers.map((player) => (player.id === playerId ? { ...player, ...updates } : player));
+    updateTeamPlayers(team, nextPlayers);
+  };
+
+  const removeTeamPlayer = (team: "home" | "away", playerId: string) => {
+    const currentPlayers = gameState[`${team}Team`].players ?? [];
+    updateTeamPlayers(
+      team,
+      currentPlayers.filter((player) => player.id !== playerId),
+    );
   };
 
   const commitTeamField = (team: "home" | "away", updates: Partial<TeamState>) => {
@@ -162,6 +193,59 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
               />
             </div>
           </div>
+          <div className="pt-3 border-t border-zinc-800">
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-zinc-400">Roster</label>
+              <button
+                type="button"
+                onClick={() => addTeamPlayer("home")}
+                className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-xs font-medium"
+              >
+                Add Player
+              </button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {(gameState.homeTeam.players ?? []).map((player) => (
+                <div key={player.id} className="grid grid-cols-[70px_1fr_74px_64px] gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={player.jerseyNumber}
+                    onChange={(e) => updateTeamPlayer("home", player.id, { jerseyNumber: sanitizeJerseyNumber(e.target.value) })}
+                    className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none font-mono"
+                    placeholder="#"
+                  />
+                  <input
+                    type="text"
+                    value={player.name}
+                    onChange={(e) => updateTeamPlayer("home", player.id, { name: e.target.value })}
+                    className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                    placeholder="Player name"
+                  />
+                  <select
+                    value={player.position ?? ""}
+                    onChange={(e) => updateTeamPlayer("home", player.id, { position: e.target.value as PlayerPosition })}
+                    className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                  >
+                    <option value="">-</option>
+                    <option value="NM">NM</option>
+                    <option value="A">A</option>
+                    <option value="C">C</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => removeTeamPlayer("home", player.id)}
+                    className="px-2 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs font-medium"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              {(gameState.homeTeam.players ?? []).length === 0 && (
+                <div className="text-xs text-zinc-500 italic">No players added.</div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -244,6 +328,59 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                 }}
                 className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none font-mono"
               />
+            </div>
+          </div>
+          <div className="pt-3 border-t border-zinc-800">
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-zinc-400">Roster</label>
+              <button
+                type="button"
+                onClick={() => addTeamPlayer("away")}
+                className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-xs font-medium"
+              >
+                Add Player
+              </button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {(gameState.awayTeam.players ?? []).map((player) => (
+                <div key={player.id} className="grid grid-cols-[70px_1fr_74px_64px] gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={player.jerseyNumber}
+                    onChange={(e) => updateTeamPlayer("away", player.id, { jerseyNumber: sanitizeJerseyNumber(e.target.value) })}
+                    className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none font-mono"
+                    placeholder="#"
+                  />
+                  <input
+                    type="text"
+                    value={player.name}
+                    onChange={(e) => updateTeamPlayer("away", player.id, { name: e.target.value })}
+                    className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                    placeholder="Player name"
+                  />
+                  <select
+                    value={player.position ?? ""}
+                    onChange={(e) => updateTeamPlayer("away", player.id, { position: e.target.value as PlayerPosition })}
+                    className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                  >
+                    <option value="">-</option>
+                    <option value="NM">NM</option>
+                    <option value="A">A</option>
+                    <option value="C">C</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => removeTeamPlayer("away", player.id)}
+                    className="px-2 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs font-medium"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              {(gameState.awayTeam.players ?? []).length === 0 && (
+                <div className="text-xs text-zinc-500 italic">No players added.</div>
+              )}
             </div>
           </div>
         </div>

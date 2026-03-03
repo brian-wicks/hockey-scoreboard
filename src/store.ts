@@ -44,6 +44,16 @@ export interface TeamState {
   logo: string;
   color: string;
   penalties: Penalty[];
+  players: TeamPlayer[];
+}
+
+export type PlayerPosition = "" | "C" | "A" | "NM";
+
+export interface TeamPlayer {
+  id: string;
+  jerseyNumber: string;
+  name: string;
+  position: PlayerPosition;
 }
 
 export interface ClockState {
