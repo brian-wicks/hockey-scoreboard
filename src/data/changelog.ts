@@ -11,6 +11,25 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.2.0',
+    date: '2026-03-03',
+    sections: {
+      added: [
+        'Add event log.',
+        'Add animations to show/hide the overlay.',
+        'Add rosters for each team and use them to assist adding info for goals and assists.',
+      ],
+      changed: [
+        'Redesign keyboard shortcuts panel.',
+        'Update timer formatting to show 0.0.',
+        'Update dropdowns to dropup at the bottom of a page.',
+      ],
+      fixed: [
+        'Extract duplicated clock logic and fix missing second bug.',
+      ],
+    },
+  },
+  {
     version: '1.1.0',
     date: '2026-03-02',
     sections: {
