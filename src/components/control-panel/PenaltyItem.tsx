@@ -4,6 +4,40 @@ import { Penalty, TeamPlayer } from "../../store";
 import { parseTimeInputMs } from "../../utils/clock";
 import { PENALTY_OPTIONS } from "../../constants/penaltyOptions";
 
+function useDropdownPlacement(open: boolean) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [dropUp, setDropUp] = useState(false);
+  const [maxHeight, setMaxHeight] = useState(224);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const updatePlacement = () => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const viewportPadding = 8;
+      const availableBelow = window.innerHeight - rect.bottom - viewportPadding;
+      const availableAbove = rect.top - viewportPadding;
+      const shouldDropUp = availableBelow < 180 && availableAbove > availableBelow;
+      const available = shouldDropUp ? availableAbove : availableBelow;
+
+      setDropUp(shouldDropUp);
+      setMaxHeight(Math.max(120, Math.min(224, Math.floor(available))));
+    };
+
+    updatePlacement();
+    window.addEventListener("resize", updatePlacement);
+    window.addEventListener("scroll", updatePlacement, true);
+    return () => {
+      window.removeEventListener("resize", updatePlacement);
+      window.removeEventListener("scroll", updatePlacement, true);
+    };
+  }, [open]);
+
+  return { containerRef, dropUp, maxHeight };
+}
+
 interface PenaltyItemProps {
   penalty: Penalty;
   onChange: (penalty: Penalty) => void;
@@ -28,6 +62,8 @@ export default function PenaltyItem({
   const [reasonOpen, setReasonOpen] = useState(false);
   const [reasonQuery, setReasonQuery] = useState(penalty.infraction);
   const playerInputRef = useRef<HTMLInputElement | null>(null);
+  const reasonDropdown = useDropdownPlacement(reasonOpen);
+  const playerDropdown = useDropdownPlacement(playerOpen);
 
   useEffect(() => {
     if (!autoFocusPlayer) return;
@@ -96,7 +132,7 @@ export default function PenaltyItem({
 
   return (
     <div className="flex items-center gap-2 bg-zinc-950 p-2 rounded border border-zinc-800">
-      <div className="relative">
+      <div ref={reasonDropdown.containerRef} className="relative">
         <input
           value={reasonQuery}
           onChange={(e) => setReasonQuery(e.target.value)}
@@ -117,7 +153,12 @@ export default function PenaltyItem({
           placeholder="Reason"
         />
         {reasonOpen && (
-          <div className="absolute left-0 top-full mt-1 z-20 w-48 max-h-56 overflow-auto rounded-md border border-zinc-800 bg-zinc-950 shadow-lg">
+          <div
+            className={`absolute left-0 z-20 w-48 overflow-auto rounded-md border border-zinc-800 bg-zinc-950 shadow-lg ${
+              reasonDropdown.dropUp ? "bottom-full mb-1" : "top-full mt-1"
+            }`}
+            style={{ maxHeight: `${reasonDropdown.maxHeight}px` }}
+          >
             {reasonOptions.length === 0 ? (
               <div className="px-2 py-1 text-xs text-zinc-500">No matches</div>
             ) : (
@@ -141,7 +182,7 @@ export default function PenaltyItem({
           </div>
         )}
       </div>
-      <div className="relative">
+      <div ref={playerDropdown.containerRef} className="relative">
         <input
           ref={playerInputRef}
           type="text"
@@ -172,7 +213,12 @@ export default function PenaltyItem({
           placeholder="#"
         />
         {playerOpen && (
-          <div className="absolute left-0 top-full mt-1 z-20 w-44 max-h-56 overflow-auto rounded-md border border-zinc-800 bg-zinc-950 shadow-lg">
+          <div
+            className={`absolute left-0 z-20 w-44 overflow-auto rounded-md border border-zinc-800 bg-zinc-950 shadow-lg ${
+              playerDropdown.dropUp ? "bottom-full mb-1" : "top-full mt-1"
+            }`}
+            style={{ maxHeight: `${playerDropdown.maxHeight}px` }}
+          >
             {playerOptions.length === 0 ? (
               <div className="px-2 py-1 text-xs text-zinc-500">No matches</div>
             ) : (
@@ -233,3 +279,4 @@ export default function PenaltyItem({
     </div>
   );
 }
+

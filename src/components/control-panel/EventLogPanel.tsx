@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GameEvent, TeamPlayer } from "../../store";
 import { PENALTY_OPTIONS } from "../../constants/penaltyOptions";
 import { UpdateGameState } from "./types";
@@ -13,6 +13,40 @@ interface EventLogPanelProps {
 interface SearchOption {
   value: string;
   label?: string;
+}
+
+function useDropdownPlacement(open: boolean) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [dropUp, setDropUp] = useState(false);
+  const [maxHeight, setMaxHeight] = useState(224);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const updatePlacement = () => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const viewportPadding = 8;
+      const availableBelow = window.innerHeight - rect.bottom - viewportPadding;
+      const availableAbove = rect.top - viewportPadding;
+      const shouldDropUp = availableBelow < 180 && availableAbove > availableBelow;
+      const available = shouldDropUp ? availableAbove : availableBelow;
+
+      setDropUp(shouldDropUp);
+      setMaxHeight(Math.max(120, Math.min(224, Math.floor(available))));
+    };
+
+    updatePlacement();
+    window.addEventListener("resize", updatePlacement);
+    window.addEventListener("scroll", updatePlacement, true);
+    return () => {
+      window.removeEventListener("resize", updatePlacement);
+      window.removeEventListener("scroll", updatePlacement, true);
+    };
+  }, [open]);
+
+  return { containerRef, dropUp, maxHeight };
 }
 
 function getEventLabel(type: GameEvent["type"]) {
@@ -42,6 +76,7 @@ function PenaltyReasonInput({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(value);
+  const { containerRef, dropUp, maxHeight } = useDropdownPlacement(open);
 
   useEffect(() => {
     setQuery(value);
@@ -54,7 +89,7 @@ function PenaltyReasonInput({
   });
 
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative">
       <input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
@@ -75,7 +110,12 @@ function PenaltyReasonInput({
         placeholder="Infraction"
       />
       {open && (
-        <div className="absolute left-0 top-full mt-1 z-20 w-56 max-h-56 overflow-auto rounded-md border border-zinc-800 bg-zinc-950 shadow-lg">
+        <div
+          className={`absolute left-0 z-20 w-56 overflow-auto rounded-md border border-zinc-800 bg-zinc-950 shadow-lg ${
+            dropUp ? "bottom-full mb-1" : "top-full mt-1"
+          }`}
+          style={{ maxHeight: `${maxHeight}px` }}
+        >
           {options.length === 0 ? (
             <div className="px-2 py-1 text-xs text-zinc-500">No matches</div>
           ) : (
@@ -117,6 +157,7 @@ function SearchDropdownInput({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(value);
+  const { containerRef, dropUp, maxHeight } = useDropdownPlacement(open);
 
   useEffect(() => {
     setQuery(value);
@@ -129,7 +170,7 @@ function SearchDropdownInput({
   });
 
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative">
       <input
         value={query}
         onChange={(e) => {
@@ -153,7 +194,12 @@ function SearchDropdownInput({
         placeholder={placeholder}
       />
       {open && (
-        <div className="absolute left-0 top-full mt-1 z-20 w-56 max-h-56 overflow-auto rounded-md border border-zinc-800 bg-zinc-950 shadow-lg">
+        <div
+          className={`absolute left-0 z-20 w-56 overflow-auto rounded-md border border-zinc-800 bg-zinc-950 shadow-lg ${
+            dropUp ? "bottom-full mb-1" : "top-full mt-1"
+          }`}
+          style={{ maxHeight: `${maxHeight}px` }}
+        >
           {filteredOptions.length === 0 ? (
             <div className="px-2 py-1 text-xs text-zinc-500">No matches</div>
           ) : (
