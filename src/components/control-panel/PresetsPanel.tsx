@@ -33,14 +33,6 @@ function pickTeamIdentity(team: TeamState): TeamIdentity {
     color: team.color,
   };
 }
-
-function pickPresetTeam(team: TeamState): TeamPresetTeam {
-  return {
-    ...pickTeamIdentity(team),
-    players: (team.players ?? []).map((player) => ({ ...player })),
-  };
-}
-
 function applyPresetTeam(team: TeamState, identity: TeamPresetTeam): TeamState {
   return {
     ...team,
@@ -59,6 +51,7 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
   const [error, setError] = useState("");
   const [expandedRosters, setExpandedRosters] = useState<string[]>([]);
   const [presetPendingDelete, setPresetPendingDelete] = useState<TeamPreset | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const baseUrl = useMemo(() => {
     // @ts-ignore
@@ -138,6 +131,16 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
 
   const sortedPresets = presets.slice().sort((a, b) => b.updatedAt - a.updatedAt);
 
+  const filteredPresets = sortedPresets.filter((preset) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      preset.name.toLowerCase().includes(query) ||
+      preset.team.name.toLowerCase().includes(query) ||
+      preset.team.abbreviation.toLowerCase().includes(query)
+    );
+  });
+
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
       <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
@@ -163,8 +166,21 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
           <div className="p-4 text-sm text-zinc-500 italic">No saved teams yet.</div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {sortedPresets.map((item) => (
+            <div className="mb-4 flex items-center">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search teams..."
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none"
+              />
+            </div>
+
+            {filteredPresets.length === 0 ? (
+              <div className="p-4 text-sm text-zinc-500 italic">No teams match your search.</div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredPresets.map((item) => (
                 <div
                   key={item.name}
                   className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 flex flex-col gap-4 relative"
@@ -233,7 +249,8 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
                     )}
                   </div>
                 ))}
-            </div>
+              </div>
+            )}
           </>
         )}
       </div>
