@@ -11,6 +11,28 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.3.0',
+    date: '2026-03-10',
+    sections: {
+      added: [
+        'Add BUIHA North teams to the team library.',
+        'Add search and filtering on the team presets page.',
+      ],
+      changed: [
+        'Sort team presets alphabetically by team name.',
+        'Show most recent events at the top of the event log.',
+        'Include full team rosters when saving and loading team defaults.',
+        'Update styling of changelog',
+      ],
+      fixed: [
+        'Improve layout and usability of the settings page, including per-team save icons.',
+      ],
+      removed: [
+        'Remove the legacy team management panel from the presets page in favor of per-team delete actions.',
+      ],
+    },
+  },
+  {
     version: '1.2.0',
     date: '2026-03-03',
     sections: {
