@@ -1,13 +1,17 @@
 import { Link } from 'react-router-dom';
+import { PlusCircle, ArrowRightLeft, Wrench, Trash2 } from 'lucide-react';
 import { changelogEntries } from '../data/changelog';
 
 const hasCurrentVersion = changelogEntries.some((entry) => entry.version === __APP_VERSION__);
 const sectionOrder = ['added', 'changed', 'fixed', 'removed'] as const;
-const sectionLabels: Record<(typeof sectionOrder)[number], string> = {
-  added: 'Added',
-  changed: 'Changed',
-  fixed: 'Fixed',
-  removed: 'Removed',
+const sectionIcons: Record<
+  (typeof sectionOrder)[number],
+  { icon: typeof PlusCircle; label: string; colorClass: string }
+> = {
+  added: { icon: PlusCircle, label: 'Added', colorClass: 'text-emerald-400' },
+  changed: { icon: ArrowRightLeft, label: 'Changed', colorClass: 'text-sky-400' },
+  fixed: { icon: Wrench, label: 'Fixed', colorClass: 'text-amber-300' },
+  removed: { icon: Trash2, label: 'Removed', colorClass: 'text-rose-400' },
 };
 
 const entries = hasCurrentVersion
@@ -50,7 +54,17 @@ export default function ChangelogPage() {
 
                   return (
                     <div key={`${entry.version}-${sectionKey}`}>
-                      <h3 className="mb-1 text-sm font-semibold text-zinc-300">{sectionLabels[sectionKey]}</h3>
+                      <h3 className="mb-2 inline-flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-950/60 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-zinc-200">
+                        {(() => {
+                          const { icon: Icon, label, colorClass } = sectionIcons[sectionKey];
+                          return (
+                            <>
+                              <Icon className={`h-5 w-5 ${colorClass}`} aria-hidden="true" />
+                              <span>{label}</span>
+                            </>
+                          );
+                        })()}
+                      </h3>
                       <ul className="list-disc space-y-1 pl-5 text-sm text-zinc-200">
                         {sectionItems.map((item, index) => (
                           <li key={`${entry.version}-${sectionKey}-${index}`}>{item}</li>
