@@ -129,7 +129,9 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
     });
   };
 
-  const sortedPresets = presets.slice().sort((a, b) => b.updatedAt - a.updatedAt);
+  const sortedPresets = presets
+    .slice()
+    .sort((a, b) => a.team.name.localeCompare(b.team.name, undefined, { sensitivity: "base" }));
 
   const filteredPresets = sortedPresets.filter((preset) => {
     if (!searchQuery.trim()) return true;
