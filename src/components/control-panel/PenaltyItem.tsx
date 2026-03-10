@@ -2,41 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Minus } from "lucide-react";
 import { Penalty, TeamPlayer } from "../../store";
 import { parseTimeInputMs } from "../../utils/clock";
-import { PENALTY_OPTIONS } from "../../constants/penaltyOptions";
-
-function useDropdownPlacement(open: boolean) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [dropUp, setDropUp] = useState(false);
-  const [maxHeight, setMaxHeight] = useState(224);
-
-  useEffect(() => {
-    if (!open) return;
-
-    const updatePlacement = () => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-
-      const viewportPadding = 8;
-      const availableBelow = window.innerHeight - rect.bottom - viewportPadding;
-      const availableAbove = rect.top - viewportPadding;
-      const shouldDropUp = availableBelow < 180 && availableAbove > availableBelow;
-      const available = shouldDropUp ? availableAbove : availableBelow;
-
-      setDropUp(shouldDropUp);
-      setMaxHeight(Math.max(120, Math.min(224, Math.floor(available))));
-    };
-
-    updatePlacement();
-    window.addEventListener("resize", updatePlacement);
-    window.addEventListener("scroll", updatePlacement, true);
-    return () => {
-      window.removeEventListener("resize", updatePlacement);
-      window.removeEventListener("scroll", updatePlacement, true);
-    };
-  }, [open]);
-
-  return { containerRef, dropUp, maxHeight };
-}
+import { PenaltyReasonInput, useDropdownPlacement } from "./DropdownInputs";
 
 interface PenaltyItemProps {
   penalty: Penalty;
@@ -59,10 +25,7 @@ export default function PenaltyItem({
   const [editValue, setEditValue] = useState("2:00");
   const [playerValue, setPlayerValue] = useState(penalty.playerNumber);
   const [playerOpen, setPlayerOpen] = useState(false);
-  const [reasonOpen, setReasonOpen] = useState(false);
-  const [reasonQuery, setReasonQuery] = useState(penalty.infraction);
   const playerInputRef = useRef<HTMLInputElement | null>(null);
-  const reasonDropdown = useDropdownPlacement(reasonOpen);
   const playerDropdown = useDropdownPlacement(playerOpen);
 
   useEffect(() => {
@@ -75,16 +38,6 @@ export default function PenaltyItem({
   useEffect(() => {
     setPlayerValue(penalty.playerNumber);
   }, [penalty.playerNumber]);
-
-  useEffect(() => {
-    setReasonQuery(penalty.infraction);
-  }, [penalty.infraction]);
-
-  const reasonOptions = PENALTY_OPTIONS.filter((option) => {
-    const query = reasonQuery.trim().toLowerCase();
-    if (!query) return true;
-    return option.code.toLowerCase().includes(query) || option.label.toLowerCase().includes(query);
-  });
 
   const commitPlayerNumber = (value: string) => {
     const trimmed = value.trim();
@@ -132,56 +85,11 @@ export default function PenaltyItem({
 
   return (
     <div className="flex items-center gap-2 bg-zinc-950 p-2 rounded border border-zinc-800">
-      <div ref={reasonDropdown.containerRef} className="relative">
-        <input
-          value={reasonQuery}
-          onChange={(e) => setReasonQuery(e.target.value)}
-          onFocus={() => setReasonOpen(true)}
-          onBlur={() => {
-            onChange({ ...penalty, infraction: reasonQuery });
-            setReasonOpen(false);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              onChange({ ...penalty, infraction: reasonQuery });
-              setReasonOpen(false);
-              (e.target as HTMLInputElement).blur();
-            }
-          }}
-          className="bg-zinc-800 text-zinc-200 rounded p-1 text-sm font-mono w-16"
-          placeholder="Reason"
-        />
-        {reasonOpen && (
-          <div
-            className={`absolute left-0 z-20 w-48 overflow-auto rounded-md border border-zinc-800 bg-zinc-950 shadow-lg ${
-              reasonDropdown.dropUp ? "bottom-full mb-1" : "top-full mt-1"
-            }`}
-            style={{ maxHeight: `${reasonDropdown.maxHeight}px` }}
-          >
-            {reasonOptions.length === 0 ? (
-              <div className="px-2 py-1 text-xs text-zinc-500">No matches</div>
-            ) : (
-              reasonOptions.map((option) => (
-                <button
-                  key={option.code}
-                  type="button"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    onChange({ ...penalty, infraction: option.code });
-                    setReasonQuery(option.code);
-                    setReasonOpen(false);
-                  }}
-                  className="w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800"
-                >
-                  <span className="font-mono">{option.code}</span>
-                  <span className="text-zinc-400"> - {option.label}</span>
-                </button>
-              ))
-            )}
-          </div>
-        )}
-      </div>
+      <PenaltyReasonInput
+        value={penalty.infraction}
+        onChange={(nextValue) => onChange({ ...penalty, infraction: nextValue })}
+        inputClassName="bg-zinc-800 text-zinc-200 rounded p-1 text-sm font-mono w-16"
+      />
       <div ref={playerDropdown.containerRef} className="relative">
         <input
           ref={playerInputRef}
