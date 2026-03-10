@@ -232,6 +232,8 @@ export default function EventLogPanel({ eventLog, homePlayers, awayPlayers, upda
     updateState({ eventLog: nextLog });
   };
 
+  const sortedLog = [...eventLog].reverse();
+
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -239,8 +241,8 @@ export default function EventLogPanel({ eventLog, homePlayers, awayPlayers, upda
       </div>
 
       <div className="flex flex-col gap-3 max-h-[560px] overflow-auto pr-1">
-        {eventLog.length === 0 && <div className="text-zinc-500 text-sm italic">No events logged yet.</div>}
-        {eventLog.map((event) => (
+        {sortedLog.length === 0 && <div className="text-zinc-500 text-sm italic">No events logged yet.</div>}
+        {sortedLog.map((event) => (
           <div key={event.id} className="border border-zinc-800 rounded-lg p-3 bg-zinc-950">
             {(() => {
               const rosterPlayers = event.team === "home" ? homePlayers : awayPlayers;
