@@ -53,8 +53,8 @@ export default function ChangelogPage() {
                   }
 
                   return (
-                    <div key={`${entry.version}-${sectionKey}`}>
-                      <h3 className="mb-2 inline-flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-950/60 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-zinc-200">
+                  <div key={`${entry.version}-${sectionKey}`}>
+                      <h3 className="mt-3 mb-1 flex items-center gap-2 text-sm font-semibold text-zinc-50">
                         {(() => {
                           const { icon: Icon, label, colorClass } = sectionIcons[sectionKey];
                           return (
