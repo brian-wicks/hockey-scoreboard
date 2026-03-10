@@ -258,8 +258,6 @@ export default function EventLogPanel({ eventLog, homePlayers, awayPlayers, upda
                       />
                     </div>
                   )}
-
-                  <div className="mt-2 text-xs text-zinc-500">{getEventLabel(event.type)}</div>
                 </>
               );
             })()}
