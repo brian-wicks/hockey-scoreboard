@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { GameState, TeamPlayer, TeamState } from "../../store";
 import { UpdateGameState } from "./types";
 
@@ -57,6 +58,7 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
   const [savingDefaults, setSavingDefaults] = useState(false);
   const [error, setError] = useState("");
   const [expandedRosters, setExpandedRosters] = useState<string[]>([]);
+  const [presetPendingDelete, setPresetPendingDelete] = useState<TeamPreset | null>(null);
 
   const baseUrl = useMemo(() => {
     // @ts-ignore
@@ -163,8 +165,18 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {sortedPresets.map((item) => (
-                  <div key={item.name} className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 flex flex-col gap-4">
-                    <div className="text-xs text-zinc-500 uppercase tracking-wider">{item.name}</div>
+                <div
+                  key={item.name}
+                  className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 flex flex-col gap-4 relative"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setPresetPendingDelete(item)}
+                    className="absolute top-3 right-3 text-zinc-500 hover:text-red-400 transition-colors p-1 rounded-full hover:bg-red-500/10"
+                    aria-label={`Delete preset ${item.name}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                     <div className="flex flex-col items-center gap-2">
                       <div className="w-20 h-20 flex items-center justify-center overflow-hidden">
                         {item.team.logo ? (
@@ -222,26 +234,42 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
                   </div>
                 ))}
             </div>
-
-            <div className="mt-5 border-t border-zinc-800 pt-4">
-              <div className="text-xs text-zinc-400 uppercase tracking-wider mb-3">Team Management</div>
-              <div className="flex flex-col gap-2">
-                {sortedPresets.map((item) => (
-                    <div key={`manage-${item.name}`} className="flex items-center justify-between gap-3 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
-                      <div className="text-sm font-medium text-zinc-200 truncate">{item.name}</div>
-                      <button
-                        onClick={() => deletePreset(item.name)}
-                        className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded text-xs font-medium"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  ))}
-              </div>
-            </div>
           </>
         )}
       </div>
+
+      {presetPendingDelete && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-zinc-900 border border-zinc-700 rounded-xl p-5">
+            <h3 className="text-lg font-semibold text-zinc-100">Delete Team Preset</h3>
+            <p className="text-sm text-zinc-400 mt-2">
+              Are you sure you want to delete the team preset "{presetPendingDelete.name}"?
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPresetPendingDelete(null)}
+                className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const toDelete = presetPendingDelete;
+                  setPresetPendingDelete(null);
+                  if (toDelete) {
+                    await deletePreset(toDelete.name);
+                  }
+                }}
+                className="px-3 py-2 bg-red-700 hover:bg-red-600 rounded-lg text-sm font-medium"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
