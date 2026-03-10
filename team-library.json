@@ -178,5 +178,71 @@
       ]
     },
     "updatedAt": 1772580797384
+  },
+  {
+    "name": "Leeds Gryphons",
+    "team": {
+      "name": "Leeds Gryphons",
+      "abbreviation": "LEE",
+      "logo": "https://buiha.org.uk/assets/img/icon/md/leeds.png",
+      "color": "#0d4c37",
+      "players": []
+    },
+    "updatedAt": 1773148608719
+  },
+  {
+    "name": "Glasgow Stags",
+    "team": {
+      "name": "Glasgow Stags",
+      "abbreviation": "GLA",
+      "logo": "https://buiha.org.uk/assets/img/icon/md/glasgow.png",
+      "color": "#fcd500",
+      "players": []
+    },
+    "updatedAt": 1773148633434
+  },
+  {
+    "name": "Nottingham Mavericks",
+    "team": {
+      "name": "Nottingham Mavericks",
+      "abbreviation": "NOT",
+      "logo": "https://buiha.org.uk/assets/img/icon/md/nottingham.png",
+      "color": "#2a762c",
+      "players": []
+    },
+    "updatedAt": 1773148652921
+  },
+  {
+    "name": "Manchester Metros",
+    "team": {
+      "name": "Manchester Metros",
+      "abbreviation": "MAN",
+      "logo": "https://buiha.org.uk/assets/img/icon/md/manchester.png",
+      "color": "#fe0006",
+      "players": []
+    },
+    "updatedAt": 1773148674549
+  },
+  {
+    "name": "Northumbria Kings",
+    "team": {
+      "name": "Northumbria Kings",
+      "abbreviation": "NOR",
+      "logo": "https://buiha.org.uk/assets/img/icon/md/northumbria.png",
+      "color": "#dc092a",
+      "players": []
+    },
+    "updatedAt": 1773148694954
+  },
+  {
+    "name": "Sheffield Bears",
+    "team": {
+      "name": "Sheffield Bears",
+      "abbreviation": "SHE",
+      "logo": "https://buiha.org.uk/assets/img/icon/md/sheffield.png",
+      "color": "#e4c603",
+      "players": []
+    },
+    "updatedAt": 1773148713113
   }
 ]
