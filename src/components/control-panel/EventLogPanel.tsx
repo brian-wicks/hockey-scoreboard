@@ -14,14 +14,6 @@ interface SearchOption {
   value: string;
   label?: string;
 }
-
-function getEventLabel(type: GameEvent["type"]) {
-  if (type === "goal") return "Goal";
-  if (type === "goal_revoked") return "Goal Revoked";
-  if (type === "penalty_added") return "Penalty Added";
-  return "Penalty Over";
-}
-
 function toSkaterLabel(player: TeamPlayer) {
   const number = player.jerseyNumber.trim();
   const name = player.name.trim();

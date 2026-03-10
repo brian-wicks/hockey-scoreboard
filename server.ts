@@ -188,18 +188,6 @@ function normalizePresetTeam(data: unknown): TeamPresetTeam {
     players: normalizeTeamPlayers(raw.players),
   };
 }
-
-function applyTeamIdentity(team: TeamState, updates?: Partial<TeamIdentity>): TeamState {
-  if (!updates) return team;
-  return {
-    ...team,
-    name: updates.name ?? team.name,
-    abbreviation: updates.abbreviation ?? team.abbreviation,
-    logo: updates.logo ?? team.logo,
-    color: updates.color ?? team.color,
-  };
-}
-
 function readTeamDefaultsFromDisk(): TeamDefaults | null {
   try {
     if (!existsSync(TEAM_DEFAULTS_FILE)) return null;
