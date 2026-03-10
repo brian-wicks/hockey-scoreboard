@@ -33,6 +33,13 @@ function pickTeamIdentity(team: TeamState): TeamIdentity {
     color: team.color,
   };
 }
+
+function pickPresetTeam(team: TeamState): TeamPresetTeam {
+  return {
+    ...pickTeamIdentity(team),
+    players: (team.players ?? []).map((player) => ({ ...player })),
+  };
+}
 function applyPresetTeam(team: TeamState, identity: TeamPresetTeam): TeamState {
   return {
     ...team,
@@ -109,8 +116,8 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          homeTeam: pickTeamIdentity(gameState.homeTeam),
-          awayTeam: pickTeamIdentity(gameState.awayTeam),
+          homeTeam: pickPresetTeam(gameState.homeTeam),
+          awayTeam: pickPresetTeam(gameState.awayTeam),
         }),
       });
     } catch (defaultsError) {

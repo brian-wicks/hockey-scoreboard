@@ -86,8 +86,8 @@ interface TeamPresetTeam extends TeamIdentity {
 }
 
 interface TeamDefaults {
-  homeTeam: TeamIdentity;
-  awayTeam: TeamIdentity;
+  homeTeam: TeamPresetTeam;
+  awayTeam: TeamPresetTeam;
 }
 
 interface TeamPreset extends TeamDefaults {
@@ -205,7 +205,10 @@ function readTeamDefaultsFromDisk(): TeamDefaults | null {
     if (!existsSync(TEAM_DEFAULTS_FILE)) return null;
     const data = JSON.parse(readFileSync(TEAM_DEFAULTS_FILE, "utf-8"));
     if (!data?.homeTeam || !data?.awayTeam) return null;
-    return data as TeamDefaults;
+    return {
+      homeTeam: normalizePresetTeam(data.homeTeam),
+      awayTeam: normalizePresetTeam(data.awayTeam),
+    } as TeamDefaults;
   } catch (error) {
     console.error("Error reading team defaults:", error);
     return null;
@@ -287,8 +290,8 @@ function writeTeamLibraryToDisk(teams: SavedTeam[]) {
 const persistedDefaults = readTeamDefaultsFromDisk();
 
 let gameState: GameState = {
-  homeTeam: applyTeamIdentity(baseHomeTeam, persistedDefaults?.homeTeam),
-  awayTeam: applyTeamIdentity(baseAwayTeam, persistedDefaults?.awayTeam),
+  homeTeam: persistedDefaults ? { ...baseHomeTeam, ...persistedDefaults.homeTeam, players: persistedDefaults.homeTeam.players } : baseHomeTeam,
+  awayTeam: persistedDefaults ? { ...baseAwayTeam, ...persistedDefaults.awayTeam, players: persistedDefaults.awayTeam.players } : baseAwayTeam,
   clock: {
     timeRemaining: 20 * 60 * 1000,
     isRunning: false,
@@ -526,8 +529,8 @@ function emitGameStateTo(socket: Socket) {
 
 function persistCurrentTeamDefaults() {
   writeTeamDefaultsToDisk({
-    homeTeam: extractTeamIdentity(gameState.homeTeam),
-    awayTeam: extractTeamIdentity(gameState.awayTeam),
+    homeTeam: extractPresetTeam(gameState.homeTeam),
+    awayTeam: extractPresetTeam(gameState.awayTeam),
   });
 }
 
@@ -650,16 +653,36 @@ app.post("/api/shortcuts", (req, res) => {
 
 app.get("/api/team-defaults", (req, res) => {
   res.json({
-    homeTeam: extractTeamIdentity(gameState.homeTeam),
-    awayTeam: extractTeamIdentity(gameState.awayTeam),
+    homeTeam: extractPresetTeam(gameState.homeTeam),
+    awayTeam: extractPresetTeam(gameState.awayTeam),
   });
 });
 
 app.post("/api/team-defaults", (req, res) => {
   try {
     const updates = req.body as Partial<TeamDefaults>;
-    gameState.homeTeam = applyTeamIdentity(gameState.homeTeam, updates.homeTeam);
-    gameState.awayTeam = applyTeamIdentity(gameState.awayTeam, updates.awayTeam);
+    if (updates.homeTeam) {
+      const preset = normalizePresetTeam(updates.homeTeam);
+      gameState.homeTeam = {
+        ...gameState.homeTeam,
+        name: preset.name || gameState.homeTeam.name,
+        abbreviation: preset.abbreviation || gameState.homeTeam.abbreviation,
+        logo: preset.logo ?? gameState.homeTeam.logo,
+        color: preset.color || gameState.homeTeam.color,
+        players: preset.players ?? gameState.homeTeam.players,
+      };
+    }
+    if (updates.awayTeam) {
+      const preset = normalizePresetTeam(updates.awayTeam);
+      gameState.awayTeam = {
+        ...gameState.awayTeam,
+        name: preset.name || gameState.awayTeam.name,
+        abbreviation: preset.abbreviation || gameState.awayTeam.abbreviation,
+        logo: preset.logo ?? gameState.awayTeam.logo,
+        color: preset.color || gameState.awayTeam.color,
+        players: preset.players ?? gameState.awayTeam.players,
+      };
+    }
     persistCurrentTeamDefaults();
     io.emit("gameState", gameState);
     res.json({ success: true });

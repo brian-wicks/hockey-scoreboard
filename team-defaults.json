@@ -1,14 +1,174 @@
 {
   "homeTeam": {
-    "name": "Newcastle Wildcats",
+    "name": "Newcastle Wildcats B",
     "abbreviation": "NEW",
     "logo": "https://buiha.org.uk/assets/img/icon/md/newcastle.png",
-    "color": "#002444"
+    "color": "#002444",
+    "players": [
+      {
+        "id": "kk1xwdyr4",
+        "jerseyNumber": "9",
+        "name": "BRIANA",
+        "position": ""
+      },
+      {
+        "id": "llqzb5ux0",
+        "jerseyNumber": "16",
+        "name": "SAM",
+        "position": ""
+      },
+      {
+        "id": "8fn934egb",
+        "jerseyNumber": "17",
+        "name": "VAL",
+        "position": ""
+      },
+      {
+        "id": "wf008ayaw",
+        "jerseyNumber": "19",
+        "name": "JAMES",
+        "position": ""
+      },
+      {
+        "id": "lhii6xn3r",
+        "jerseyNumber": "20",
+        "name": "MORG",
+        "position": "NM"
+      },
+      {
+        "id": "nty9qukh2",
+        "jerseyNumber": "38",
+        "name": "ALEC",
+        "position": ""
+      },
+      {
+        "id": "p2d1zz4wg",
+        "jerseyNumber": "40",
+        "name": "DYLAN",
+        "position": ""
+      },
+      {
+        "id": "rpc7p5teq",
+        "jerseyNumber": "51",
+        "name": "THEO",
+        "position": "A"
+      },
+      {
+        "id": "5ulyr2gt1",
+        "jerseyNumber": "57",
+        "name": "CONNIE",
+        "position": ""
+      },
+      {
+        "id": "nv31tioka",
+        "jerseyNumber": "68",
+        "name": "MISATO",
+        "position": ""
+      },
+      {
+        "id": "txytt3t58",
+        "jerseyNumber": "78",
+        "name": "ZOSIA",
+        "position": ""
+      },
+      {
+        "id": "1bkclh077",
+        "jerseyNumber": "79",
+        "name": "ZACH",
+        "position": "A"
+      },
+      {
+        "id": "mzkwko7e3",
+        "jerseyNumber": "81",
+        "name": "LAUREN",
+        "position": "C"
+      },
+      {
+        "id": "0g6yflb5k",
+        "jerseyNumber": "91",
+        "name": "CHRIS",
+        "position": ""
+      },
+      {
+        "id": "065ygiy4g",
+        "jerseyNumber": "97",
+        "name": "COSMO",
+        "position": ""
+      },
+      {
+        "id": "6kg0du51d",
+        "jerseyNumber": "",
+        "name": "LUKE",
+        "position": ""
+      }
+    ]
   },
   "awayTeam": {
-    "name": "Leeds Gryphons",
-    "abbreviation": "LEE",
-    "logo": "https://buiha.org.uk/assets/img/icon/md/leeds.png",
-    "color": "#0d4c37"
+    "name": "Hull Ice Hogs B",
+    "abbreviation": "HUL",
+    "logo": "https://buiha.org.uk/assets/img/icon/md/hull.png",
+    "color": "#a6c7ea",
+    "players": [
+      {
+        "id": "h8wehaful",
+        "jerseyNumber": "3",
+        "name": "A. DRAPER",
+        "position": ""
+      },
+      {
+        "id": "cirqnu2ro",
+        "jerseyNumber": "7",
+        "name": "N. THORP",
+        "position": ""
+      },
+      {
+        "id": "cd997sev9",
+        "jerseyNumber": "10",
+        "name": "M. HOLT",
+        "position": ""
+      },
+      {
+        "id": "tpq1zvitq",
+        "jerseyNumber": "16",
+        "name": "M. EMERSON",
+        "position": "A"
+      },
+      {
+        "id": "c0b51htda",
+        "jerseyNumber": "19",
+        "name": "J. LYONS",
+        "position": ""
+      },
+      {
+        "id": "9g3khr8ob",
+        "jerseyNumber": "49",
+        "name": "J. CALTON",
+        "position": ""
+      },
+      {
+        "id": "s3ez92ol3",
+        "jerseyNumber": "66",
+        "name": "W. FRANKISH",
+        "position": "A"
+      },
+      {
+        "id": "btnilyswn",
+        "jerseyNumber": "69",
+        "name": "A. SMITH",
+        "position": "NM"
+      },
+      {
+        "id": "hldd77uhs",
+        "jerseyNumber": "75",
+        "name": "L. BELL",
+        "position": ""
+      },
+      {
+        "id": "9lbdw81n7",
+        "jerseyNumber": "95",
+        "name": "I. LANGE",
+        "position": "C"
+      }
+    ]
   }
 }
