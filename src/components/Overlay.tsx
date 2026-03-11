@@ -426,6 +426,41 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
   const shotsHiddenStatic = mainTransitionStage === "hiding-close" || mainTransitionStage === "showing-open";
   const shotsShowing = mainTransitionStage === "showing-penalties";
 
+  const renderPenaltyTimers = (
+    penalties: Array<{ id: string; animState?: "entering" | "exiting" | string; timeRemaining: number; playerNumber?: string }>,
+  ) => {
+    if (penalties.length === 0) return null;
+    return (
+      <div className="overflow-hidden">
+        <div className="flex flex-col text-xs font-mono font-bold overflow-hidden">
+          {penalties.map((p, index) => (
+            <PenaltyTimer
+              key={p.id}
+              penalty={p}
+              style={
+                {
+                  // @ts-ignore custom CSS var
+                  "--penalty-hide-shift": `${-(mainAnimationVars.scoreboardHeight / 2 + PENALTY_ROW_HEIGHT_PX / 2 + index * PENALTY_ROW_HEIGHT_PX)}px`,
+                } as CSSProperties
+              }
+              className={
+                `${penaltiesLifting ? " penalty-to-scoreboard-hide" : ""}${
+                  penaltiesHiddenStatic ? " penalty-hidden-at-scoreboard" : ""
+                }${penaltiesDropping ? " penalty-from-scoreboard-show" : ""}${
+                  p.animState === "entering"
+                    ? "penalty-item-enter"
+                    : p.animState === "exiting"
+                      ? "penalty-item-exit"
+                      : ""
+                }`
+              }
+            />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div
       className={`${
@@ -556,69 +591,13 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
             </div>
           </div>
 
-          <div
-            className="absolute top-full left-0 right-0 z-20 flex"
-          >
+          <div className="absolute top-full left-0 right-0 z-20 flex">
             <div className="w-1/2 pr-[70px]">
-              {homePenalties.length > 0 && (
-                <div className="overflow-hidden">
-                  <div className="flex flex-col text-xs font-mono font-bold overflow-hidden">
-                    {homePenalties.map((p, index) => (
-                      <PenaltyTimer
-                        key={p.id}
-                        penalty={p}
-                        style={
-                          {
-                            "--penalty-hide-shift": `${-(mainAnimationVars.scoreboardHeight / 2 + PENALTY_ROW_HEIGHT_PX / 2 + index * PENALTY_ROW_HEIGHT_PX)}px`,
-                          } as CSSProperties
-                        }
-                        className={
-                          `${penaltiesLifting ? " penalty-to-scoreboard-hide" : ""}${
-                            penaltiesHiddenStatic ? " penalty-hidden-at-scoreboard" : ""
-                          }${penaltiesDropping ? " penalty-from-scoreboard-show" : ""}${
-                            p.animState === "entering"
-                            ? "penalty-item-enter"
-                            : p.animState === "exiting"
-                              ? "penalty-item-exit"
-                              : ""
-                          }`
-                        }
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
+              {renderPenaltyTimers(homePenalties)}
             </div>
 
             <div className="w-1/2 pl-[70px]">
-              {awayPenalties.length > 0 && (
-                <div className="overflow-hidden">
-                  <div className="flex flex-col text-xs font-mono font-bold overflow-hidden">
-                    {awayPenalties.map((p, index) => (
-                      <PenaltyTimer
-                        key={p.id}
-                        penalty={p}
-                        style={
-                          {
-                            "--penalty-hide-shift": `${-(mainAnimationVars.scoreboardHeight / 2 + PENALTY_ROW_HEIGHT_PX / 2 + index * PENALTY_ROW_HEIGHT_PX)}px`,
-                          } as CSSProperties
-                        }
-                        className={
-                          `${penaltiesLifting ? " penalty-to-scoreboard-hide" : ""}${
-                            penaltiesHiddenStatic ? " penalty-hidden-at-scoreboard" : ""
-                          }${penaltiesDropping ? " penalty-from-scoreboard-show" : ""}${
-                            p.animState === "entering"
-                            ? "penalty-item-enter"
-                            : p.animState === "exiting"
-                              ? "penalty-item-exit"
-                              : ""
-                          }`
-                        }
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
+              {renderPenaltyTimers(awayPenalties)}
             </div>
           </div>
         </div>
