@@ -1703,6 +1703,594 @@ export default function EventLogPanel({
 
           <div className="mt-4 grid grid-cols-1 min-[760px]:grid-cols-2 gap-4">
             <div className="border border-zinc-800 rounded p-3">
+              <div className="text-xs font-semibold text-zinc-300 mb-2">Away goals by period</div>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Label X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayPeriodLabel.goalsX}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayPeriodLabel: { ...p.awayPeriodLabel, goalsX: Number(e.target.value) || 0 },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">P1 X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayPeriodGoals.cols.p1X}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayPeriodGoals: { ...p.awayPeriodGoals, cols: { ...p.awayPeriodGoals.cols, p1X: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">P2 X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayPeriodGoals.cols.p2X}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayPeriodGoals: { ...p.awayPeriodGoals, cols: { ...p.awayPeriodGoals.cols, p2X: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">P3 X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayPeriodGoals.cols.p3X}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayPeriodGoals: { ...p.awayPeriodGoals, cols: { ...p.awayPeriodGoals.cols, p3X: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">OT X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayPeriodGoals.cols.otX}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayPeriodGoals: { ...p.awayPeriodGoals, cols: { ...p.awayPeriodGoals.cols, otX: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Total X (0=off)</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayPeriodGoals.cols.totalX ?? 0}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayPeriodGoals: {
+                          ...p.awayPeriodGoals,
+                          cols: { ...p.awayPeriodGoals.cols, totalX: Number(e.target.value) || 0 },
+                        },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Y from top</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayPeriodGoals.yFromTop}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayPeriodGoals: { ...p.awayPeriodGoals, yFromTop: Number(e.target.value) || 0 },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Font size</span>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={pdfLayout.awayPeriodGoals.size}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayPeriodGoals: { ...p.awayPeriodGoals, size: Number(e.target.value) || p.awayPeriodGoals.size },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Align</span>
+                  <AlignSelect
+                    value={pdfLayout.awayPeriodGoals.align ?? "left"}
+                    onChange={(next) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayPeriodGoals: { ...p.awayPeriodGoals, align: next },
+                      }))
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Label size</span>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={pdfLayout.awayPeriodLabel.size}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayPeriodLabel: { ...p.awayPeriodLabel, size: Number(e.target.value) || p.awayPeriodLabel.size },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Label align</span>
+                  <AlignSelect
+                    value={pdfLayout.awayPeriodLabel.align ?? "left"}
+                    onChange={(next) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayPeriodLabel: { ...p.awayPeriodLabel, align: next },
+                      }))
+                    }
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="border border-zinc-800 rounded p-3">
+              <div className="text-xs font-semibold text-zinc-300 mb-2">Home goals by period</div>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Label X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homePeriodLabel.goalsX}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homePeriodLabel: { ...p.homePeriodLabel, goalsX: Number(e.target.value) || 0 },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">P1 X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homePeriodGoals.cols.p1X}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homePeriodGoals: { ...p.homePeriodGoals, cols: { ...p.homePeriodGoals.cols, p1X: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">P2 X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homePeriodGoals.cols.p2X}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homePeriodGoals: { ...p.homePeriodGoals, cols: { ...p.homePeriodGoals.cols, p2X: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">P3 X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homePeriodGoals.cols.p3X}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homePeriodGoals: { ...p.homePeriodGoals, cols: { ...p.homePeriodGoals.cols, p3X: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">OT X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homePeriodGoals.cols.otX}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homePeriodGoals: { ...p.homePeriodGoals, cols: { ...p.homePeriodGoals.cols, otX: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Total X (0=off)</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homePeriodGoals.cols.totalX ?? 0}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homePeriodGoals: {
+                          ...p.homePeriodGoals,
+                          cols: { ...p.homePeriodGoals.cols, totalX: Number(e.target.value) || 0 },
+                        },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Y from top</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homePeriodGoals.yFromTop}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homePeriodGoals: { ...p.homePeriodGoals, yFromTop: Number(e.target.value) || 0 },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Font size</span>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={pdfLayout.homePeriodGoals.size}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homePeriodGoals: { ...p.homePeriodGoals, size: Number(e.target.value) || p.homePeriodGoals.size },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Align</span>
+                  <AlignSelect
+                    value={pdfLayout.homePeriodGoals.align ?? "left"}
+                    onChange={(next) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homePeriodGoals: { ...p.homePeriodGoals, align: next },
+                      }))
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Label size</span>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={pdfLayout.homePeriodLabel.size}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homePeriodLabel: { ...p.homePeriodLabel, size: Number(e.target.value) || p.homePeriodLabel.size },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Label align</span>
+                  <AlignSelect
+                    value={pdfLayout.homePeriodLabel.align ?? "left"}
+                    onChange={(next) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homePeriodLabel: { ...p.homePeriodLabel, align: next },
+                      }))
+                    }
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 min-[760px]:grid-cols-2 gap-4">
+            <div className="border border-zinc-800 rounded p-3">
+              <div className="text-xs font-semibold text-zinc-300 mb-2">Away PIM by period</div>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Label X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayPeriodLabel.pimX}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayPeriodLabel: { ...p.awayPeriodLabel, pimX: Number(e.target.value) || 0 },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">P1 X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayPeriodPim.cols.p1X}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayPeriodPim: { ...p.awayPeriodPim, cols: { ...p.awayPeriodPim.cols, p1X: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">P2 X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayPeriodPim.cols.p2X}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayPeriodPim: { ...p.awayPeriodPim, cols: { ...p.awayPeriodPim.cols, p2X: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">P3 X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayPeriodPim.cols.p3X}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayPeriodPim: { ...p.awayPeriodPim, cols: { ...p.awayPeriodPim.cols, p3X: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">OT X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayPeriodPim.cols.otX}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayPeriodPim: { ...p.awayPeriodPim, cols: { ...p.awayPeriodPim.cols, otX: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Total X (0=off)</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayPeriodPim.cols.totalX ?? 0}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayPeriodPim: { ...p.awayPeriodPim, cols: { ...p.awayPeriodPim.cols, totalX: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Y from top</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayPeriodPim.yFromTop}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayPeriodPim: { ...p.awayPeriodPim, yFromTop: Number(e.target.value) || 0 },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Font size</span>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={pdfLayout.awayPeriodPim.size}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayPeriodPim: { ...p.awayPeriodPim, size: Number(e.target.value) || p.awayPeriodPim.size },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Align</span>
+                  <AlignSelect
+                    value={pdfLayout.awayPeriodPim.align ?? "left"}
+                    onChange={(next) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayPeriodPim: { ...p.awayPeriodPim, align: next },
+                      }))
+                    }
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="border border-zinc-800 rounded p-3">
+              <div className="text-xs font-semibold text-zinc-300 mb-2">Home PIM by period</div>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Label X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homePeriodLabel.pimX}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homePeriodLabel: { ...p.homePeriodLabel, pimX: Number(e.target.value) || 0 },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">P1 X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homePeriodPim.cols.p1X}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homePeriodPim: { ...p.homePeriodPim, cols: { ...p.homePeriodPim.cols, p1X: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">P2 X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homePeriodPim.cols.p2X}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homePeriodPim: { ...p.homePeriodPim, cols: { ...p.homePeriodPim.cols, p2X: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">P3 X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homePeriodPim.cols.p3X}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homePeriodPim: { ...p.homePeriodPim, cols: { ...p.homePeriodPim.cols, p3X: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">OT X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homePeriodPim.cols.otX}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homePeriodPim: { ...p.homePeriodPim, cols: { ...p.homePeriodPim.cols, otX: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Total X (0=off)</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homePeriodPim.cols.totalX ?? 0}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homePeriodPim: { ...p.homePeriodPim, cols: { ...p.homePeriodPim.cols, totalX: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Y from top</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homePeriodPim.yFromTop}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homePeriodPim: { ...p.homePeriodPim, yFromTop: Number(e.target.value) || 0 },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Font size</span>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={pdfLayout.homePeriodPim.size}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homePeriodPim: { ...p.homePeriodPim, size: Number(e.target.value) || p.homePeriodPim.size },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Align</span>
+                  <AlignSelect
+                    value={pdfLayout.homePeriodPim.align ?? "left"}
+                    onChange={(next) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homePeriodPim: { ...p.homePeriodPim, align: next },
+                      }))
+                    }
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 min-[760px]:grid-cols-2 gap-4">
+            <div className="border border-zinc-800 rounded p-3">
               <div className="text-xs font-semibold text-zinc-300 mb-2">Advanced</div>
               <div className="grid grid-cols-2 gap-2">
                 <label className="flex flex-col gap-1">

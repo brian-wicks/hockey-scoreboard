@@ -86,6 +86,45 @@ export type GamesheetPdfLayout = {
     aligns: { playerNum: "left" | "center" | "right"; pim: "left" | "center" | "right"; offence: "left" | "center" | "right"; given: "left" | "center" | "right"; start: "left" | "center" | "right"; end: "left" | "center" | "right" };
   };
 
+  awayPeriodGoals: {
+    yFromTop: number;
+    size: number;
+    align: "left" | "center" | "right";
+    cols: { p1X: number; p2X: number; p3X: number; otX: number; totalX?: number };
+  };
+  homePeriodGoals: {
+    yFromTop: number;
+    size: number;
+    align: "left" | "center" | "right";
+    cols: { p1X: number; p2X: number; p3X: number; otX: number; totalX?: number };
+  };
+  awayPeriodPim: {
+    yFromTop: number;
+    size: number;
+    align: "left" | "center" | "right";
+    cols: { p1X: number; p2X: number; p3X: number; otX: number; totalX?: number };
+  };
+  homePeriodPim: {
+    yFromTop: number;
+    size: number;
+    align: "left" | "center" | "right";
+    cols: { p1X: number; p2X: number; p3X: number; otX: number; totalX?: number };
+  };
+  awayPeriodLabel: {
+    yFromTop: number;
+    size: number;
+    align: "left" | "center" | "right";
+    goalsX: number;
+    pimX: number;
+  };
+  homePeriodLabel: {
+    yFromTop: number;
+    size: number;
+    align: "left" | "center" | "right";
+    goalsX: number;
+    pimX: number;
+  };
+
   // X values support either absolute PDF points (> 1) or width ratios (0..1) for backward compatibility.
   awayShots: { x: number; yFromTop: number; size: number; align: "left" | "center" | "right" };
   homeShots: { x: number; yFromTop: number; size: number; align: "left" | "center" | "right" };
@@ -167,6 +206,45 @@ export function getDefaultGamesheetPdfLayout(): GamesheetPdfLayout {
       maxLines: 12,
       cols: { playerNumX: 0, pimX: 34, offenceX: 66, givenX: 210, startX: 278, endX: 330 },
       aligns: { playerNum: "right", pim: "center", offence: "left", given: "left", start: "center", end: "center" },
+    },
+
+    awayPeriodGoals: {
+      yFromTop: 110,
+      size: 9,
+      align: "center",
+      cols: { p1X: 420, p2X: 440, p3X: 460, otX: 480, totalX: 0 },
+    },
+    homePeriodGoals: {
+      yFromTop: 98,
+      size: 9,
+      align: "center",
+      cols: { p1X: 420, p2X: 440, p3X: 460, otX: 480, totalX: 0 },
+    },
+    awayPeriodPim: {
+      yFromTop: 130,
+      size: 9,
+      align: "center",
+      cols: { p1X: 420, p2X: 440, p3X: 460, otX: 480, totalX: 0 },
+    },
+    homePeriodPim: {
+      yFromTop: 118,
+      size: 9,
+      align: "center",
+      cols: { p1X: 420, p2X: 440, p3X: 460, otX: 480, totalX: 0 },
+    },
+    awayPeriodLabel: {
+      yFromTop: 110,
+      size: 9,
+      align: "right",
+      goalsX: 404,
+      pimX: 404,
+    },
+    homePeriodLabel: {
+      yFromTop: 98,
+      size: 9,
+      align: "right",
+      goalsX: 404,
+      pimX: 404,
     },
 
     awayShots: { x: 343, yFromTop: 702, size: 10, align: "center" },
@@ -421,6 +499,54 @@ function formatPimMinutesFromDuration(durationMs: number | undefined): string {
   return `${mins}`;
 }
 
+type PeriodKey = "1" | "2" | "3" | "OT";
+type PeriodTotals = { "1": number; "2": number; "3": number; "OT": number; total: number };
+
+function createPeriodTotals(): PeriodTotals {
+  return { "1": 0, "2": 0, "3": 0, OT: 0, total: 0 };
+}
+
+function getPeriodTotals(eventLog: GameEvent[]) {
+  const homeGoals = createPeriodTotals();
+  const awayGoals = createPeriodTotals();
+  const homePim = createPeriodTotals();
+  const awayPim = createPeriodTotals();
+
+  const effectiveGoals = getEffectiveGoals(eventLog);
+  for (const g of effectiveGoals.homeGoals) {
+    const key = normalizePeriodKey(g.period);
+    if (!key) continue;
+    homeGoals[key] += 1;
+    homeGoals.total += 1;
+  }
+  for (const g of effectiveGoals.awayGoals) {
+    const key = normalizePeriodKey(g.period);
+    if (!key) continue;
+    awayGoals[key] += 1;
+    awayGoals.total += 1;
+  }
+
+  const penaltyEvents = eventLog.filter((e) => e.type === "penalty_added");
+  for (const p of penaltyEvents) {
+    const key = normalizePeriodKey(p.period);
+    if (!key) continue;
+    const mins = typeof p.penaltyDurationMs === "number" ? Math.round(p.penaltyDurationMs / 60000) : 0;
+    if (!mins) continue;
+    if (p.team === "home") {
+      homePim[key] += mins;
+      homePim.total += mins;
+    } else {
+      awayPim[key] += mins;
+      awayPim.total += mins;
+    }
+  }
+
+  return {
+    home: { goals: homeGoals, pim: homePim },
+    away: { goals: awayGoals, pim: awayPim },
+  };
+}
+
 function t(layout: GamesheetPdfLayout, x: number, y: number) {
   return { x: layout.offsetX + layout.scale * x, y: layout.offsetY + layout.scale * y };
 }
@@ -491,6 +617,78 @@ export async function buildGamesheetPdfBytes(
     const nameSize = s(layout, layout.teamNames.size);
     drawTextAligned({ page, font, text: home.name || "Home", x: homePos.x, y: homePos.y, size: nameSize, align: layout.teamNames.align ?? "left" });
     drawTextAligned({ page, font, text: away.name || "Away", x: awayPos.x, y: awayPos.y, size: nameSize, align: layout.teamNames.align ?? "left" });
+  }
+
+  // Period goals/PIM totals.
+  {
+    const totals = getPeriodTotals(input.eventLog);
+
+    const drawPeriodTotals = (
+      label: "awayPeriodGoals" | "homePeriodGoals" | "awayPeriodPim" | "homePeriodPim",
+      cfg: GamesheetPdfLayout["awayPeriodGoals"],
+      values: PeriodTotals,
+    ) => {
+      const y = t(layout, 0, height - cfg.yFromTop).y;
+      const size = s(layout, cfg.size);
+      const align = cfg.align ?? "center";
+
+      const resolveCol = (x: number) => t(layout, resolveX(x, width), 0).x;
+      const hasTotal = typeof cfg.cols.totalX === "number" && cfg.cols.totalX > 0;
+      const xs = {
+        p1: resolveCol(cfg.cols.p1X),
+        p2: resolveCol(cfg.cols.p2X),
+        p3: resolveCol(cfg.cols.p3X),
+        ot: resolveCol(cfg.cols.otX),
+        total: hasTotal ? resolveCol(cfg.cols.totalX as number) : null,
+      };
+
+      if (opts?.debug) {
+        drawDebugAnchor(page, xs.p1, y, `${label}.p1`);
+        drawDebugAnchor(page, xs.p2, y, `${label}.p2`);
+        drawDebugAnchor(page, xs.p3, y, `${label}.p3`);
+        drawDebugAnchor(page, xs.ot, y, `${label}.ot`);
+        if (xs.total !== null) drawDebugAnchor(page, xs.total, y, `${label}.total`);
+      }
+
+      drawTextAligned({ page, font, text: `${values["1"]}`, x: xs.p1, y, size, align });
+      drawTextAligned({ page, font, text: `${values["2"]}`, x: xs.p2, y, size, align });
+      drawTextAligned({ page, font, text: `${values["3"]}`, x: xs.p3, y, size, align });
+      drawTextAligned({ page, font, text: `${values.OT}`, x: xs.ot, y, size, align });
+      if (xs.total !== null) {
+        drawTextAligned({ page, font, text: `${values.total}`, x: xs.total, y, size, align });
+      }
+    };
+
+    drawPeriodTotals("awayPeriodGoals", layout.awayPeriodGoals, totals.away.goals);
+    drawPeriodTotals("homePeriodGoals", layout.homePeriodGoals, totals.home.goals);
+    drawPeriodTotals("awayPeriodPim", layout.awayPeriodPim, totals.away.pim);
+    drawPeriodTotals("homePeriodPim", layout.homePeriodPim, totals.home.pim);
+
+    const drawPeriodLabel = (
+      label: "awayPeriodLabel" | "homePeriodLabel",
+      cfg: GamesheetPdfLayout["awayPeriodLabel"],
+      goalsCfg: GamesheetPdfLayout["awayPeriodGoals"],
+      pimCfg: GamesheetPdfLayout["awayPeriodPim"],
+      text: string,
+    ) => {
+      const goalsY = t(layout, 0, height - goalsCfg.yFromTop).y;
+      const pimY = t(layout, 0, height - pimCfg.yFromTop).y;
+      const size = s(layout, cfg.size);
+      const align = cfg.align ?? "right";
+      const goalsX = t(layout, resolveX(cfg.goalsX, width), 0).x;
+      const pimX = t(layout, resolveX(cfg.pimX, width), 0).x;
+
+      if (opts?.debug) {
+        drawDebugAnchor(page, goalsX, goalsY, `${label}.goals`);
+        drawDebugAnchor(page, pimX, pimY, `${label}.pim`);
+      }
+
+      drawTextAligned({ page, font, text, x: goalsX, y: goalsY, size, align });
+      drawTextAligned({ page, font, text, x: pimX, y: pimY, size, align });
+    };
+
+    drawPeriodLabel("awayPeriodLabel", layout.awayPeriodLabel, layout.awayPeriodGoals, layout.awayPeriodPim, away.name || "Away");
+    drawPeriodLabel("homePeriodLabel", layout.homePeriodLabel, layout.homePeriodGoals, layout.homePeriodPim, home.name || "Home");
   }
 
   // Rosters (number and name are drawn in separate columns).

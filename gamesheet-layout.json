@@ -124,6 +124,68 @@
       "end": "center"
     }
   },
+  "awayPeriodGoals": {
+    "yFromTop": 250,
+    "size": 9,
+    "align": "center",
+    "cols": {
+      "p1X": 660,
+      "p2X": 680,
+      "p3X": 700,
+      "otX": 719,
+      "totalX": 748
+    }
+  },
+  "homePeriodGoals": {
+    "yFromTop": 240,
+    "size": 9,
+    "align": "center",
+    "cols": {
+      "p1X": 660,
+      "p2X": 680,
+      "p3X": 700,
+      "otX": 719,
+      "totalX": 748
+    }
+  },
+  "awayPeriodPim": {
+    "yFromTop": 290,
+    "size": 9,
+    "align": "center",
+    "cols": {
+      "p1X": 660,
+      "p2X": 680,
+      "p3X": 700,
+      "otX": 719,
+      "totalX": 748
+    }
+  },
+  "homePeriodPim": {
+    "yFromTop": 280,
+    "size": 9,
+    "align": "center",
+    "cols": {
+      "p1X": 660,
+      "p2X": 680,
+      "p3X": 700,
+      "otX": 719,
+      "totalX": 748
+    }
+  },
+  "awayPeriodLabel": {
+    "yFromTop": 250,
+    "size": 9,
+    "align": "right",
+    "goalsX": 640,
+    "pimX": 640
+  },
+  "homePeriodLabel": {
+    "yFromTop": 240,
+    "size": 9,
+    "align": "right",
+    "goalsX": 640,
+    "pimX": 640
+  },
   "awayShots": {
     "x": 343,
     "yFromTop": 702,
