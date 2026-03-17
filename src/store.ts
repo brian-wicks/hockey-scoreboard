@@ -14,7 +14,14 @@ export interface Penalty {
   infraction: string;
 }
 
-export type EventType = "goal" | "goal_revoked" | "penalty_added" | "penalty_over_notice";
+export type EventType =
+  | "goal"
+  | "goal_revoked"
+  | "penalty_added"
+  | "penalty_over_notice"
+  | "shot_on_goal"
+  | "goalie_change"
+  | "period_end";
 
 export interface GameEvent {
   id: string;
@@ -30,6 +37,8 @@ export interface GameEvent {
   scorer?: string;
   assist1?: string;
   assist2?: string;
+  goalie?: string;
+  shotDelta?: number;
   removalReason?: "manual" | "expired";
   note?: string;
   readOnly?: boolean;

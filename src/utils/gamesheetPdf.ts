@@ -1,5 +1,5 @@
 import { PDFDocument, PDFPage, rgb, StandardFonts } from "pdf-lib";
-import type { GameEvent, TeamState } from "../store";
+import type {GameEvent, TeamPlayer, TeamState} from "../store";
 
 export type GamesheetPdfLayout = {
   // v2: X from LEFT, Y from TOP, in PDF points. If missing, layout is treated as legacy (v1) at render-time.
@@ -126,6 +126,22 @@ export type GamesheetPdfLayout = {
     goalsX: number;
     pimX: number;
   };
+  awayNmRoster: {
+    yFromTop: number;
+    lineHeight: number;
+    size: number;
+    maxLines: number;
+    cols: { numX: number; nameX: number; timeX: number; p1X: number; p2X: number; p3X: number; otX: number; totalX?: number };
+    aligns: { num: "left" | "center" | "right"; name: "left" | "center" | "right"; time: "left" | "center" | "right"; p1: "left" | "center" | "right"; p2: "left" | "center" | "right"; p3: "left" | "center" | "right"; ot: "left" | "center" | "right"; total: "left" | "center" | "right" };
+  };
+  homeNmRoster: {
+    yFromTop: number;
+    lineHeight: number;
+    size: number;
+    maxLines: number;
+    cols: { numX: number; nameX: number; timeX: number; p1X: number; p2X: number; p3X: number; otX: number; totalX?: number };
+    aligns: { num: "left" | "center" | "right"; name: "left" | "center" | "right"; time: "left" | "center" | "right"; p1: "left" | "center" | "right"; p2: "left" | "center" | "right"; p3: "left" | "center" | "right"; ot: "left" | "center" | "right"; total: "left" | "center" | "right" };
+  };
 
   // X values support either absolute PDF points (> 1) or width ratios (0..1) for backward compatibility.
   awayShots: { x: number; yFromTop: number; size: number; align: "left" | "center" | "right" };
@@ -250,6 +266,22 @@ export function getDefaultGamesheetPdfLayout(): GamesheetPdfLayout {
       goalsX: 404,
       pimX: 404,
     },
+    awayNmRoster: {
+      yFromTop: 150,
+      lineHeight: 10,
+      size: 8.5,
+      maxLines: 8,
+      cols: { numX: 404, nameX: 424, timeX: 520, p1X: 660, p2X: 680, p3X: 700, otX: 719, totalX: 748 },
+      aligns: { num: "center", name: "left", time: "center", p1: "center", p2: "center", p3: "center", ot: "center", total: "center" },
+    },
+    homeNmRoster: {
+      yFromTop: 138,
+      lineHeight: 10,
+      size: 8.5,
+      maxLines: 8,
+      cols: { numX: 404, nameX: 424, timeX: 520, p1X: 660, p2X: 680, p3X: 700, otX: 719, totalX: 748 },
+      aligns: { num: "center", name: "left", time: "center", p1: "center", p2: "center", p3: "center", ot: "center", total: "center" },
+    },
 
     awayShots: { x: 343, yFromTop: 702, size: 10, align: "center" },
     homeShots: { x: 208, yFromTop: 702, size: 10, align: "center" },
@@ -354,6 +386,141 @@ function getRosterStats(eventLog: GameEvent[]) {
   }
 
   return { goalsByTeamNumber, assistsByTeamNumber, pimByTeamNumber };
+}
+
+function formatRosterName(player: TeamPlayer) {
+  const name = player.name.trim();
+  const pos = (player.position ?? "").trim();
+  if (!pos) return name;
+  if (!name) return pos;
+  return `${name} (${pos})`;
+}
+function formatGoalieLabel(goalieKey: string, roster: TeamPlayer[]) {
+  const trimmed = goalieKey.trim();
+  if (!trimmed) return "";
+  const match = roster.find((p) => p.jerseyNumber.trim() === trimmed);
+  if (!match) return trimmed;
+  const num = match.jerseyNumber.trim();
+  const name = match.name.trim();
+  if (num && name) return `${num} ${name}`;
+  return name || num;
+}
+
+function getElapsedSeconds(event: Pick<GameEvent, "period" | "clockTime">): number | null {
+  const remainingSeconds = parseClockTimeSeconds(event.clockTime);
+  if (remainingSeconds === null) return null;
+
+  const periodKey = normalizePeriodKey(event.period);
+  if (!periodKey) return null;
+
+  let baseSeconds = 0;
+  let periodLengthSeconds = PERIOD_SECONDS;
+
+  if (periodKey === "2") baseSeconds = PERIOD_SECONDS;
+  if (periodKey === "3") baseSeconds = PERIOD_SECONDS * 2;
+  if (periodKey === "OT") {
+    baseSeconds = PERIOD_SECONDS * 3;
+    periodLengthSeconds = OT_DEFAULT_SECONDS;
+  }
+
+  if (remainingSeconds > periodLengthSeconds) {
+    return baseSeconds + remainingSeconds;
+  }
+
+  const elapsedSeconds = Math.max(0, periodLengthSeconds - remainingSeconds);
+  return baseSeconds + elapsedSeconds;
+}
+
+function formatGoalieTime(totalSeconds: number) {
+  const mins = Math.floor(Math.max(0, totalSeconds) / 60);
+  const secs = Math.max(0, totalSeconds) % 60;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+function getMaxElapsedSeconds(eventLog: GameEvent[]) {
+  let maxPeriodEnd = 0;
+  let maxAll = 0;
+  for (const e of eventLog) {
+    const elapsed = getElapsedSeconds(e);
+    if (elapsed === null) continue;
+    if (elapsed > maxAll) maxAll = elapsed;
+    if (e.type === "period_end" && elapsed > maxPeriodEnd) {
+      maxPeriodEnd = elapsed;
+    }
+  }
+  return maxPeriodEnd || maxAll;
+}
+
+function buildGoalieStats(eventLog: GameEvent[], roster: TeamPlayer[], team: "home" | "away") {
+  const goalieEvents = eventLog
+    .filter((e) => e.type === "goalie_change" && e.team === team)
+    .slice()
+    .sort(sortChronological);
+
+  const nmRoster = roster.filter((p) => p.position === "NM");
+  const defaultGoalieKey = nmRoster.length === 1 ? nmRoster[0]?.jerseyNumber.trim() ?? "" : "";
+  const maxElapsed = getMaxElapsedSeconds(eventLog);
+
+  const segments: { goalie: string; start: number; end: number }[] = [];
+  let activeGoalie = defaultGoalieKey;
+  let segmentStart = 0;
+
+  for (const e of goalieEvents) {
+    const elapsed = getElapsedSeconds(e);
+    const nextGoalie = (e.goalie ?? "").trim();
+    if (elapsed === null || !nextGoalie) continue;
+    if (activeGoalie) {
+      segments.push({ goalie: activeGoalie, start: segmentStart, end: elapsed });
+    }
+    activeGoalie = nextGoalie;
+    segmentStart = elapsed;
+  }
+
+  if (activeGoalie) {
+    segments.push({ goalie: activeGoalie, start: segmentStart, end: maxElapsed });
+  }
+
+  const stats = new Map<string, { goalie: string; timeOn: number; shots: PeriodTotals }>();
+
+  const ensureStat = (goalie: string) => {
+    if (!stats.has(goalie)) {
+      stats.set(goalie, { goalie, timeOn: 0, shots: createPeriodTotals() });
+    }
+    return stats.get(goalie)!;
+  };
+
+  for (const segment of segments) {
+    const duration = Math.max(0, segment.end - segment.start);
+    ensureStat(segment.goalie).timeOn += duration;
+  }
+
+  const opponent = team === "home" ? "away" : "home";
+  const shotEvents = eventLog.filter((e) => e.type === "shot_on_goal" && e.team === opponent);
+  for (const e of shotEvents) {
+    const elapsed = getElapsedSeconds(e);
+    const periodKey = normalizePeriodKey(e.period);
+    if (elapsed === null || !periodKey) continue;
+    const delta = typeof e.shotDelta === "number" ? e.shotDelta : 1;
+    const active = segments.find((segment) => elapsed >= segment.start && elapsed <= segment.end);
+    if (!active) continue;
+    const stat = ensureStat(active.goalie);
+    stat.shots[periodKey] += delta;
+    stat.shots.total += delta;
+  }
+
+  const orderedGoalies = nmRoster.map((p) => p.jerseyNumber.trim()).filter(Boolean);
+  const additional = Array.from(stats.keys()).filter((g) => !orderedGoalies.includes(g));
+  const allGoalies = [...orderedGoalies, ...additional];
+
+  return allGoalies.map((goalieKey) => {
+    const stat = ensureStat(goalieKey);
+    return {
+      goalieKey,
+      label: formatGoalieLabel(goalieKey, roster),
+      timeOn: stat.timeOn,
+      shots: stat.shots,
+    };
+  });
 }
 
 function drawLines(params: {
@@ -689,9 +856,11 @@ export async function buildGamesheetPdfBytes(
 
   // Rosters (number and name are drawn in separate columns).
   const awayRosterNumbers = (away.players ?? []).map((p) => p.jerseyNumber.trim());
-  const awayRosterNames = (away.players ?? []).map((p) => p.name.trim());
+  const awayRosterNames = (away.players ?? []).map((p) => formatRosterName(p));
   const homeRosterNumbers = (home.players ?? []).map((p) => p.jerseyNumber.trim());
-  const homeRosterNames = (home.players ?? []).map((p) => p.name.trim());
+  const homeRosterNames = (home.players ?? []).map((p) => formatRosterName(p));
+  const awayNmStats = buildGoalieStats(input.eventLog, away.players ?? [], "away");
+  const homeNmStats = buildGoalieStats(input.eventLog, home.players ?? [], "home");
   const stats = getRosterStats(input.eventLog);
   const awayRosterGoals = (away.players ?? []).map((p) => {
     const n = p.jerseyNumber.trim();
@@ -866,6 +1035,85 @@ export async function buildGamesheetPdfBytes(
       maxLines: layout.homeRoster.maxLines,
       align: layout.homeRoster.pimAlign ?? "left",
     });
+  }
+
+  // NM roster sections (below period PIMs).
+  {
+    const buildNmColumns = (stats: ReturnType<typeof buildGoalieStats>) => {
+      const nums: string[] = [];
+      const names: string[] = [];
+      const times: string[] = [];
+      const p1s: string[] = [];
+      const p2s: string[] = [];
+      const p3s: string[] = [];
+      const ots: string[] = [];
+      const totals: string[] = [];
+
+      for (const s of stats) {
+        const num = extractJerseyNumber(s.label) || s.goalieKey;
+        nums.push(num);
+        names.push(s.label.replace(new RegExp(`^${num}\\s*`), "").trim() || s.label);
+        times.push(s.timeOn ? formatGoalieTime(s.timeOn) : "");
+        p1s.push(s.shots["1"] ? String(s.shots["1"]) : "");
+        p2s.push(s.shots["2"] ? String(s.shots["2"]) : "");
+        p3s.push(s.shots["3"] ? String(s.shots["3"]) : "");
+        ots.push(s.shots.OT ? String(s.shots.OT) : "");
+        totals.push(s.shots.total ? String(s.shots.total) : "");
+      }
+
+      return { nums, names, times, p1s, p2s, p3s, ots, totals };
+    };
+
+    const awayCols = buildNmColumns(awayNmStats);
+    const homeCols = buildNmColumns(homeNmStats);
+
+    const drawNmTable = (
+      label: "awayNmRoster" | "homeNmRoster",
+      cfg: GamesheetPdfLayout["awayNmRoster"],
+      cols: ReturnType<typeof buildNmColumns>,
+    ) => {
+      const baseY = height - cfg.yFromTop;
+      const y = t(layout, 0, baseY).y;
+      const lineHeight = s(layout, cfg.lineHeight);
+      const size = s(layout, cfg.size);
+
+      const xs = {
+        num: t(layout, resolveX(cfg.cols.numX, width), 0).x,
+        name: t(layout, resolveX(cfg.cols.nameX, width), 0).x,
+        time: t(layout, resolveX(cfg.cols.timeX, width), 0).x,
+        p1: t(layout, resolveX(cfg.cols.p1X, width), 0).x,
+        p2: t(layout, resolveX(cfg.cols.p2X, width), 0).x,
+        p3: t(layout, resolveX(cfg.cols.p3X, width), 0).x,
+        ot: t(layout, resolveX(cfg.cols.otX, width), 0).x,
+        total: typeof cfg.cols.totalX === "number" && cfg.cols.totalX > 0 ? t(layout, resolveX(cfg.cols.totalX, width), 0).x : null,
+      };
+
+      if (opts?.debug) {
+        drawDebugAnchor(page, xs.num, y, `${label}.num`);
+        drawDebugAnchor(page, xs.name, y, `${label}.name`);
+        drawDebugAnchor(page, xs.time, y, `${label}.time`);
+        drawDebugAnchor(page, xs.p1, y, `${label}.p1`);
+        drawDebugAnchor(page, xs.p2, y, `${label}.p2`);
+        drawDebugAnchor(page, xs.p3, y, `${label}.p3`);
+        drawDebugAnchor(page, xs.ot, y, `${label}.ot`);
+        if (xs.total !== null) drawDebugAnchor(page, xs.total, y, `${label}.total`);
+      }
+
+      const aligns = (cfg as any).aligns ?? {};
+      drawLines({ page, font, x: xs.num, y, lineHeight, lines: cols.nums, size, maxLines: cfg.maxLines, align: aligns.num ?? "left" });
+      drawLines({ page, font, x: xs.name, y, lineHeight, lines: cols.names, size, maxLines: cfg.maxLines, align: aligns.name ?? "left" });
+      drawLines({ page, font, x: xs.time, y, lineHeight, lines: cols.times, size, maxLines: cfg.maxLines, align: aligns.time ?? "left" });
+      drawLines({ page, font, x: xs.p1, y, lineHeight, lines: cols.p1s, size, maxLines: cfg.maxLines, align: aligns.p1 ?? "left" });
+      drawLines({ page, font, x: xs.p2, y, lineHeight, lines: cols.p2s, size, maxLines: cfg.maxLines, align: aligns.p2 ?? "left" });
+      drawLines({ page, font, x: xs.p3, y, lineHeight, lines: cols.p3s, size, maxLines: cfg.maxLines, align: aligns.p3 ?? "left" });
+      drawLines({ page, font, x: xs.ot, y, lineHeight, lines: cols.ots, size, maxLines: cfg.maxLines, align: aligns.ot ?? "left" });
+      if (xs.total !== null) {
+        drawLines({ page, font, x: xs.total, y, lineHeight, lines: cols.totals, size, maxLines: cfg.maxLines, align: aligns.total ?? "left" });
+      }
+    };
+
+    drawNmTable("awayNmRoster", layout.awayNmRoster, awayCols);
+    drawNmTable("homeNmRoster", layout.homeNmRoster, homeCols);
   }
 
   const buildGoalColumns = (events: GameEvent[]) => {

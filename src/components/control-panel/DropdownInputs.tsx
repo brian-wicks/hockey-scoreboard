@@ -110,3 +110,91 @@ export function PenaltyReasonInput({ value, onChange, inputClassName }: PenaltyR
   );
 }
 
+export interface SearchOption {
+  value: string;
+  label?: string;
+}
+
+export function SearchDropdownInput({
+  value,
+  onChange,
+  inputClassName,
+  placeholder,
+  options,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  inputClassName: string;
+  placeholder: string;
+  options: SearchOption[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState(value);
+  const { containerRef, dropUp, maxHeight } = useDropdownPlacement(open);
+
+  useEffect(() => {
+    setQuery(value);
+  }, [value]);
+
+  const filteredOptions = options.filter((option) => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return true;
+    return option.value.toLowerCase().includes(normalized) || (option.label ?? "").toLowerCase().includes(normalized);
+  });
+
+  return (
+    <div ref={containerRef} className="relative">
+      <input
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => {
+          onChange(query);
+          setOpen(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            onChange(query);
+            setOpen(false);
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+        className={inputClassName}
+        placeholder={placeholder}
+      />
+      {open && (
+        <div
+          className={`absolute left-0 z-20 w-56 overflow-auto rounded-md border border-zinc-800 bg-zinc-950 shadow-lg ${
+            dropUp ? "bottom-full mb-1" : "top-full mt-1"
+          }`}
+          style={{ maxHeight: `${maxHeight}px` }}
+        >
+          {filteredOptions.length === 0 ? (
+            <div className="px-2 py-1 text-xs text-zinc-500">No matches</div>
+          ) : (
+            filteredOptions.map((option, index) => (
+              <button
+                key={`${option.value}-${index}`}
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  setQuery(option.value);
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+                className="w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800"
+              >
+                <span className="font-mono">{option.value}</span>
+                {option.label ? <span className="text-zinc-400"> - {option.label}</span> : null}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

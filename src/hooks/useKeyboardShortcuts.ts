@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useStore } from "../store";
+import { buildShotEvent } from "../utils/eventLog";
 
 export function useKeyboardShortcuts(isActive: boolean) {
   const { gameState, startClock, stopClock, clockIncrease, clockDecrease, updateState, keyboardShortcuts } = useStore();
@@ -51,16 +52,22 @@ export function useKeyboardShortcuts(isActive: boolean) {
                 awayTeam: { ...gameState.awayTeam, score: gameState.awayTeam.score + 1 },
               });
               break;
-            case "homeShotsUp":
+            case "homeShotsUp": {
+              const event = buildShotEvent(gameState, "home", 1);
               updateState({
                 homeTeam: { ...gameState.homeTeam, shots: gameState.homeTeam.shots + 1 },
+                eventLog: [...gameState.eventLog, event],
               });
               break;
-            case "awayShotsUp":
+            }
+            case "awayShotsUp": {
+              const event = buildShotEvent(gameState, "away", 1);
               updateState({
                 awayTeam: { ...gameState.awayTeam, shots: gameState.awayTeam.shots + 1 },
+                eventLog: [...gameState.eventLog, event],
               });
               break;
+            }
             case "homeScoreDown":
               updateState({
                 homeTeam: { ...gameState.homeTeam, score: Math.max(0, gameState.homeTeam.score - 1) },
@@ -71,16 +78,28 @@ export function useKeyboardShortcuts(isActive: boolean) {
                 awayTeam: { ...gameState.awayTeam, score: Math.max(0, gameState.awayTeam.score - 1) },
               });
               break;
-            case "homeShotsDown":
-              updateState({
-                homeTeam: { ...gameState.homeTeam, shots: Math.max(0, gameState.homeTeam.shots - 1) },
-              });
+            case "homeShotsDown": {
+              const nextShots = Math.max(0, gameState.homeTeam.shots - 1);
+              if (nextShots !== gameState.homeTeam.shots) {
+                const event = buildShotEvent(gameState, "home", -1);
+                updateState({
+                  homeTeam: { ...gameState.homeTeam, shots: nextShots },
+                  eventLog: [...gameState.eventLog, event],
+                });
+              }
               break;
-            case "awayShotsDown":
-              updateState({
-                awayTeam: { ...gameState.awayTeam, shots: Math.max(0, gameState.awayTeam.shots - 1) },
-              });
+            }
+            case "awayShotsDown": {
+              const nextShots = Math.max(0, gameState.awayTeam.shots - 1);
+              if (nextShots !== gameState.awayTeam.shots) {
+                const event = buildShotEvent(gameState, "away", -1);
+                updateState({
+                  awayTeam: { ...gameState.awayTeam, shots: nextShots },
+                  eventLog: [...gameState.eventLog, event],
+                });
+              }
               break;
+            }
             case "homePenaltyAdd": {
               const newPenalty = {
                 id: Math.random().toString(36).slice(2, 11),

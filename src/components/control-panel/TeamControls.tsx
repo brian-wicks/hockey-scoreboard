@@ -1,22 +1,42 @@
 import { useEffect, useRef, useState } from "react";
 import { Minus, Plus } from "lucide-react";
-import { TeamState } from "../../store";
+import { GameState, TeamState } from "../../store";
+import { buildGoalieChangeEvent, buildShotEvent } from "../../utils/eventLog";
 import { UpdateGameState } from "./types";
 import PenaltyItem from "./PenaltyItem";
+import { SearchDropdownInput, SearchOption } from "./DropdownInputs";
 
 interface TeamControlsProps {
   team: "home" | "away";
   state: TeamState;
+  gameState: GameState;
   updateState: UpdateGameState;
+  eventLog: GameState["eventLog"];
 }
 
-export default function TeamControls({ team, state, updateState }: TeamControlsProps) {
+export default function TeamControls({ team, state, gameState, eventLog, updateState }: TeamControlsProps) {
   const [focusPenaltyId, setFocusPenaltyId] = useState<string | null>(null);
+  const [goalieValue, setGoalieValue] = useState("");
   const previousPenaltyCountRef = useRef(state.penalties.length);
   const rosterPlayers = state.players ?? [];
 
   const updateTeam = (updates: Partial<TeamState>) => {
     updateState({ [`${team}Team`]: { ...state, ...updates } });
+  };
+
+  const goalieOptions: SearchOption[] = rosterPlayers
+    .map((player) => ({ value: player.jerseyNumber.trim(), label: player.position !== "" ? `${player.name.trim()} (${player.position})` : `${player.name.trim()}` }))
+    .filter((option) => option.value.length > 0);
+
+  const appendEventLog = (event: any) => {
+    updateState({ eventLog: [...eventLog, event] });
+  };
+
+  const logGoalieChange = () => {
+    const nextGoalie = goalieValue.trim();
+    if (!nextGoalie) return;
+    const event = buildGoalieChangeEvent(gameState, team, nextGoalie);
+    appendEventLog(event);
   };
 
   useEffect(() => {
@@ -64,17 +84,46 @@ export default function TeamControls({ team, state, updateState }: TeamControlsP
         <span className="text-zinc-400 uppercase tracking-wider text-sm font-semibold">Shots</span>
         <div className="flex items-center justify-between">
           <button
-            onClick={() => updateTeam({ shots: Math.max(0, state.shots - 1) })}
+            onClick={() => {
+              const nextShots = Math.max(0, state.shots - 1);
+              if (nextShots !== state.shots) {
+                const event = buildShotEvent(gameState, team, -1);
+                updateState({ [`${team}Team`]: { ...state, shots: nextShots }, eventLog: [...eventLog, event] });
+              }
+            }}
             className="w-10 h-10 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-300"
           >
             <Minus size={20} />
           </button>
           <span className="text-3xl font-mono font-bold w-12 text-center">{state.shots}</span>
           <button
-            onClick={() => updateTeam({ shots: state.shots + 1 })}
+            onClick={() => {
+              const event = buildShotEvent(gameState, team, 1);
+              updateState({ [`${team}Team`]: { ...state, shots: state.shots + 1 }, eventLog: [...eventLog, event] });
+            }}
             className="w-10 h-10 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-300"
           >
             <Plus size={20} />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <span className="text-zinc-400 uppercase tracking-wider text-sm font-semibold">Goalie</span>
+        <div className="flex items-center gap-2">
+          <SearchDropdownInput
+            value={goalieValue}
+            onChange={setGoalieValue}
+            inputClassName="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-sm w-full"
+            placeholder="Goalie #"
+            options={goalieOptions}
+          />
+          <button
+            type="button"
+            onClick={logGoalieChange}
+            className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium text-zinc-200"
+          >
+            Set
           </button>
         </div>
       </div>

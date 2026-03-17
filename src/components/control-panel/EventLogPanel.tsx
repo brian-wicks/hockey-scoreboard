@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Download, SlidersHorizontal } from "lucide-react";
 import { GameEvent, GameState, TeamState, TeamPlayer } from "../../store";
 import { buildGamesheetPdfBytes, exportGamesheetPdf, GamesheetPdfLayout, getDefaultGamesheetPdfLayout } from "../../utils/gamesheetPdf";
-import { PenaltyReasonInput, useDropdownPlacement } from "./DropdownInputs";
+import { PenaltyReasonInput, SearchDropdownInput } from "./DropdownInputs";
 import { UpdateGameState } from "./types";
 
 const PDF_LAYOUT_STORAGE_KEY = "gamesheetPdfLayoutV1";
@@ -74,6 +74,8 @@ function loadPdfLayout(): GamesheetPdfLayout {
     // Back-compat: if roster stat columns/aligns are missing, keep defaults.
     merged.awayRoster = { ...getDefaultGamesheetPdfLayout().awayRoster, ...merged.awayRoster };
     merged.homeRoster = { ...getDefaultGamesheetPdfLayout().homeRoster, ...merged.homeRoster };
+    merged.awayNmRoster = { ...getDefaultGamesheetPdfLayout().awayNmRoster, ...merged.awayNmRoster } as any;
+    merged.homeNmRoster = { ...getDefaultGamesheetPdfLayout().homeNmRoster, ...merged.homeNmRoster } as any;
 
     // Back-compat: older saved layouts used `awayPenalties.x` / `homePenalties.x`.
     const awayPenAny = parsed.awayPenalties as any;
@@ -155,6 +157,29 @@ function loadPdfLayout(): GamesheetPdfLayout {
       (merged.homeGoals as any).x = homeGoalsAny.x;
     }
 
+    const awayNmAny = parsed.awayNmRoster as any;
+    if (awayNmAny && typeof awayNmAny.x === "number" && !awayNmAny.cols) {
+      merged.awayNmRoster = {
+        ...merged.awayNmRoster,
+        yFromTop: awayNmAny.yFromTop ?? merged.awayNmRoster.yFromTop,
+        lineHeight: awayNmAny.lineHeight ?? merged.awayNmRoster.lineHeight,
+        size: awayNmAny.size ?? merged.awayNmRoster.size,
+        maxLines: awayNmAny.maxLines ?? merged.awayNmRoster.maxLines,
+        cols: { ...merged.awayNmRoster.cols, numX: awayNmAny.x, nameX: awayNmAny.x + 20 },
+      } as any;
+    }
+    const homeNmAny = parsed.homeNmRoster as any;
+    if (homeNmAny && typeof homeNmAny.x === "number" && !homeNmAny.cols) {
+      merged.homeNmRoster = {
+        ...merged.homeNmRoster,
+        yFromTop: homeNmAny.yFromTop ?? merged.homeNmRoster.yFromTop,
+        lineHeight: homeNmAny.lineHeight ?? merged.homeNmRoster.lineHeight,
+        size: homeNmAny.size ?? merged.homeNmRoster.size,
+        maxLines: homeNmAny.maxLines ?? merged.homeNmRoster.maxLines,
+        cols: { ...merged.homeNmRoster.cols, numX: homeNmAny.x, nameX: homeNmAny.x + 20 },
+      } as any;
+    }
+
     return merged;
   } catch {
     return getDefaultGamesheetPdfLayout();
@@ -184,10 +209,6 @@ interface EventLogPanelProps {
   updateState: UpdateGameState;
 }
 
-interface SearchOption {
-  value: string;
-  label?: string;
-}
 function toSkaterLabel(player: TeamPlayer) {
   const number = player.jerseyNumber.trim();
   const name = player.name.trim();
@@ -195,90 +216,6 @@ function toSkaterLabel(player: TeamPlayer) {
   if (number && name) return `${number} ${name}${position}`;
   if (name) return `${name}${position}`;
   return number;
-}
-
-function SearchDropdownInput({
-  value,
-  onChange,
-  inputClassName,
-  placeholder,
-  options,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  inputClassName: string;
-  placeholder: string;
-  options: SearchOption[];
-}) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState(value);
-  const { containerRef, dropUp, maxHeight } = useDropdownPlacement(open);
-
-  useEffect(() => {
-    setQuery(value);
-  }, [value]);
-
-  const filteredOptions = options.filter((option) => {
-    const normalized = query.trim().toLowerCase();
-    if (!normalized) return true;
-    return option.value.toLowerCase().includes(normalized) || (option.label ?? "").toLowerCase().includes(normalized);
-  });
-
-  return (
-    <div ref={containerRef} className="relative">
-      <input
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-        onBlur={() => {
-          onChange(query);
-          setOpen(false);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            onChange(query);
-            setOpen(false);
-            (e.target as HTMLInputElement).blur();
-          }
-        }}
-        className={inputClassName}
-        placeholder={placeholder}
-      />
-      {open && (
-        <div
-          className={`absolute left-0 z-20 w-56 overflow-auto rounded-md border border-zinc-800 bg-zinc-950 shadow-lg ${
-            dropUp ? "bottom-full mb-1" : "top-full mt-1"
-          }`}
-          style={{ maxHeight: `${maxHeight}px` }}
-        >
-          {filteredOptions.length === 0 ? (
-            <div className="px-2 py-1 text-xs text-zinc-500">No matches</div>
-          ) : (
-            filteredOptions.map((option, index) => (
-              <button
-                key={`${option.value}-${index}`}
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  setQuery(option.value);
-                  onChange(option.value);
-                  setOpen(false);
-                }}
-                className="w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800"
-              >
-                <span className="font-mono">{option.value}</span>
-                {option.label ? <span className="text-zinc-400"> - {option.label}</span> : null}
-              </button>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
 }
 
 export default function EventLogPanel({
@@ -2427,6 +2364,456 @@ export default function EventLogPanel({
 
           <div className="mt-4 grid grid-cols-1 min-[760px]:grid-cols-2 gap-4">
             <div className="border border-zinc-800 rounded p-3">
+              <div className="text-xs font-semibold text-zinc-300 mb-2">Away NM roster</div>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Num X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayNmRoster.cols.numX}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayNmRoster: { ...p.awayNmRoster, cols: { ...p.awayNmRoster.cols, numX: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Name X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayNmRoster.cols.nameX}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayNmRoster: { ...p.awayNmRoster, cols: { ...p.awayNmRoster.cols, nameX: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Time X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayNmRoster.cols.timeX}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayNmRoster: { ...p.awayNmRoster, cols: { ...p.awayNmRoster.cols, timeX: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">P1 X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayNmRoster.cols.p1X}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayNmRoster: { ...p.awayNmRoster, cols: { ...p.awayNmRoster.cols, p1X: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">P2 X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayNmRoster.cols.p2X}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayNmRoster: { ...p.awayNmRoster, cols: { ...p.awayNmRoster.cols, p2X: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">P3 X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayNmRoster.cols.p3X}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayNmRoster: { ...p.awayNmRoster, cols: { ...p.awayNmRoster.cols, p3X: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">OT X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayNmRoster.cols.otX}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayNmRoster: { ...p.awayNmRoster, cols: { ...p.awayNmRoster.cols, otX: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Total X (0=off)</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayNmRoster.cols.totalX ?? 0}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayNmRoster: { ...p.awayNmRoster, cols: { ...p.awayNmRoster.cols, totalX: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Y from top</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayNmRoster.yFromTop}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayNmRoster: { ...p.awayNmRoster, yFromTop: Number(e.target.value) || 0 },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Line height</span>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={pdfLayout.awayNmRoster.lineHeight}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayNmRoster: { ...p.awayNmRoster, lineHeight: Number(e.target.value) || p.awayNmRoster.lineHeight },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Font size</span>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={pdfLayout.awayNmRoster.size}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayNmRoster: { ...p.awayNmRoster, size: Number(e.target.value) || p.awayNmRoster.size },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Max lines</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.awayNmRoster.maxLines}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayNmRoster: { ...p.awayNmRoster, maxLines: Math.max(1, Number(e.target.value) || p.awayNmRoster.maxLines) },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Num align</span>
+                  <AlignSelect
+                    value={pdfLayout.awayNmRoster.aligns?.num ?? "left"}
+                    onChange={(next) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayNmRoster: { ...p.awayNmRoster, aligns: { ...(p.awayNmRoster as any).aligns, num: next } },
+                      }))
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Name align</span>
+                  <AlignSelect
+                    value={pdfLayout.awayNmRoster.aligns?.name ?? "left"}
+                    onChange={(next) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayNmRoster: { ...p.awayNmRoster, aligns: { ...(p.awayNmRoster as any).aligns, name: next } },
+                      }))
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Time align</span>
+                  <AlignSelect
+                    value={pdfLayout.awayNmRoster.aligns?.time ?? "left"}
+                    onChange={(next) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayNmRoster: { ...p.awayNmRoster, aligns: { ...(p.awayNmRoster as any).aligns, time: next } },
+                      }))
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">P1 align</span>
+                  <AlignSelect
+                    value={pdfLayout.awayNmRoster.aligns?.p1 ?? "left"}
+                    onChange={(next) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        awayNmRoster: { ...p.awayNmRoster, aligns: { ...(p.awayNmRoster as any).aligns, p1: next } },
+                      }))
+                    }
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="border border-zinc-800 rounded p-3">
+              <div className="text-xs font-semibold text-zinc-300 mb-2">Home NM roster</div>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Num X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homeNmRoster.cols.numX}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homeNmRoster: { ...p.homeNmRoster, cols: { ...p.homeNmRoster.cols, numX: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Name X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homeNmRoster.cols.nameX}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homeNmRoster: { ...p.homeNmRoster, cols: { ...p.homeNmRoster.cols, nameX: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Time X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homeNmRoster.cols.timeX}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homeNmRoster: { ...p.homeNmRoster, cols: { ...p.homeNmRoster.cols, timeX: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">P1 X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homeNmRoster.cols.p1X}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homeNmRoster: { ...p.homeNmRoster, cols: { ...p.homeNmRoster.cols, p1X: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">P2 X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homeNmRoster.cols.p2X}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homeNmRoster: { ...p.homeNmRoster, cols: { ...p.homeNmRoster.cols, p2X: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">P3 X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homeNmRoster.cols.p3X}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homeNmRoster: { ...p.homeNmRoster, cols: { ...p.homeNmRoster.cols, p3X: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">OT X</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homeNmRoster.cols.otX}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homeNmRoster: { ...p.homeNmRoster, cols: { ...p.homeNmRoster.cols, otX: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Total X (0=off)</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homeNmRoster.cols.totalX ?? 0}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homeNmRoster: { ...p.homeNmRoster, cols: { ...p.homeNmRoster.cols, totalX: Number(e.target.value) || 0 } },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Y from top</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homeNmRoster.yFromTop}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homeNmRoster: { ...p.homeNmRoster, yFromTop: Number(e.target.value) || 0 },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Line height</span>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={pdfLayout.homeNmRoster.lineHeight}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homeNmRoster: { ...p.homeNmRoster, lineHeight: Number(e.target.value) || p.homeNmRoster.lineHeight },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Font size</span>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={pdfLayout.homeNmRoster.size}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homeNmRoster: { ...p.homeNmRoster, size: Number(e.target.value) || p.homeNmRoster.size },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Max lines</span>
+                  <input
+                    type="number"
+                    value={pdfLayout.homeNmRoster.maxLines}
+                    onChange={(e) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homeNmRoster: { ...p.homeNmRoster, maxLines: Math.max(1, Number(e.target.value) || p.homeNmRoster.maxLines) },
+                      }))
+                    }
+                    className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-xs font-mono"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Num align</span>
+                  <AlignSelect
+                    value={pdfLayout.homeNmRoster.aligns?.num ?? "left"}
+                    onChange={(next) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homeNmRoster: { ...p.homeNmRoster, aligns: { ...(p.homeNmRoster as any).aligns, num: next } },
+                      }))
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Name align</span>
+                  <AlignSelect
+                    value={pdfLayout.homeNmRoster.aligns?.name ?? "left"}
+                    onChange={(next) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homeNmRoster: { ...p.homeNmRoster, aligns: { ...(p.homeNmRoster as any).aligns, name: next } },
+                      }))
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Time align</span>
+                  <AlignSelect
+                    value={pdfLayout.homeNmRoster.aligns?.time ?? "left"}
+                    onChange={(next) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homeNmRoster: { ...p.homeNmRoster, aligns: { ...(p.homeNmRoster as any).aligns, time: next } },
+                      }))
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">P1 align</span>
+                  <AlignSelect
+                    value={pdfLayout.homeNmRoster.aligns?.p1 ?? "left"}
+                    onChange={(next) =>
+                      setPdfLayout((p) => ({
+                        ...p,
+                        homeNmRoster: { ...p.homeNmRoster, aligns: { ...(p.homeNmRoster as any).aligns, p1: next } },
+                      }))
+                    }
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 min-[760px]:grid-cols-2 gap-4">
+            <div className="border border-zinc-800 rounded p-3">
               <div className="text-xs font-semibold text-zinc-300 mb-2">Advanced</div>
               <div className="grid grid-cols-2 gap-2">
                 <label className="flex flex-col gap-1">
@@ -2492,6 +2879,17 @@ export default function EventLogPanel({
                     .map((option) => [option.value, option]),
                 ).values(),
               );
+              const goalieOptions = Array.from(
+                new Map(
+                  rosterPlayers
+                    .map((player) => {
+                      const name = player.position !== "" ? `${player.name} (${player.position})` : `${player.name}`;
+                      return { value: player.jerseyNumber.trim(), label: name};
+                    })
+                    .filter((option) => option.value.length > 0)
+                    .map((option) => [option.value, option]),
+                ).values(),
+              );
 
               return event.readOnly ? (
                 <div className="flex items-center justify-between gap-3">
@@ -2512,6 +2910,9 @@ export default function EventLogPanel({
                       <option value="goal_revoked">Goal Revoked</option>
                       <option value="penalty_added">Penalty Added</option>
                       <option value="penalty_over_notice">Penalty Over</option>
+                      <option value="shot_on_goal">Shot on Goal</option>
+                      <option value="goalie_change">Goalie Change</option>
+                      <option value="period_end">Period End</option>
                     </select>
                     <select
                       value={event.team}
@@ -2559,7 +2960,7 @@ export default function EventLogPanel({
                         options={uniqueSkaterOptions}
                       />
                     </div>
-                  ) : (
+                  ) : event.type === "penalty_added" || event.type === "penalty_over_notice" ? (
                     <div className="grid grid-cols-1 min-[760px]:grid-cols-4 gap-2 mt-2">
                       <SearchDropdownInput
                         value={event.playerNumber ?? ""}
@@ -2589,6 +2990,33 @@ export default function EventLogPanel({
                         className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-sm"
                         placeholder="Removal reason"
                       />
+                    </div>
+                  ) : event.type === "shot_on_goal" ? (
+                    <div className="grid grid-cols-1 min-[760px]:grid-cols-3 gap-2 mt-2">
+                      <select
+                        value={event.shotDelta ?? 1}
+                        onChange={(e) => updateEvent(event.id, { shotDelta: Number(e.target.value) })}
+                        className="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-sm"
+                      >
+                        <option value={1}>+1 Shot</option>
+                        <option value={-1}>-1 Shot</option>
+                      </select>
+                      <div className="text-xs text-zinc-500 flex items-center">Logged for {event.team} shots</div>
+                    </div>
+                  ) : event.type === "period_end" ? (
+                    <div className="grid grid-cols-1 min-[760px]:grid-cols-2 gap-2 mt-2">
+                      <div className="text-xs text-zinc-500 flex items-center">End of period marker</div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 min-[760px]:grid-cols-2 gap-2 mt-2">
+                      <SearchDropdownInput
+                        value={event.goalie ?? ""}
+                        onChange={(nextValue) => updateEvent(event.id, { goalie: nextValue })}
+                        inputClassName="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-sm w-full"
+                        placeholder="Goalie #"
+                        options={goalieOptions}
+                      />
+                      <div className="text-xs text-zinc-500 flex items-center">Select roster NM</div>
                     </div>
                   )}
                 </>

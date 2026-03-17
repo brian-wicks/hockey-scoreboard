@@ -188,6 +188,58 @@
     "goalsX": 546,
     "pimX": 546
   },
+  "awayNmRoster": {
+    "yFromTop": 381,
+    "lineHeight": 10.1,
+    "size": 8.5,
+    "maxLines": 4,
+    "cols": {
+      "numX": 546,
+      "nameX": 556,
+      "timeX": 630,
+      "p1X": 660,
+      "p2X": 680,
+      "p3X": 700,
+      "otX": 719,
+      "totalX": 748
+    },
+    "aligns": {
+      "num": "left",
+      "name": "left",
+      "time": "center",
+      "p1": "center",
+      "p2": "center",
+      "p3": "center",
+      "ot": "center",
+      "total": "center"
+    }
+  },
+  "homeNmRoster": {
+    "yFromTop": 330,
+    "lineHeight": 10.1,
+    "size": 8.5,
+    "maxLines": 4,
+    "cols": {
+      "numX": 546,
+      "nameX": 556,
+      "timeX": 630,
+      "p1X": 660,
+      "p2X": 680,
+      "p3X": 700,
+      "otX": 719,
+      "totalX": 748
+    },
+    "aligns": {
+      "num": "left",
+      "name": "left",
+      "time": "center",
+      "p1": "center",
+      "p2": "center",
+      "p3": "center",
+      "ot": "center",
+      "total": "center"
+    }
+  },
   "awayShots": {
     "x": 343,
     "yFromTop": 702,
