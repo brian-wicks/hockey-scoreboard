@@ -23,6 +23,7 @@ const SHORTCUTS_FILE = join(__dirname, "shortcuts.json");
 const TEAM_DEFAULTS_FILE = join(__dirname, "team-defaults.json");
 const TEAM_PRESETS_FILE = join(__dirname, "team-presets.json");
 const TEAM_LIBRARY_FILE = join(__dirname, "team-library.json");
+const PDF_LAYOUT_FILE = join(__dirname, "gamesheet-layout.json");
 
 interface Penalty {
   id: string;
@@ -39,6 +40,7 @@ interface GameEvent {
   type: EventType;
   team: "home" | "away";
   penaltyId?: string;
+  penaltyDurationMs?: number;
   period: string;
   clockTime: string;
   endClockTime?: string;
@@ -211,6 +213,24 @@ function writeTeamDefaultsToDisk(defaults: TeamDefaults) {
   }
 }
 
+function readPdfLayoutFromDisk(): unknown | null {
+  try {
+    if (!existsSync(PDF_LAYOUT_FILE)) return null;
+    return JSON.parse(readFileSync(PDF_LAYOUT_FILE, "utf-8"));
+  } catch (error) {
+    console.error("Error reading PDF layout:", error);
+    return null;
+  }
+}
+
+function writePdfLayoutToDisk(layout: unknown) {
+  try {
+    writeFileSync(PDF_LAYOUT_FILE, JSON.stringify(layout, null, 2));
+  } catch (error) {
+    console.error("Error saving PDF layout:", error);
+  }
+}
+
 function readTeamPresetsFromDisk(): TeamPreset[] {
   try {
     if (!existsSync(TEAM_PRESETS_FILE)) return [];
@@ -376,6 +396,7 @@ function logScoreAndPenaltyChanges(previousState: GameState, nextState: GameStat
     appendEvent({
       ...createBaseEvent("penalty_added", "home"),
       penaltyId: penalty.id,
+      penaltyDurationMs: penalty.duration,
       playerNumber: penalty.playerNumber,
       infraction: penalty.infraction,
     }),
@@ -387,6 +408,7 @@ function logScoreAndPenaltyChanges(previousState: GameState, nextState: GameStat
     appendEvent({
       ...createBaseEvent("penalty_added", "away"),
       penaltyId: penalty.id,
+      penaltyDurationMs: penalty.duration,
       playerNumber: penalty.playerNumber,
       infraction: penalty.infraction,
     }),
@@ -411,6 +433,7 @@ function syncActivePenaltyEventDetails(state: GameState) {
       ...event,
       playerNumber: activePenalty.playerNumber,
       infraction: activePenalty.infraction,
+      penaltyDurationMs: activePenalty.duration,
     };
   });
 }
@@ -636,6 +659,30 @@ app.post("/api/shortcuts", (req, res) => {
   } catch (error) {
     console.error("Error saving shortcuts:", error);
     res.status(500).json({ success: false, error: "Failed to save shortcuts" });
+  }
+});
+
+app.get("/api/pdf-layout", (req, res) => {
+  const layout = readPdfLayoutFromDisk();
+  if (!layout) {
+    res.status(404).json({ error: "No saved PDF layout" });
+    return;
+  }
+  res.json(layout);
+});
+
+app.post("/api/pdf-layout", (req, res) => {
+  try {
+    const layout = req.body;
+    if (!layout || typeof layout !== "object") {
+      res.status(400).json({ error: "Invalid layout" });
+      return;
+    }
+    writePdfLayoutToDisk(layout);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error saving PDF layout:", error);
+    res.status(500).json({ success: false, error: "Failed to save PDF layout" });
   }
 });
 

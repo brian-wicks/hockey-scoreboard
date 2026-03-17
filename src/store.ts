@@ -21,6 +21,7 @@ export interface GameEvent {
   type: EventType;
   team: "home" | "away";
   penaltyId?: string;
+  penaltyDurationMs?: number;
   period: string;
   clockTime: string;
   endClockTime?: string;

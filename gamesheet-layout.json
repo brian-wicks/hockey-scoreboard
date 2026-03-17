@@ -1,0 +1,140 @@
+{
+  "version": 2,
+  "scale": 1,
+  "offsetX": 0,
+  "offsetY": 0,
+  "rightColumnXRatio": 0.54,
+  "teamNames": {
+    "homeX": 613,
+    "homeYFromTop": 145,
+    "awayX": 613,
+    "awayYFromTop": 165,
+    "size": 11,
+    "align": "left"
+  },
+  "awayRoster": {
+    "numX": 89,
+    "nameX": 105,
+    "goalsX": 192,
+    "assistsX": 212,
+    "pimX": 231,
+    "yFromTop": 330,
+    "lineHeight": 10.1,
+    "size": 8.5,
+    "maxLines": 22,
+    "numAlign": "center",
+    "nameAlign": "left",
+    "goalsAlign": "center",
+    "assistsAlign": "center",
+    "pimAlign": "center"
+  },
+  "homeRoster": {
+    "numX": 89,
+    "nameX": 105,
+    "goalsX": 192,
+    "assistsX": 212,
+    "pimX": 231,
+    "yFromTop": 68,
+    "lineHeight": 10.1,
+    "size": 8.5,
+    "maxLines": 22,
+    "numAlign": "center",
+    "nameAlign": "left",
+    "goalsAlign": "center",
+    "assistsAlign": "center",
+    "pimAlign": "center"
+  },
+  "awayGoals": {
+    "yFromTop": 330,
+    "lineHeight": 10.1,
+    "size": 8.5,
+    "maxLines": 22,
+    "cols": {
+      "timeX": 256,
+      "scorerX": 302,
+      "assist1X": 322,
+      "assist2X": 341
+    },
+    "aligns": {
+      "time": "center",
+      "scorer": "center",
+      "assist1": "center",
+      "assist2": "center"
+    }
+  },
+  "homeGoals": {
+    "yFromTop": 68,
+    "lineHeight": 10.1,
+    "size": 8.5,
+    "maxLines": 22,
+    "cols": {
+      "timeX": 256,
+      "scorerX": 302,
+      "assist1X": 322,
+      "assist2X": 341
+    },
+    "aligns": {
+      "time": "center",
+      "scorer": "center",
+      "assist1": "center",
+      "assist2": "center"
+    }
+  },
+  "awayPenalties": {
+    "yFromTop": 330,
+    "lineHeight": 10.1,
+    "size": 8.5,
+    "maxLines": 22,
+    "cols": {
+      "playerNumX": 362,
+      "pimX": 380,
+      "offenceX": 416,
+      "givenX": 457,
+      "startX": 487,
+      "endX": 516
+    },
+    "aligns": {
+      "playerNum": "center",
+      "pim": "center",
+      "offence": "center",
+      "given": "center",
+      "start": "center",
+      "end": "center"
+    }
+  },
+  "homePenalties": {
+    "yFromTop": 68,
+    "lineHeight": 10.1,
+    "size": 8.5,
+    "maxLines": 22,
+    "cols": {
+      "playerNumX": 362,
+      "pimX": 380,
+      "offenceX": 416,
+      "givenX": 457,
+      "startX": 487,
+      "endX": 516
+    },
+    "aligns": {
+      "playerNum": "center",
+      "pim": "center",
+      "offence": "center",
+      "given": "center",
+      "start": "center",
+      "end": "center"
+    }
+  },
+  "awayShots": {
+    "x": 343,
+    "yFromTop": 702,
+    "size": 10,
+    "align": "center"
+  },
+  "homeShots": {
+    "x": 208,
+    "yFromTop": 702,
+    "size": 10,
+    "align": "center"
+  },
+  "debugGridStep": 50
+}
