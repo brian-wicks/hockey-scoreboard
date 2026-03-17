@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Download, SlidersHorizontal } from "lucide-react";
-import { GameEvent, TeamState, TeamPlayer } from "../../store";
+import { GameEvent, GameState, TeamState, TeamPlayer } from "../../store";
 import { buildGamesheetPdfBytes, exportGamesheetPdf, GamesheetPdfLayout, getDefaultGamesheetPdfLayout } from "../../utils/gamesheetPdf";
 import { PenaltyReasonInput, useDropdownPlacement } from "./DropdownInputs";
 import { UpdateGameState } from "./types";
@@ -175,6 +175,7 @@ function savePdfLayout(layout: GamesheetPdfLayout) {
 }
 
 interface EventLogPanelProps {
+  gameState: GameState;
   eventLog: GameEvent[];
   homeTeam: TeamState;
   awayTeam: TeamState;
@@ -281,6 +282,7 @@ function SearchDropdownInput({
 }
 
 export default function EventLogPanel({
+  gameState,
   eventLog,
   homeTeam,
   awayTeam,
@@ -291,10 +293,12 @@ export default function EventLogPanel({
   const [showPdfLayout, setShowPdfLayout] = useState(false);
   const [pdfLayout, setPdfLayout] = useState<GamesheetPdfLayout>(() => loadPdfLayout());
   const [fileLayoutStatus, setFileLayoutStatus] = useState<"idle" | "loading" | "saving" | "loaded" | "saved" | "error">("idle");
+  const [jsonIoStatus, setJsonIoStatus] = useState<"idle" | "exported" | "importing" | "imported" | "error">("idle");
   const [showPdfPreview, setShowPdfPreview] = useState(true);
   const [previewDebug, setPreviewDebug] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     savePdfLayout(pdfLayout);
@@ -369,18 +373,115 @@ export default function EventLogPanel({
     updateState({ eventLog: nextLog });
   };
 
+  const buildExportState = () => {
+    const { serverTime, ...rest } = gameState;
+    return rest;
+  };
+
+  const exportGamesheetJson = () => {
+    try {
+      const payload = buildExportState();
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `gamesheet-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5_000);
+      setJsonIoStatus("exported");
+      setTimeout(() => setJsonIoStatus("idle"), 1200);
+    } catch {
+      setJsonIoStatus("error");
+      setTimeout(() => setJsonIoStatus("idle"), 2000);
+    }
+  };
+
+  const mergeImportedState = (incoming: Partial<GameState>) => {
+    const nextHome = { ...gameState.homeTeam, ...(incoming.homeTeam ?? {}) };
+    const nextAway = { ...gameState.awayTeam, ...(incoming.awayTeam ?? {}) };
+    const nextClock = { ...gameState.clock, ...(incoming.clock ?? {}) };
+
+    return {
+      ...gameState,
+      ...incoming,
+      homeTeam: nextHome,
+      awayTeam: nextAway,
+      clock: nextClock,
+      eventLog: Array.isArray(incoming.eventLog) ? incoming.eventLog : gameState.eventLog,
+      overlayVisible: incoming.overlayVisible ?? gameState.overlayVisible,
+      overlayLayout: incoming.overlayLayout ?? gameState.overlayLayout,
+      overlayCorner: incoming.overlayCorner ?? gameState.overlayCorner,
+      overlayTheme: incoming.overlayTheme ?? gameState.overlayTheme,
+      period: incoming.period ?? gameState.period,
+    } satisfies GameState;
+  };
+
+  const importGamesheetJson = (file: File | null) => {
+    if (!file) return;
+    setJsonIoStatus("importing");
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const raw = typeof reader.result === "string" ? reader.result : "";
+        const parsed = JSON.parse(raw) as Partial<GameState>;
+        if (!parsed || typeof parsed !== "object") throw new Error("Invalid JSON");
+        const merged = mergeImportedState(parsed);
+        updateState(merged);
+        setJsonIoStatus("imported");
+        setTimeout(() => setJsonIoStatus("idle"), 1200);
+      } catch {
+        setJsonIoStatus("error");
+        setTimeout(() => setJsonIoStatus("idle"), 2000);
+      }
+    };
+    reader.onerror = () => {
+      setJsonIoStatus("error");
+      setTimeout(() => setJsonIoStatus("idle"), 2000);
+    };
+    reader.readAsText(file);
+  };
+
   const sortedLog = [...eventLog].reverse();
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-zinc-300 uppercase tracking-wider">Event Log</h2>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowPdfLayout((v) => !v)}
-            className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium flex items-center gap-2 text-zinc-200"
-            title="Adjust PDF layout"
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-zinc-300 uppercase tracking-wider">Event Log</h2>
+          <div className="flex items-center gap-2">
+            <input
+              ref={importInputRef}
+              type="file"
+              accept="application/json"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                if (e.target.value) e.target.value = "";
+                importGamesheetJson(file);
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => importInputRef.current?.click()}
+              className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium flex items-center gap-2 text-zinc-200"
+              title="Import gamesheet JSON"
+            >
+              Import JSON
+            </button>
+            <button
+              type="button"
+              onClick={exportGamesheetJson}
+              className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium flex items-center gap-2 text-zinc-200"
+              title="Export gamesheet JSON"
+            >
+              Export JSON
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPdfLayout((v) => !v)}
+              className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium flex items-center gap-2 text-zinc-200"
+              title="Adjust PDF layout"
           >
             <SlidersHorizontal size={16} />
             PDF Layout
@@ -394,17 +495,28 @@ export default function EventLogPanel({
             <Download size={16} />
             Export PDF
           </button>
-          <button
-            type="button"
-            onClick={() => exportGamesheetPdf({ homeTeam, awayTeam, eventLog }, { layout: pdfLayout, debug: true })}
-            className="px-3 py-2 bg-zinc-900 hover:bg-zinc-800 rounded-lg text-sm font-medium flex items-center gap-2 text-zinc-300 border border-zinc-800"
-            title="Export PDF with debug grid"
-          >
-            <Download size={16} />
-            Export (debug)
-          </button>
+            <button
+              type="button"
+              onClick={() => exportGamesheetPdf({ homeTeam, awayTeam, eventLog }, { layout: pdfLayout, debug: true })}
+              className="px-3 py-2 bg-zinc-900 hover:bg-zinc-800 rounded-lg text-sm font-medium flex items-center gap-2 text-zinc-300 border border-zinc-800"
+              title="Export PDF with debug grid"
+            >
+              <Download size={16} />
+              Export (debug)
+            </button>
+            <div className="text-xs text-zinc-500 min-w-[90px] text-right">
+              {jsonIoStatus === "importing"
+                ? "Importing..."
+                : jsonIoStatus === "imported"
+                  ? "Imported"
+                  : jsonIoStatus === "exported"
+                    ? "Exported"
+                    : jsonIoStatus === "error"
+                      ? "Error"
+                      : ""}
+            </div>
+          </div>
         </div>
-      </div>
 
       {showPdfLayout && (
         <div className="border border-zinc-800 rounded-lg bg-zinc-950 p-4">
@@ -2154,6 +2266,18 @@ export default function EventLogPanel({
                     }
                   />
                 </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Label align</span>
+                  <AlignSelect
+                      value={pdfLayout.awayPeriodLabel.pimAlign ?? pdfLayout.awayPeriodLabel.align ?? "left"}
+                      onChange={(next) =>
+                          setPdfLayout((p) => ({
+                            ...p,
+                            awayPeriodLabel: { ...p.awayPeriodLabel, pimAlign: next },
+                          }))
+                      }
+                  />
+                </label>
               </div>
             </div>
 
@@ -2283,6 +2407,18 @@ export default function EventLogPanel({
                         homePeriodPim: { ...p.homePeriodPim, align: next },
                       }))
                     }
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-zinc-400">Label align</span>
+                  <AlignSelect
+                      value={pdfLayout.homePeriodLabel.pimAlign ?? pdfLayout.homePeriodLabel.align ?? "left"}
+                      onChange={(next) =>
+                          setPdfLayout((p) => ({
+                            ...p,
+                            homePeriodLabel: { ...p.homePeriodLabel, pimAlign: next },
+                          }))
+                      }
                   />
                 </label>
               </div>

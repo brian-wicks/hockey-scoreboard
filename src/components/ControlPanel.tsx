@@ -56,6 +56,7 @@ export default function ControlPanel() {
 
             <OverlayControlsPanel overlayVisible={overlayVisible} updateState={updateState} />
             <EventLogPanel
+              gameState={gameState}
               eventLog={eventLog}
               homeTeam={homeTeam}
               awayTeam={awayTeam}

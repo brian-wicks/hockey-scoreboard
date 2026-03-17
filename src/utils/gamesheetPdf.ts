@@ -114,6 +114,7 @@ export type GamesheetPdfLayout = {
     yFromTop: number;
     size: number;
     align: "left" | "center" | "right";
+    pimAlign?: "left" | "center" | "right";
     goalsX: number;
     pimX: number;
   };
@@ -121,6 +122,7 @@ export type GamesheetPdfLayout = {
     yFromTop: number;
     size: number;
     align: "left" | "center" | "right";
+    pimAlign?: "left" | "center" | "right";
     goalsX: number;
     pimX: number;
   };
@@ -236,6 +238,7 @@ export function getDefaultGamesheetPdfLayout(): GamesheetPdfLayout {
       yFromTop: 110,
       size: 9,
       align: "right",
+      pimAlign: "right",
       goalsX: 404,
       pimX: 404,
     },
@@ -243,6 +246,7 @@ export function getDefaultGamesheetPdfLayout(): GamesheetPdfLayout {
       yFromTop: 98,
       size: 9,
       align: "right",
+      pimAlign: "right",
       goalsX: 404,
       pimX: 404,
     },
@@ -675,6 +679,7 @@ export async function buildGamesheetPdfBytes(
       const pimY = t(layout, 0, height - pimCfg.yFromTop).y;
       const size = s(layout, cfg.size);
       const align = cfg.align ?? "right";
+      const pimAlign = cfg.pimAlign ?? align;
       const goalsX = t(layout, resolveX(cfg.goalsX, width), 0).x;
       const pimX = t(layout, resolveX(cfg.pimX, width), 0).x;
 
@@ -684,7 +689,7 @@ export async function buildGamesheetPdfBytes(
       }
 
       drawTextAligned({ page, font, text, x: goalsX, y: goalsY, size, align });
-      drawTextAligned({ page, font, text, x: pimX, y: pimY, size, align });
+      drawTextAligned({ page, font, text, x: pimX, y: pimY, size, align: pimAlign });
     };
 
     drawPeriodLabel("awayPeriodLabel", layout.awayPeriodLabel, layout.awayPeriodGoals, layout.awayPeriodPim, away.name || "Away");

@@ -175,16 +175,18 @@
   "awayPeriodLabel": {
     "yFromTop": 250,
     "size": 9,
-    "align": "right",
-    "goalsX": 640,
-    "pimX": 640
+    "align": "left",
+    "pimAlign": "left",
+    "goalsX": 546,
+    "pimX": 546
   },
   "homePeriodLabel": {
     "yFromTop": 240,
     "size": 9,
-    "align": "right",
-    "goalsX": 640,
-    "pimX": 640
+    "align": "left",
+    "pimAlign": "left",
+    "goalsX": 546,
+    "pimX": 546
   },
   "awayShots": {
     "x": 343,
