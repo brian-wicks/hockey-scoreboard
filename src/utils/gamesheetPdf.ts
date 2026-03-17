@@ -1,5 +1,5 @@
 import { PDFDocument, PDFPage, rgb, StandardFonts } from "pdf-lib";
-import type { GameEvent, TeamPlayer, TeamState } from "../store";
+import type { GameEvent, TeamState } from "../store";
 
 export type GamesheetPdfLayout = {
   // v2: X from LEFT, Y from TOP, in PDF points. If missing, layout is treated as legacy (v1) at render-time.
@@ -263,13 +263,6 @@ function extractJerseyNumber(value: string | undefined): string {
   const match = trimmed.match(/^(\d{1,3})\b/);
   return match?.[1] ?? "";
 }
-
-function formatEventTime(event: Pick<GameEvent, "period" | "clockTime">): string {
-  const p = (event.period || "").trim();
-  const t = (event.clockTime || "").trim();
-  return [p, t].filter(Boolean).join(" ");
-}
-
 function sortChronological(a: Pick<GameEvent, "createdAt">, b: Pick<GameEvent, "createdAt">) {
   return (a.createdAt ?? 0) - (b.createdAt ?? 0);
 }
@@ -502,8 +495,6 @@ function formatPimMinutesFromDuration(durationMs: number | undefined): string {
   if (![2, 5, 10].includes(mins)) return `${mins}`;
   return `${mins}`;
 }
-
-type PeriodKey = "1" | "2" | "3" | "OT";
 type PeriodTotals = { "1": number; "2": number; "3": number; "OT": number; total: number };
 
 function createPeriodTotals(): PeriodTotals {
