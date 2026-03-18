@@ -11,6 +11,15 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.4.1',
+    date: '2026-03-18',
+    sections: {
+      fixed: [
+        'Fixed ordering and rendering of gamesheet PDF.',
+      ],
+    },
+  },
+  {
     version: '1.4.0',
     date: '2026-03-17',
     sections: {
