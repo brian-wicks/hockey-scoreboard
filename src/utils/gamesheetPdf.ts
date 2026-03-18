@@ -299,6 +299,44 @@ function sortChronological(a: Pick<GameEvent, "createdAt">, b: Pick<GameEvent, "
   return (a.createdAt ?? 0) - (b.createdAt ?? 0);
 }
 
+function sortByGameClock(a: Pick<GameEvent, "createdAt" | "period" | "clockTime">, b: Pick<GameEvent, "createdAt" | "period" | "clockTime">) {
+  const aElapsed = getElapsedSeconds(a);
+  const bElapsed = getElapsedSeconds(b);
+  if (aElapsed !== null && bElapsed !== null) {
+    if (aElapsed !== bElapsed) return aElapsed - bElapsed;
+  } else if (aElapsed !== null) {
+    return -1;
+  } else if (bElapsed !== null) {
+    return 1;
+  }
+  return sortChronological(a, b);
+}
+
+function parseJerseyNumberValue(value: string | undefined): number | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const num = Number.parseInt(trimmed, 10);
+  return Number.isFinite(num) ? num : null;
+}
+
+function sortRosterByNumber(players: TeamPlayer[]) {
+  return players
+    .map((player, index) => ({
+      player,
+      index,
+      num: parseJerseyNumberValue(player.jerseyNumber),
+    }))
+    .sort((a, b) => {
+      if (a.num === null && b.num === null) return a.index - b.index;
+      if (a.num === null) return 1;
+      if (b.num === null) return -1;
+      if (a.num === b.num) return a.index - b.index;
+      return a.num - b.num;
+    })
+    .map((entry) => entry.player);
+}
+
 function matchesRevokedGoal(goal: GameEvent, revoked: GameEvent) {
   const sameTeam = goal.team === revoked.team;
   if (!sameTeam) return false;
@@ -343,6 +381,8 @@ function getEffectiveGoals(eventLog: GameEvent[]) {
     }
   }
 
+  homeGoals.sort(sortByGameClock);
+  awayGoals.sort(sortByGameClock);
   return { homeGoals, awayGoals };
 }
 
@@ -623,27 +663,7 @@ const PERIOD_SECONDS = 20 * 60;
 const OT_DEFAULT_SECONDS = 5 * 60;
 
 function formatGamesheetClockTime(event: Pick<GameEvent, "period" | "clockTime">): string {
-  const remainingSeconds = parseClockTimeSeconds(event.clockTime);
-  if (remainingSeconds === null) return (event.clockTime ?? "").trim();
-
-  const periodKey = normalizePeriodKey(event.period);
-  if (!periodKey) return (event.clockTime ?? "").trim();
-
-  let baseSeconds = 0;
-  let periodLengthSeconds = PERIOD_SECONDS;
-
-  if (periodKey === "2") baseSeconds = PERIOD_SECONDS;
-  if (periodKey === "3") baseSeconds = PERIOD_SECONDS * 2;
-  if (periodKey === "OT") {
-    baseSeconds = PERIOD_SECONDS * 3;
-    periodLengthSeconds = OT_DEFAULT_SECONDS;
-  }
-
-  // If the stored time already exceeds the period length, assume it is already count-up.
-  if (remainingSeconds > periodLengthSeconds) return (event.clockTime ?? "").trim();
-
-  const elapsedSeconds = Math.max(0, periodLengthSeconds - remainingSeconds);
-  return formatClockSeconds(baseSeconds + elapsedSeconds);
+  return (event.clockTime ?? "").trim();
 }
 
 function formatGivenFromTimes(startClockTime?: string, endClockTime?: string): string {
@@ -855,39 +875,41 @@ export async function buildGamesheetPdfBytes(
   }
 
   // Rosters (number and name are drawn in separate columns).
-  const awayRosterNumbers = (away.players ?? []).map((p) => p.jerseyNumber.trim());
-  const awayRosterNames = (away.players ?? []).map((p) => formatRosterName(p));
-  const homeRosterNumbers = (home.players ?? []).map((p) => p.jerseyNumber.trim());
-  const homeRosterNames = (home.players ?? []).map((p) => formatRosterName(p));
-  const awayNmStats = buildGoalieStats(input.eventLog, away.players ?? [], "away");
-  const homeNmStats = buildGoalieStats(input.eventLog, home.players ?? [], "home");
+  const awayRoster = sortRosterByNumber(away.players ?? []);
+  const homeRoster = sortRosterByNumber(home.players ?? []);
+  const awayRosterNumbers = awayRoster.map((p) => p.jerseyNumber.trim());
+  const awayRosterNames = awayRoster.map((p) => formatRosterName(p));
+  const homeRosterNumbers = homeRoster.map((p) => p.jerseyNumber.trim());
+  const homeRosterNames = homeRoster.map((p) => formatRosterName(p));
+  const awayNmStats = buildGoalieStats(input.eventLog, awayRoster, "away");
+  const homeNmStats = buildGoalieStats(input.eventLog, homeRoster, "home");
   const stats = getRosterStats(input.eventLog);
-  const awayRosterGoals = (away.players ?? []).map((p) => {
+  const awayRosterGoals = awayRoster.map((p) => {
     const n = p.jerseyNumber.trim();
     const v = stats.goalsByTeamNumber.away.get(n) ?? 0;
     return v ? String(v) : "";
   });
-  const awayRosterAssists = (away.players ?? []).map((p) => {
+  const awayRosterAssists = awayRoster.map((p) => {
     const n = p.jerseyNumber.trim();
     const v = stats.assistsByTeamNumber.away.get(n) ?? 0;
     return v ? String(v) : "";
   });
-  const awayRosterPim = (away.players ?? []).map((p) => {
+  const awayRosterPim = awayRoster.map((p) => {
     const n = p.jerseyNumber.trim();
     const v = stats.pimByTeamNumber.away.get(n) ?? 0;
     return v ? String(v) : "";
   });
-  const homeRosterGoals = (home.players ?? []).map((p) => {
+  const homeRosterGoals = homeRoster.map((p) => {
     const n = p.jerseyNumber.trim();
     const v = stats.goalsByTeamNumber.home.get(n) ?? 0;
     return v ? String(v) : "";
   });
-  const homeRosterAssists = (home.players ?? []).map((p) => {
+  const homeRosterAssists = homeRoster.map((p) => {
     const n = p.jerseyNumber.trim();
     const v = stats.assistsByTeamNumber.home.get(n) ?? 0;
     return v ? String(v) : "";
   });
-  const homeRosterPim = (home.players ?? []).map((p) => {
+  const homeRosterPim = homeRoster.map((p) => {
     const n = p.jerseyNumber.trim();
     const v = stats.pimByTeamNumber.home.get(n) ?? 0;
     return v ? String(v) : "";
@@ -1212,10 +1234,10 @@ export async function buildGamesheetPdfBytes(
     };
 
     const awayCols = buildPenaltyColumns(
-      input.eventLog.filter((e) => e.type === "penalty_added" && e.team === "away").slice().sort(sortChronological),
+      input.eventLog.filter((e) => e.type === "penalty_added" && e.team === "away").slice().sort(sortByGameClock),
     );
     const homeCols = buildPenaltyColumns(
-      input.eventLog.filter((e) => e.type === "penalty_added" && e.team === "home").slice().sort(sortChronological),
+      input.eventLog.filter((e) => e.type === "penalty_added" && e.team === "home").slice().sort(sortByGameClock),
     );
 
     const drawPenaltyTable = (

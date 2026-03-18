@@ -583,13 +583,16 @@ io.on("connection", (socket) => {
   socket.on("updateGameState", (updates: Partial<GameState>) => {
     const previousState = gameState;
     let nextState: GameState = { ...gameState, ...updates };
+    const hasEventLogUpdate = Array.isArray(updates.eventLog);
 
-    if (updates.eventLog) {
+    if (hasEventLogUpdate) {
       nextState = syncActivePenaltyStateFromEventLog(nextState);
     }
 
     gameState = nextState;
-    logScoreAndPenaltyChanges(previousState, nextState);
+    if (!hasEventLogUpdate) {
+      logScoreAndPenaltyChanges(previousState, nextState);
+    }
     syncActivePenaltyEventDetails(gameState);
     emitGameState();
   });
