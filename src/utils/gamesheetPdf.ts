@@ -642,13 +642,6 @@ function parseClockTimeSeconds(value: string | undefined): number | null {
   if (!Number.isFinite(mins) || !Number.isFinite(secs)) return null;
   return mins * 60 + secs;
 }
-
-function formatClockSeconds(totalSeconds: number): string {
-  const mins = Math.floor(Math.max(0, totalSeconds) / 60);
-  const secs = Math.max(0, totalSeconds) % 60;
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
-}
-
 function normalizePeriodKey(period: string | undefined): "1" | "2" | "3" | "OT" | null {
   const raw = (period ?? "").trim().toUpperCase();
   if (!raw) return null;
