@@ -66,6 +66,8 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
   const [awayAbbr, setAwayAbbr] = useState(gameState.awayTeam.abbreviation);
   const [awayLogo, setAwayLogo] = useState(gameState.awayTeam.logo);
   const [awayColorText, setAwayColorText] = useState(gameState.awayTeam.color);
+  const [homeRosterDraft, setHomeRosterDraft] = useState<TeamPlayer[]>(gameState.homeTeam.players ?? []);
+  const [awayRosterDraft, setAwayRosterDraft] = useState<TeamPlayer[]>(gameState.awayTeam.players ?? []);
   const [savedTeams, setSavedTeams] = useState<SavedTeam[]>([]);
   const [homeSaveStatus, setHomeSaveStatus] = useState("");
   const [awaySaveStatus, setAwaySaveStatus] = useState("");
@@ -100,15 +102,60 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
     updateTeam(team, { players: nextPlayers });
   };
 
+  const updateDraftPlayers = (team: "home" | "away", nextPlayers: TeamPlayer[]) => {
+    if (team === "home") {
+      setHomeRosterDraft(nextPlayers);
+    } else {
+      setAwayRosterDraft(nextPlayers);
+    }
+  };
+
+  const updateDraftPlayer = (team: "home" | "away", playerId: string, updates: Partial<TeamPlayer>) => {
+    const currentPlayers = team === "home" ? homeRosterDraft : awayRosterDraft;
+    const nextPlayers = currentPlayers.map((player) => (player.id === playerId ? { ...player, ...updates } : player));
+    updateDraftPlayers(team, nextPlayers);
+  };
+
+  const commitDraftPlayer = (
+    team: "home" | "away",
+    playerId: string,
+    updates: Partial<TeamPlayer>,
+    sortIfComplete: boolean,
+  ) => {
+    const currentPlayers = team === "home" ? homeRosterDraft : awayRosterDraft;
+    const nextPlayers = currentPlayers.map((player) => (player.id === playerId ? { ...player, ...updates } : player));
+    const target = nextPlayers.find((player) => player.id === playerId);
+    const hasNumber = Boolean(target?.jerseyNumber?.trim());
+    const hasName = Boolean(target?.name?.trim());
+    const shouldSort = sortIfComplete && hasNumber && hasName;
+    const finalPlayers = shouldSort ? sortPlayersByJersey(nextPlayers) : nextPlayers;
+    updateDraftPlayers(team, finalPlayers);
+    updateTeamPlayers(team, finalPlayers);
+  };
+
+  const sortPlayersByJersey = (players: TeamPlayer[]) =>
+    players.slice().sort((a, b) => {
+      const aNumber = Number.parseInt(a.jerseyNumber, 10);
+      const bNumber = Number.parseInt(b.jerseyNumber, 10);
+      const aValid = Number.isFinite(aNumber);
+      const bValid = Number.isFinite(bNumber);
+      if (aValid && bValid) return aNumber - bNumber;
+      if (aValid) return -1;
+      if (bValid) return 1;
+      return a.jerseyNumber.localeCompare(b.jerseyNumber);
+    });
+
   const addTeamPlayer = (team: "home" | "away") => {
-    const currentPlayers = gameState[`${team}Team`].players ?? [];
+    const currentPlayers = team === "home" ? homeRosterDraft : awayRosterDraft;
     const nextPlayer: TeamPlayer = {
       id: Math.random().toString(36).slice(2, 11),
       jerseyNumber: "",
       name: "",
       position: "",
     };
-    updateTeamPlayers(team, [...currentPlayers, nextPlayer]);
+    const nextPlayers = sortPlayersByJersey([...currentPlayers, nextPlayer]);
+    updateDraftPlayers(team, nextPlayers);
+    updateTeamPlayers(team, nextPlayers);
     if (team === "home") {
       setHomeNewPlayerId(nextPlayer.id);
     } else {
@@ -116,18 +163,11 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
     }
   };
 
-  const updateTeamPlayer = (team: "home" | "away", playerId: string, updates: Partial<TeamPlayer>) => {
-    const currentPlayers = gameState[`${team}Team`].players ?? [];
-    const nextPlayers = currentPlayers.map((player) => (player.id === playerId ? { ...player, ...updates } : player));
-    updateTeamPlayers(team, nextPlayers);
-  };
-
   const removeTeamPlayer = (team: "home" | "away", playerId: string) => {
-    const currentPlayers = gameState[`${team}Team`].players ?? [];
-    updateTeamPlayers(
-      team,
-      currentPlayers.filter((player) => player.id !== playerId),
-    );
+    const currentPlayers = team === "home" ? homeRosterDraft : awayRosterDraft;
+    const nextPlayers = currentPlayers.filter((player) => player.id !== playerId);
+    updateDraftPlayers(team, nextPlayers);
+    updateTeamPlayers(team, nextPlayers);
   };
 
   const commitTeamField = (team: "home" | "away", updates: Partial<TeamState>) => {
@@ -261,6 +301,8 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
     setAwayAbbr(gameState.awayTeam.abbreviation);
     setAwayLogo(gameState.awayTeam.logo);
     setAwayColorText(gameState.awayTeam.color);
+    setHomeRosterDraft(gameState.homeTeam.players ?? []);
+    setAwayRosterDraft(gameState.awayTeam.players ?? []);
   }, [gameState.homeTeam, gameState.awayTeam]);
 
   if (!hasLoadedTeamsRef.current) {
@@ -274,8 +316,8 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
     .map((shortcut, index) => ({ shortcut, index }))
     .filter(({ shortcut }) => !groupedActions.has(shortcut.action));
 
-  const homePlayerCount = (gameState.homeTeam.players ?? []).length;
-  const awayPlayerCount = (gameState.awayTeam.players ?? []).length;
+  const homePlayerCount = homeRosterDraft.length;
+  const awayPlayerCount = awayRosterDraft.length;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -395,17 +437,37 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
             </div>
             {homeRosterExpanded && (
               <div className="flex flex-col gap-2">
-                {(gameState.homeTeam.players ?? []).map((player) => (
+                {homeRosterDraft.map((player) => (
                   <div key={player.id} className="grid grid-cols-[70px_1fr_74px_64px] gap-2">
                     <input
                       type="text"
                       inputMode="numeric"
                       value={player.jerseyNumber}
                       onChange={(e) =>
-                        updateTeamPlayer("home", player.id, {
+                        updateDraftPlayer("home", player.id, {
                           jerseyNumber: sanitizeJerseyNumber(e.target.value),
                         })
                       }
+                      onBlur={(e) =>
+                        commitDraftPlayer(
+                          "home",
+                          player.id,
+                          { jerseyNumber: sanitizeJerseyNumber(e.target.value) },
+                          true,
+                        )
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          commitDraftPlayer(
+                            "home",
+                            player.id,
+                            { jerseyNumber: sanitizeJerseyNumber((e.target as HTMLInputElement).value) },
+                            true,
+                          );
+                          (e.target as HTMLInputElement).blur();
+                        }
+                      }}
                       className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none font-mono"
                       placeholder="#"
                       ref={
@@ -422,14 +484,34 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                     <input
                       type="text"
                       value={player.name}
-                      onChange={(e) => updateTeamPlayer("home", player.id, { name: e.target.value })}
+                      onChange={(e) => updateDraftPlayer("home", player.id, { name: e.target.value })}
+                      onBlur={(e) =>
+                        commitDraftPlayer("home", player.id, { name: e.target.value }, true)
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          commitDraftPlayer(
+                            "home",
+                            player.id,
+                            { name: (e.target as HTMLInputElement).value },
+                            true,
+                          );
+                          (e.target as HTMLInputElement).blur();
+                        }
+                      }}
                       className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
                       placeholder="Player name"
                     />
                     <select
                       value={player.position ?? ""}
                       onChange={(e) =>
-                        updateTeamPlayer("home", player.id, { position: e.target.value as PlayerPosition })
+                        commitDraftPlayer(
+                          "home",
+                          player.id,
+                          { position: e.target.value as PlayerPosition },
+                          false,
+                        )
                       }
                       className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
                     >
@@ -447,7 +529,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                     </button>
                   </div>
                 ))}
-                {(gameState.homeTeam.players ?? []).length === 0 && (
+                {homeRosterDraft.length === 0 && (
                   <div className="text-xs text-zinc-500 italic">No players added.</div>
                 )}
                 <button
@@ -579,17 +661,37 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
             </div>
             {awayRosterExpanded && (
               <div className="flex flex-col gap-2">
-                {(gameState.awayTeam.players ?? []).map((player) => (
+                {awayRosterDraft.map((player) => (
                   <div key={player.id} className="grid grid-cols-[70px_1fr_74px_64px] gap-2">
                     <input
                       type="text"
                       inputMode="numeric"
                       value={player.jerseyNumber}
                       onChange={(e) =>
-                        updateTeamPlayer("away", player.id, {
+                        updateDraftPlayer("away", player.id, {
                           jerseyNumber: sanitizeJerseyNumber(e.target.value),
                         })
                       }
+                      onBlur={(e) =>
+                        commitDraftPlayer(
+                          "away",
+                          player.id,
+                          { jerseyNumber: sanitizeJerseyNumber(e.target.value) },
+                          true,
+                        )
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          commitDraftPlayer(
+                            "away",
+                            player.id,
+                            { jerseyNumber: sanitizeJerseyNumber((e.target as HTMLInputElement).value) },
+                            true,
+                          );
+                          (e.target as HTMLInputElement).blur();
+                        }
+                      }}
                       className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none font-mono"
                       placeholder="#"
                       ref=
@@ -606,14 +708,34 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                     <input
                       type="text"
                       value={player.name}
-                      onChange={(e) => updateTeamPlayer("away", player.id, { name: e.target.value })}
+                      onChange={(e) => updateDraftPlayer("away", player.id, { name: e.target.value })}
+                      onBlur={(e) =>
+                        commitDraftPlayer("away", player.id, { name: e.target.value }, true)
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          commitDraftPlayer(
+                            "away",
+                            player.id,
+                            { name: (e.target as HTMLInputElement).value },
+                            true,
+                          );
+                          (e.target as HTMLInputElement).blur();
+                        }
+                      }}
                       className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
                       placeholder="Player name"
                     />
                     <select
                       value={player.position ?? ""}
                       onChange={(e) =>
-                        updateTeamPlayer("away", player.id, { position: e.target.value as PlayerPosition })
+                        commitDraftPlayer(
+                          "away",
+                          player.id,
+                          { position: e.target.value as PlayerPosition },
+                          false,
+                        )
                       }
                       className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
                     >
@@ -631,7 +753,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                     </button>
                   </div>
                 ))}
-                {(gameState.awayTeam.players ?? []).length === 0 && (
+                {awayRosterDraft.length === 0 && (
                   <div className="text-xs text-zinc-500 italic">No players added.</div>
                 )}
                 <button
