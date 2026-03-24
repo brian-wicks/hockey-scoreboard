@@ -76,9 +76,10 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
   const [saveConflict, setSaveConflict] = useState<SaveConflictState | null>(null);
   const [homeRosterExpanded, setHomeRosterExpanded] = useState(false);
   const [awayRosterExpanded, setAwayRosterExpanded] = useState(false);
-  const [homeNewPlayerId, setHomeNewPlayerId] = useState<string | null>(null);
-  const [awayNewPlayerId, setAwayNewPlayerId] = useState<string | null>(null);
   const hasLoadedTeamsRef = useRef(false);
+  const homeRosterRef = useRef<HTMLDivElement | null>(null);
+  const awayRosterRef = useRef<HTMLDivElement | null>(null);
+  const pendingFocusRef = useRef<{ home?: string; away?: string }>({});
 
   const baseUrl = (() => {
     // @ts-ignore
@@ -157,9 +158,33 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
     updateDraftPlayers(team, nextPlayers);
     updateTeamPlayers(team, nextPlayers);
     if (team === "home") {
-      setHomeNewPlayerId(nextPlayer.id);
+      pendingFocusRef.current.home = nextPlayer.id;
+      requestAnimationFrame(() => {
+        const targetId = pendingFocusRef.current.home;
+        if (!targetId) return;
+        const input = homeRosterRef.current?.querySelector<HTMLInputElement>(
+          `[data-player-input="${targetId}"]`,
+        );
+        if (input) {
+          input.focus();
+          input.select();
+          pendingFocusRef.current.home = undefined;
+        }
+      });
     } else {
-      setAwayNewPlayerId(nextPlayer.id);
+      pendingFocusRef.current.away = nextPlayer.id;
+      requestAnimationFrame(() => {
+        const targetId = pendingFocusRef.current.away;
+        if (!targetId) return;
+        const input = awayRosterRef.current?.querySelector<HTMLInputElement>(
+          `[data-player-input="${targetId}"]`,
+        );
+        if (input) {
+          input.focus();
+          input.select();
+          pendingFocusRef.current.away = undefined;
+        }
+      });
     }
   };
 
@@ -436,13 +461,14 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
               </button>
             </div>
             {homeRosterExpanded && (
-              <div className="flex flex-col gap-2">
+              <div ref={homeRosterRef} className="flex flex-col gap-2">
                 {homeRosterDraft.map((player) => (
                   <div key={player.id} className="grid grid-cols-[70px_1fr_74px_64px] gap-2">
                     <input
                       type="text"
                       inputMode="numeric"
                       value={player.jerseyNumber}
+                      data-player-input={player.id}
                       onChange={(e) =>
                         updateDraftPlayer("home", player.id, {
                           jerseyNumber: sanitizeJerseyNumber(e.target.value),
@@ -470,16 +496,6 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                       }}
                       className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none font-mono"
                       placeholder="#"
-                      ref={
-                        player.id === homeNewPlayerId
-                          ? (el) => {
-                              if (!el) return;
-                              el.focus();
-                              el.select();
-                              setHomeNewPlayerId(null);
-                            }
-                          : undefined
-                      }
                     />
                     <input
                       type="text"
@@ -660,13 +676,14 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
               </button>
             </div>
             {awayRosterExpanded && (
-              <div className="flex flex-col gap-2">
+              <div ref={awayRosterRef} className="flex flex-col gap-2">
                 {awayRosterDraft.map((player) => (
                   <div key={player.id} className="grid grid-cols-[70px_1fr_74px_64px] gap-2">
                     <input
                       type="text"
                       inputMode="numeric"
                       value={player.jerseyNumber}
+                      data-player-input={player.id}
                       onChange={(e) =>
                         updateDraftPlayer("away", player.id, {
                           jerseyNumber: sanitizeJerseyNumber(e.target.value),
@@ -694,16 +711,6 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                       }}
                       className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none font-mono"
                       placeholder="#"
-                      ref=
-                        {player.id === awayNewPlayerId
-                          ? (el) => {
-                              if (!el) return;
-                              el.focus();
-                              el.select();
-                              setAwayNewPlayerId(null);
-                            }
-                          : undefined
-                      }
                     />
                     <input
                       type="text"
