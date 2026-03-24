@@ -29,7 +29,6 @@ export default function PenaltyItem({
   const suppressPlayerBlurCommitRef = useRef(false);
   const playerInputRef = useRef<HTMLInputElement | null>(null);
   const playerDropdown = useDropdownPlacement(playerOpen);
-  const playerListRef = useRef<HTMLDivElement | null>(null);
   const playerOptionRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
@@ -169,7 +168,6 @@ export default function PenaltyItem({
         />
         {playerOpen && (
           <div
-            ref={playerListRef}
             className={`absolute left-0 z-20 w-44 overflow-auto rounded-md border border-zinc-800 bg-zinc-950 shadow-lg ${
               playerDropdown.dropUp ? "bottom-full mb-1" : "top-full mt-1"
             }`}

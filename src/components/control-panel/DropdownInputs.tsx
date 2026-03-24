@@ -46,7 +46,6 @@ export function PenaltyReasonInput({ value, onChange, inputClassName }: PenaltyR
   const [query, setQuery] = useState(value);
   const [activeIndex, setActiveIndex] = useState(-1);
   const suppressBlurCommitRef = useRef(false);
-  const listRef = useRef<HTMLDivElement | null>(null);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const { containerRef, dropUp, maxHeight } = useDropdownPlacement(open);
 
@@ -133,7 +132,6 @@ export function PenaltyReasonInput({ value, onChange, inputClassName }: PenaltyR
       />
       {open && (
         <div
-          ref={listRef}
           className={`absolute left-0 z-20 w-56 overflow-auto rounded-md border border-zinc-800 bg-zinc-950 shadow-lg ${
             dropUp ? "bottom-full mb-1" : "top-full mt-1"
           }`}
@@ -193,7 +191,6 @@ export function SearchDropdownInput({
   const [query, setQuery] = useState(value);
   const [activeIndex, setActiveIndex] = useState(-1);
   const suppressBlurCommitRef = useRef(false);
-  const listRef = useRef<HTMLDivElement | null>(null);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const { containerRef, dropUp, maxHeight } = useDropdownPlacement(open);
 
@@ -283,7 +280,6 @@ export function SearchDropdownInput({
       />
       {open && (
         <div
-          ref={listRef}
           className={`absolute left-0 z-20 w-56 overflow-auto rounded-md border border-zinc-800 bg-zinc-950 shadow-lg ${
             dropUp ? "bottom-full mb-1" : "top-full mt-1"
           }`}

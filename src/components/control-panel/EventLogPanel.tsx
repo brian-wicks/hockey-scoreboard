@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Download, SlidersHorizontal } from "lucide-react";
 import { GameEvent, GameState, TeamState, TeamPlayer } from "../../store";
 import { buildGamesheetPdfBytes, exportGamesheetPdf, GamesheetPdfLayout, getDefaultGamesheetPdfLayout } from "../../utils/gamesheetPdf";
+import { toSkaterLabel } from "../../utils/roster";
 import { PenaltyReasonInput, SearchDropdownInput } from "./DropdownInputs";
 import { UpdateGameState } from "./types";
 
@@ -207,15 +208,6 @@ interface EventLogPanelProps {
   homePlayers: TeamPlayer[];
   awayPlayers: TeamPlayer[];
   updateState: UpdateGameState;
-}
-
-function toSkaterLabel(player: TeamPlayer) {
-  const number = player.jerseyNumber.trim();
-  const name = player.name.trim();
-  const position = player.position && player.position !== "NM" ? ` (${player.position})` : "";
-  if (number && name) return `${number} ${name}${position}`;
-  if (name) return `${name}${position}`;
-  return number;
 }
 
 export default function EventLogPanel({
