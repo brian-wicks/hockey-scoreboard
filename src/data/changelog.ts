@@ -11,6 +11,19 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.5.0',
+    date: '2026-03-24',
+    sections: {
+      added: [
+        'Add jumbotron scoreboard view.',
+        'Add goal review panels for recent or incomplete goals.',
+      ],
+      changed: [
+        'Improve usability of dropdown inputs.',
+      ],
+    },
+  },
+  {
     version: '1.4.1',
     date: '2026-03-18',
     sections: {
