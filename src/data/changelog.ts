@@ -11,6 +11,20 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.5.1',
+    date: '2026-03-24',
+    sections: {
+      changed: [
+        'Refactor duplicate clock code.',
+        'Refactor useEffect usage to improve performance.',
+        'Refactor duplicated code and remove unused styles.',
+      ],
+      fixed: [
+        'Improve event logs for period changes.',
+      ],
+    },
+  },
+  {
     version: '1.5.0',
     date: '2026-03-24',
     sections: {
