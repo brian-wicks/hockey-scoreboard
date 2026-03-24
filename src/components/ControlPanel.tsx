@@ -45,7 +45,7 @@ export default function ControlPanel() {
                   setClock={setClock}
                   serverTimeOffsetMs={serverTimeOffsetMs}
                 />
-                <GameActionsPanel period={period} gameState={gameState} updateState={updateState} />
+                <GameActionsPanel period={period} gameState={gameState} updateState={updateState} setClock={setClock} />
               </div>
 
               <TeamControls team="away" state={awayTeam} gameState={gameState} eventLog={eventLog} updateState={updateState} />

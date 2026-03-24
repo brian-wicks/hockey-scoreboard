@@ -6,15 +6,35 @@ interface GameActionsPanelProps {
   period: string;
   gameState?: GameState;
   updateState: UpdateGameState;
+  setClock: (timeMs: number) => void;
 }
 
-export default function GameActionsPanel({ period, gameState, updateState }: GameActionsPanelProps) {
+const PERIOD_CLOCKS_MS: Record<string, number> = {
+  "1st": 20 * 60 * 1000,
+  "2nd": 20 * 60 * 1000,
+  "3rd": 20 * 60 * 1000,
+  OT: 5 * 60 * 1000,
+};
+
+export default function GameActionsPanel({ period, gameState, updateState, setClock }: GameActionsPanelProps) {
   const updatePeriod = (nextPeriod: string) => {
     if (gameState && period && period !== nextPeriod) {
-      const endEvent = buildPeriodEndEvent(gameState, period);
-      updateState({ period: nextPeriod, eventLog: [...gameState.eventLog, endEvent] });
+      const lastEvent = gameState.eventLog[gameState.eventLog.length - 1];
+      const alreadyEnded =
+        (gameState.clock.timeRemaining ?? 0) <= 0 ||
+        (lastEvent?.type === "period_end" && lastEvent.period === period);
+      if (alreadyEnded) {
+        updateState({ period: nextPeriod });
+      } else {
+        const endEvent = buildPeriodEndEvent(gameState, period);
+        updateState({ period: nextPeriod, eventLog: [...gameState.eventLog, endEvent] });
+      }
     } else {
       updateState({ period: nextPeriod });
+    }
+    const nextClock = PERIOD_CLOCKS_MS[nextPeriod];
+    if (typeof nextClock === "number") {
+      setClock(nextClock);
     }
   };
 

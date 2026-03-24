@@ -47,3 +47,10 @@ export function parseTimeInputMs(input: string): number | null {
   const mins = parseInt(digits.slice(0, -2), 10);
   return (mins * 60 + secs) * 1000;
 }
+
+export function formatPenaltyTimeMs(ms: number): string {
+  const totalSeconds = Math.ceil(Math.max(0, ms) / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}

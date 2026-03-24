@@ -1,6 +1,7 @@
 import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useStore } from "../store";
-import { formatClockDisplay } from "../utils/clock";
+import { formatPenaltyTimeMs } from "../utils/clock";
+import { useClockDisplay } from "../hooks/useClockDisplay";
 
 const GOAL_STING_DURATION_MS = 1900;
 const GOAL_SCORE_REVEAL_MS = 280;
@@ -102,7 +103,6 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
   const { gameState, connect, serverTimeOffsetMs } = useStore();
   const [renderedLayout, setRenderedLayout] = useState<"main" | "corner">("main");
   const [renderedCorner, setRenderedCorner] = useState<"top-left" | "top-right" | "bottom-left" | "bottom-right">("top-right");
-  const [displayTime, setDisplayTime] = useState("20:00");
   const [displayScores, setDisplayScores] = useState({ home: 0, away: 0 });
   const [goalSting, setGoalSting] = useState<{ active: boolean; team: GoalTeam }>({
     active: false,
@@ -229,6 +229,7 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
   const goalStingDurationMs = GOAL_STING_DURATION_MS;
   const goalScoreRevealMs = GOAL_SCORE_REVEAL_MS;
   const isLight = overlayTheme === "light";
+  const displayTime = useClockDisplay(gameState?.clock ?? null, serverTimeOffsetMs, "20:00");
 
   useEffect(() => {
     if (!gameState) return;
@@ -239,29 +240,6 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
       setRenderedCorner(overlayCorner);
     }
   }, [gameState, overlayLayout, overlayCorner, renderedLayout, renderedCorner]);
-
-  useEffect(() => {
-    if (!gameState) return;
-    
-    let animationFrameId: number;
-    const updateDisplay = () => {
-      let currentRemaining = gameState.clock.timeRemaining;
-      if (gameState.clock.isRunning) {
-        const now = Date.now() + (serverTimeOffsetMs ?? 0);
-        const elapsed = now - gameState.clock.lastUpdate;
-        currentRemaining = Math.max(0, gameState.clock.timeRemaining - elapsed);
-      }
-      
-      setDisplayTime(formatClockDisplay(currentRemaining));
-      
-      if (gameState.clock.isRunning) {
-        animationFrameId = requestAnimationFrame(updateDisplay);
-      }
-    };
-
-    updateDisplay();
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [gameState?.clock.isRunning, gameState?.clock.timeRemaining, gameState?.clock.lastUpdate, serverTimeOffsetMs]);
 
   useEffect(() => {
     if (!gameState) return;
@@ -607,17 +585,10 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
 }
 
 function PenaltyTimer({ penalty, className = "", style }: { penalty: any; className?: string; style?: CSSProperties }) {
-  const [display, setDisplay] = useState("");
-
-  useEffect(() => {
-    const totalSeconds = Math.ceil(Math.max(0, penalty.timeRemaining) / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    const timeDisplay = `${minutes}:${seconds.toString().padStart(2, "0")}`;
-    let playerNumber = String(penalty.playerNumber ?? "").trim();
-    playerNumber = playerNumber == "00" ? "" : playerNumber;
-    setDisplay(playerNumber ? `${playerNumber} - ${timeDisplay}` : timeDisplay);
-  }, [penalty.timeRemaining, penalty.playerNumber]);
+  const timeDisplay = formatPenaltyTimeMs(penalty.timeRemaining ?? 0);
+  let playerNumber = String(penalty.playerNumber ?? "").trim();
+  playerNumber = playerNumber === "00" ? "" : playerNumber;
+  const display = playerNumber ? `${playerNumber} - ${timeDisplay}` : timeDisplay;
 
   return (
     <div

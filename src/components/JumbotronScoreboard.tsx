@@ -1,13 +1,7 @@
-import { type CSSProperties, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useMemo } from "react";
 import { useStore } from "../store";
-import { formatClockDisplay } from "../utils/clock";
-
-function formatPenaltyTime(ms: number) {
-  const totalSeconds = Math.ceil(Math.max(0, ms) / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-}
+import { formatPenaltyTimeMs } from "../utils/clock";
+import { useClockDisplay } from "../hooks/useClockDisplay";
 
 function formatPeriodLabel(period: string | undefined | null) {
   const raw = String(period ?? "").trim().toUpperCase();
@@ -29,34 +23,12 @@ function formatTeamLabel(name: string | undefined | null, abbreviation: string |
 
 export default function JumbotronScoreboard() {
   const { gameState, connect, serverTimeOffsetMs } = useStore();
-  const [displayTime, setDisplayTime] = useState("20:00");
 
   useEffect(() => {
     connect();
   }, [connect]);
 
-  useEffect(() => {
-    if (!gameState) return;
-
-    let animationFrameId: number;
-    const updateDisplay = () => {
-      let currentRemaining = gameState.clock.timeRemaining;
-      if (gameState.clock.isRunning) {
-        const now = Date.now() + (serverTimeOffsetMs ?? 0);
-        const elapsed = now - gameState.clock.lastUpdate;
-        currentRemaining = Math.max(0, gameState.clock.timeRemaining - elapsed);
-      }
-
-      setDisplayTime(formatClockDisplay(currentRemaining));
-
-      if (gameState.clock.isRunning) {
-        animationFrameId = requestAnimationFrame(updateDisplay);
-      }
-    };
-
-    updateDisplay();
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [gameState?.clock.isRunning, gameState?.clock.timeRemaining, gameState?.clock.lastUpdate, serverTimeOffsetMs]);
+  const displayTime = useClockDisplay(gameState?.clock ?? null, serverTimeOffsetMs, "20:00");
 
   const fallbackTeam = {
     name: "",
@@ -97,7 +69,7 @@ export default function JumbotronScoreboard() {
           id: penalty.id,
           number: penalty.playerNumber,
           infraction: penalty.infraction,
-          remaining: formatPenaltyTime(penalty.timeRemaining ?? 0),
+          remaining: formatPenaltyTimeMs(penalty.timeRemaining ?? 0),
         })),
     [homePenalties],
   );
@@ -110,7 +82,7 @@ export default function JumbotronScoreboard() {
           id: penalty.id,
           number: penalty.playerNumber,
           infraction: penalty.infraction,
-          remaining: formatPenaltyTime(penalty.timeRemaining ?? 0),
+          remaining: formatPenaltyTimeMs(penalty.timeRemaining ?? 0),
         })),
     [awayPenalties],
   );

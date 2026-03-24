@@ -33,7 +33,7 @@ interface Penalty {
   infraction: string;
 }
 
-type EventType = "goal" | "goal_revoked" | "penalty_added" | "penalty_over_notice";
+type EventType = "goal" | "goal_revoked" | "penalty_added" | "penalty_over_notice" | "period_end";
 
 interface GameEvent {
   id: string;
@@ -333,6 +333,17 @@ function createBaseEvent(type: EventType, team: "home" | "away"): Omit<GameEvent
   };
 }
 
+function createPeriodEndEvent(): Omit<GameEvent, "id" | "createdAt"> {
+  return {
+    type: "period_end",
+    team: "home",
+    period: gameState.period,
+    clockTime: "0:00",
+    readOnly: true,
+    note: "End of period",
+  };
+}
+
 function appendEvent(event: Omit<GameEvent, "id" | "createdAt">) {
   gameState.eventLog = [
     ...gameState.eventLog,
@@ -564,6 +575,7 @@ function startClockInterval() {
 
       if (gameState.clock.timeRemaining <= 0) {
         gameState.clock.timeRemaining = 0;
+        appendEvent(createPeriodEndEvent());
         gameState.clock.isRunning = false;
         if (clockInterval) {
           clearInterval(clockInterval);
