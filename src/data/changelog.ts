@@ -11,6 +11,15 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.5.3',
+    date: '2026-03-24',
+    sections: {
+      fixed: [
+        'Fix focus on player number when adding to roster.',
+      ],
+    },
+  },
+  {
     version: '1.5.2',
     date: '2026-03-24',
     sections: {
