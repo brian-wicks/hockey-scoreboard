@@ -82,6 +82,7 @@ export interface GameState {
   overlayLayout: "main" | "corner";
   overlayCorner: "top-left" | "top-right" | "bottom-left" | "bottom-right";
   overlayTheme: "dark" | "light";
+  jumbotronGradientsEnabled: boolean;
   serverTime?: number;
 }
 

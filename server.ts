@@ -121,6 +121,7 @@ interface GameState {
   overlayLayout: "main" | "corner";
   overlayCorner: "top-left" | "top-right" | "bottom-left" | "bottom-right";
   overlayTheme: "dark" | "light";
+  jumbotronGradientsEnabled: boolean;
 }
 
 const baseHomeTeam: TeamState = {
@@ -311,6 +312,7 @@ let gameState: GameState = {
   overlayLayout: "main",
   overlayCorner: "top-left",
   overlayTheme: "light",
+  jumbotronGradientsEnabled: true,
 };
 
 let clockInterval: NodeJS.Timeout | null = null;

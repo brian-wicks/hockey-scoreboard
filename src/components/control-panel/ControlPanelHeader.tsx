@@ -1,4 +1,4 @@
-import { Bookmark, Link as LinkIcon, Settings } from "lucide-react";
+import {Bookmark, LayoutPanelTop, Settings, PresentationIcon, House} from "lucide-react";
 
 interface ControlPanelHeaderProps {
   activeTab: "controls" | "settings" | "presets";
@@ -18,8 +18,16 @@ export default function ControlPanelHeader({ activeTab, setActiveTab }: ControlP
           target="_blank"
           className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium transition-colors"
         >
-          <LinkIcon size={16} />
+          <LayoutPanelTop size={16} />
           Open Overlay
+        </a>
+        <a
+          href="/jumbotron"
+          target="_blank"
+          className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium transition-colors"
+        >
+          <PresentationIcon size={16} />
+          Open Jumbotron
         </a>
         <button
           onClick={() => setActiveTab("controls")}
@@ -27,7 +35,7 @@ export default function ControlPanelHeader({ activeTab, setActiveTab }: ControlP
             activeTab === "controls" ? "bg-indigo-600 text-white" : "bg-zinc-800 hover:bg-zinc-700"
           }`}
         >
-          Home
+          <House size={16} />
         </button>
         <button
           onClick={() => setActiveTab("settings")}

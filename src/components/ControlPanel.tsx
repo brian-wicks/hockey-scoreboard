@@ -27,7 +27,7 @@ export default function ControlPanel() {
     return <div className="flex items-center justify-center h-screen bg-zinc-950 text-white">Connecting...</div>;
   }
 
-  const { homeTeam, awayTeam, clock, period, overlayVisible, eventLog } = gameState;
+  const { homeTeam, awayTeam, clock, period, overlayVisible, jumbotronGradientsEnabled, eventLog } = gameState;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex flex-col">
@@ -54,7 +54,11 @@ export default function ControlPanel() {
               <TeamControls team="away" state={awayTeam} gameState={gameState} eventLog={eventLog} updateState={updateState} />
             </div>
 
-            <OverlayControlsPanel overlayVisible={overlayVisible} updateState={updateState} />
+            <OverlayControlsPanel
+              overlayVisible={overlayVisible}
+              jumbotronGradientsEnabled={jumbotronGradientsEnabled}
+              updateState={updateState}
+            />
             <EventLogPanel
               gameState={gameState}
               eventLog={eventLog}
