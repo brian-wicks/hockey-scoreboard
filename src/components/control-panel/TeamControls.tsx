@@ -3,6 +3,7 @@ import { Minus, Plus } from "lucide-react";
 import { GameState, TeamState } from "../../store";
 import { buildGoalieChangeEvent, buildShotEvent } from "../../utils/eventLog";
 import { UpdateGameState } from "./types";
+import GoalReviewPanel from "./GoalReviewPanel";
 import PenaltyItem from "./PenaltyItem";
 import { SearchDropdownInput, SearchOption } from "./DropdownInputs";
 
@@ -25,7 +26,10 @@ export default function TeamControls({ team, state, gameState, eventLog, updateS
   };
 
   const goalieOptions: SearchOption[] = rosterPlayers
-    .map((player) => ({ value: player.jerseyNumber.trim(), label: player.position !== "" ? `${player.name.trim()} (${player.position})` : `${player.name.trim()}` }))
+    .map((player) => ({
+      value: player.jerseyNumber.trim(),
+      label: player.position !== "" ? `${player.name.trim()} (${player.position})` : `${player.name.trim()}`,
+    }))
     .filter((option) => option.value.length > 0);
 
   const appendEventLog = (event: any) => {
@@ -51,7 +55,17 @@ export default function TeamControls({ team, state, gameState, eventLog, updateS
   }, [state.penalties]);
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex flex-col gap-6">
+    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex flex-col gap-6 relative">
+      <GoalReviewPanel
+        team={team}
+        gameState={gameState}
+        eventLog={eventLog}
+        rosterPlayers={rosterPlayers}
+        updateState={updateState}
+        className={`hidden min-[1200px]:block absolute top-0 ${
+          team === "home" ? "-left-[240px]" : "-right-[240px]"
+        } w-[220px]`}
+      />
       <div className="flex items-center justify-between pb-4">
         <div className="flex items-center gap-3">
           <span className="w-1.5 h-10 rounded-full" style={{ backgroundColor: state.color }} />
