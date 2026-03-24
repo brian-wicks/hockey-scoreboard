@@ -181,7 +181,7 @@ export default function PenaltyItem({
               playerOptions.map((player, index) => {
                 const labelParts = [
                   player.name.trim(),
-                  player.position && player.position !== "NM" ? `(${player.position})` : "",
+                  player.position ? `(${player.position})` : "",
                 ].filter(Boolean);
                 return (
                   <button
