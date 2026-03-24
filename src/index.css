@@ -124,7 +124,7 @@
   align-items: baseline;
   gap: 0.8rem;
   letter-spacing: 0.15em;
-  line-height: 0em;
+  line-height: 0;
 }
 
 .jumbotron-shots-label {

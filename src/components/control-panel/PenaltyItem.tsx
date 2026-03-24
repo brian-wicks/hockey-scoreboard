@@ -25,8 +25,12 @@ export default function PenaltyItem({
   const [editValue, setEditValue] = useState("2:00");
   const [playerValue, setPlayerValue] = useState(penalty.playerNumber);
   const [playerOpen, setPlayerOpen] = useState(false);
+  const [activePlayerIndex, setActivePlayerIndex] = useState(-1);
+  const suppressPlayerBlurCommitRef = useRef(false);
   const playerInputRef = useRef<HTMLInputElement | null>(null);
   const playerDropdown = useDropdownPlacement(playerOpen);
+  const playerListRef = useRef<HTMLDivElement | null>(null);
+  const playerOptionRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
     if (!autoFocusPlayer) return;
@@ -68,6 +72,26 @@ export default function PenaltyItem({
     return number.includes(query) || name.includes(query) || label.includes(query);
   });
 
+  useEffect(() => {
+    if (!playerOpen) {
+      setActivePlayerIndex(-1);
+      return;
+    }
+    if (playerOptions.length === 0) {
+      setActivePlayerIndex(-1);
+      return;
+    }
+    if (activePlayerIndex === -1 || activePlayerIndex >= playerOptions.length) {
+      setActivePlayerIndex(0);
+    }
+  }, [playerOpen, playerOptions.length, activePlayerIndex]);
+
+  useEffect(() => {
+    if (!playerOpen || activePlayerIndex < 0) return;
+    const el = playerOptionRefs.current[activePlayerIndex];
+    el?.scrollIntoView({ block: "nearest" });
+  }, [playerOpen, activePlayerIndex]);
+
   const formatPenaltyTime = (ms: number) => {
     const totalSeconds = Math.ceil(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -85,11 +109,6 @@ export default function PenaltyItem({
 
   return (
     <div className="flex items-center gap-2 bg-zinc-950 p-2 rounded border border-zinc-800">
-      <PenaltyReasonInput
-        value={penalty.infraction}
-        onChange={(nextValue) => onChange({ ...penalty, infraction: nextValue })}
-        inputClassName="bg-zinc-800 text-zinc-200 rounded p-1 text-sm font-mono w-16"
-      />
       <div ref={playerDropdown.containerRef} className="relative">
         <input
           ref={playerInputRef}
@@ -100,12 +119,36 @@ export default function PenaltyItem({
             setPlayerOpen(true);
           }}
           onKeyDown={(e) => {
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+              if (!playerOpen) {
+                setPlayerOpen(true);
+                setActivePlayerIndex(playerOptions.length > 0 ? 0 : -1);
+                return;
+              }
+              if (playerOptions.length === 0) return;
+              e.preventDefault();
+              const delta = e.key === "ArrowDown" ? 1 : -1;
+              setActivePlayerIndex((prev) => {
+                const next = prev === -1 ? 0 : prev + delta;
+                if (next < 0) return playerOptions.length - 1;
+                if (next >= playerOptions.length) return 0;
+                return next;
+              });
+              return;
+            }
             if (e.key === "Enter") {
               e.preventDefault();
+              if (playerOpen && activePlayerIndex >= 0 && activePlayerIndex < playerOptions.length) {
+                const selected = playerOptions[activePlayerIndex];
+                const committed = commitPlayerNumber(selected.jerseyNumber);
+                setPlayerValue(committed);
+                setPlayerOpen(false);
+                suppressPlayerBlurCommitRef.current = true;
+                return;
+              }
               const committed = commitPlayerNumber((e.target as HTMLInputElement).value);
               setPlayerValue(committed);
               setPlayerOpen(false);
-              e.currentTarget.blur();
             }
           }}
           onFocus={(e) => {
@@ -113,6 +156,10 @@ export default function PenaltyItem({
             setPlayerOpen(true);
           }}
           onBlur={(e) => {
+            if (suppressPlayerBlurCommitRef.current) {
+              suppressPlayerBlurCommitRef.current = false;
+              return;
+            }
             const committed = commitPlayerNumber(e.target.value);
             setPlayerValue(committed);
             setPlayerOpen(false);
@@ -122,6 +169,7 @@ export default function PenaltyItem({
         />
         {playerOpen && (
           <div
+            ref={playerListRef}
             className={`absolute left-0 z-20 w-44 overflow-auto rounded-md border border-zinc-800 bg-zinc-950 shadow-lg ${
               playerDropdown.dropUp ? "bottom-full mb-1" : "top-full mt-1"
             }`}
@@ -130,7 +178,7 @@ export default function PenaltyItem({
             {playerOptions.length === 0 ? (
               <div className="px-2 py-1 text-xs text-zinc-500">No matches</div>
             ) : (
-              playerOptions.map((player) => {
+              playerOptions.map((player, index) => {
                 const labelParts = [
                   player.name.trim(),
                   player.position && player.position !== "NM" ? `(${player.position})` : "",
@@ -139,13 +187,19 @@ export default function PenaltyItem({
                   <button
                     key={player.id}
                     type="button"
+                    ref={(el) => {
+                      playerOptionRefs.current[index] = el;
+                    }}
                     onMouseDown={(e) => {
                       e.preventDefault();
                       const committed = commitPlayerNumber(player.jerseyNumber);
                       setPlayerValue(committed);
                       setPlayerOpen(false);
                     }}
-                    className="w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800"
+                    onMouseEnter={() => setActivePlayerIndex(index)}
+                    className={`w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800 ${
+                      index === activePlayerIndex ? "bg-zinc-800" : ""
+                    }`}
                   >
                     <span className="font-mono">{player.jerseyNumber || "--"}</span>
                     {labelParts.length > 0 && <span className="text-zinc-400"> - {labelParts.join(" ")}</span>}
@@ -156,6 +210,11 @@ export default function PenaltyItem({
           </div>
         )}
       </div>
+      <PenaltyReasonInput
+          value={penalty.infraction}
+          onChange={(nextValue) => onChange({ ...penalty, infraction: nextValue })}
+          inputClassName="bg-zinc-800 text-zinc-200 rounded p-1 text-sm font-mono w-16"
+      />
       {editMode ? (
         <div className="flex items-center gap-1 flex-1">
           <input
