@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import type { KeyboardEvent } from "react";
 import { X } from "lucide-react";
 import { KeyboardShortcut } from "../../store";
 
@@ -10,33 +11,26 @@ interface ShortcutEditorProps {
 export default function ShortcutEditor({ shortcut, onUpdate }: ShortcutEditorProps) {
   const [isRecording, setIsRecording] = useState(false);
 
-  useEffect(() => {
-    if (!isRecording) return;
+  const handleCaptureKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
+    if (["Control", "Shift", "Alt", "Meta"].includes(e.key)) {
+      return;
+    }
 
-      if (["Control", "Shift", "Alt", "Meta"].includes(e.key)) {
-        return;
-      }
+    const key = e.key === " " ? " " : e.key.length === 1 ? e.key.toLowerCase() : e.key;
 
-      const key = e.key === " " ? " " : e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    onUpdate({
+      ...shortcut,
+      key,
+      ctrl: e.ctrlKey,
+      shift: e.shiftKey,
+      alt: e.altKey,
+    });
 
-      onUpdate({
-        ...shortcut,
-        key,
-        ctrl: e.ctrlKey,
-        shift: e.shiftKey,
-        alt: e.altKey,
-      });
-
-      setIsRecording(false);
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isRecording, shortcut, onUpdate]);
+    setIsRecording(false);
+  };
 
   const formatKey = (shortcutToFormat: KeyboardShortcut) => {
     const parts: string[] = [];
@@ -73,6 +67,15 @@ export default function ShortcutEditor({ shortcut, onUpdate }: ShortcutEditorPro
         >
           {isRecording ? "Press any key..." : formatKey(shortcut)}
         </button>
+        {isRecording && (
+          <input
+            autoFocus
+            aria-hidden="true"
+            className="absolute opacity-0 pointer-events-none"
+            onKeyDown={handleCaptureKey}
+            onBlur={() => setIsRecording(false)}
+          />
+        )}
         {isRecording && (
           <button
             onClick={() => setIsRecording(false)}

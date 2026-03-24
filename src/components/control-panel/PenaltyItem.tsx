@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Minus } from "lucide-react";
 import { Penalty, TeamPlayer } from "../../store";
 import { parseTimeInputMs } from "../../utils/clock";
@@ -23,24 +23,14 @@ export default function PenaltyItem({
 }: PenaltyItemProps) {
   const [editMode, setEditMode] = useState(false);
   const [editValue, setEditValue] = useState("2:00");
-  const [playerValue, setPlayerValue] = useState(penalty.playerNumber);
+  const [playerDraft, setPlayerDraft] = useState(penalty.playerNumber);
   const [playerOpen, setPlayerOpen] = useState(false);
   const [activePlayerIndex, setActivePlayerIndex] = useState(-1);
   const suppressPlayerBlurCommitRef = useRef(false);
-  const playerInputRef = useRef<HTMLInputElement | null>(null);
   const playerDropdown = useDropdownPlacement(playerOpen);
   const playerOptionRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  useEffect(() => {
-    if (!autoFocusPlayer) return;
-    playerInputRef.current?.focus();
-    playerInputRef.current?.select();
-    onAutoFocusHandled?.();
-  }, [autoFocusPlayer, onAutoFocusHandled]);
-
-  useEffect(() => {
-    setPlayerValue(penalty.playerNumber);
-  }, [penalty.playerNumber]);
+  const playerInputValue = playerOpen ? playerDraft : penalty.playerNumber;
 
   const commitPlayerNumber = (value: string) => {
     const trimmed = value.trim();
@@ -63,7 +53,7 @@ export default function PenaltyItem({
   };
 
   const playerOptions = rosterPlayers.filter((player) => {
-    const query = playerValue.trim().toLowerCase();
+    const query = playerInputValue.trim().toLowerCase();
     if (!query) return true;
     const number = player.jerseyNumber.trim().toLowerCase();
     const name = player.name.trim().toLowerCase();
@@ -71,25 +61,17 @@ export default function PenaltyItem({
     return number.includes(query) || name.includes(query) || label.includes(query);
   });
 
-  useEffect(() => {
-    if (!playerOpen) {
-      setActivePlayerIndex(-1);
-      return;
-    }
-    if (playerOptions.length === 0) {
-      setActivePlayerIndex(-1);
-      return;
-    }
-    if (activePlayerIndex === -1 || activePlayerIndex >= playerOptions.length) {
-      setActivePlayerIndex(0);
-    }
-  }, [playerOpen, playerOptions.length, activePlayerIndex]);
+  const normalizedPlayerIndex =
+    playerOpen && playerOptions.length > 0
+      ? Math.min(Math.max(activePlayerIndex, 0), playerOptions.length - 1)
+      : -1;
 
-  useEffect(() => {
-    if (!playerOpen || activePlayerIndex < 0) return;
-    const el = playerOptionRefs.current[activePlayerIndex];
-    el?.scrollIntoView({ block: "nearest" });
-  }, [playerOpen, activePlayerIndex]);
+  const scrollPlayerIntoView = (index: number) => {
+    if (!playerOpen || index < 0) return;
+    requestAnimationFrame(() => {
+      playerOptionRefs.current[index]?.scrollIntoView({ block: "nearest" });
+    });
+  };
 
   const formatPenaltyTime = (ms: number) => {
     const totalSeconds = Math.ceil(ms / 1000);
@@ -110,49 +92,64 @@ export default function PenaltyItem({
     <div className="flex items-center gap-2 bg-zinc-950 p-2 rounded border border-zinc-800">
       <div ref={playerDropdown.containerRef} className="relative">
         <input
-          ref={playerInputRef}
+          ref={(el) => {
+            if (!el || !autoFocusPlayer) return;
+            el.focus();
+            el.select();
+            onAutoFocusHandled?.();
+          }}
           type="text"
-          value={playerValue}
+          value={playerInputValue}
           onChange={(e) => {
-            setPlayerValue(e.target.value);
+            setPlayerDraft(e.target.value);
             setPlayerOpen(true);
           }}
           onKeyDown={(e) => {
             if (e.key === "ArrowDown" || e.key === "ArrowUp") {
               if (!playerOpen) {
                 setPlayerOpen(true);
-                setActivePlayerIndex(playerOptions.length > 0 ? 0 : -1);
+                if (playerOptions.length > 0) {
+                  setActivePlayerIndex(0);
+                  scrollPlayerIntoView(0);
+                } else {
+                  setActivePlayerIndex(-1);
+                }
                 return;
               }
               if (playerOptions.length === 0) return;
               e.preventDefault();
               const delta = e.key === "ArrowDown" ? 1 : -1;
-              setActivePlayerIndex((prev) => {
-                const next = prev === -1 ? 0 : prev + delta;
-                if (next < 0) return playerOptions.length - 1;
-                if (next >= playerOptions.length) return 0;
-                return next;
-              });
+              const baseIndex = normalizedPlayerIndex === -1 ? 0 : normalizedPlayerIndex;
+              const nextIndex = (baseIndex + delta + playerOptions.length) % playerOptions.length;
+              setActivePlayerIndex(nextIndex);
+              scrollPlayerIntoView(nextIndex);
               return;
             }
             if (e.key === "Enter") {
               e.preventDefault();
-              if (playerOpen && activePlayerIndex >= 0 && activePlayerIndex < playerOptions.length) {
-                const selected = playerOptions[activePlayerIndex];
+              if (playerOpen && normalizedPlayerIndex >= 0 && normalizedPlayerIndex < playerOptions.length) {
+                const selected = playerOptions[normalizedPlayerIndex];
                 const committed = commitPlayerNumber(selected.jerseyNumber);
-                setPlayerValue(committed);
+                setPlayerDraft(committed);
                 setPlayerOpen(false);
+                setActivePlayerIndex(-1);
                 suppressPlayerBlurCommitRef.current = true;
                 return;
               }
               const committed = commitPlayerNumber((e.target as HTMLInputElement).value);
-              setPlayerValue(committed);
+              setPlayerDraft(committed);
               setPlayerOpen(false);
+              setActivePlayerIndex(-1);
             }
           }}
           onFocus={(e) => {
             e.currentTarget.select();
+            setPlayerDraft(penalty.playerNumber);
             setPlayerOpen(true);
+            if (playerOptions.length > 0) {
+              setActivePlayerIndex(0);
+              scrollPlayerIntoView(0);
+            }
           }}
           onBlur={(e) => {
             if (suppressPlayerBlurCommitRef.current) {
@@ -160,8 +157,9 @@ export default function PenaltyItem({
               return;
             }
             const committed = commitPlayerNumber(e.target.value);
-            setPlayerValue(committed);
+            setPlayerDraft(committed);
             setPlayerOpen(false);
+            setActivePlayerIndex(-1);
           }}
           className="w-16 bg-zinc-800 text-center rounded p-1 text-sm font-mono"
           placeholder="#"
@@ -191,12 +189,13 @@ export default function PenaltyItem({
                     onMouseDown={(e) => {
                       e.preventDefault();
                       const committed = commitPlayerNumber(player.jerseyNumber);
-                      setPlayerValue(committed);
+                      setPlayerDraft(committed);
                       setPlayerOpen(false);
+                      setActivePlayerIndex(-1);
                     }}
                     onMouseEnter={() => setActivePlayerIndex(index)}
                     className={`w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800 ${
-                      index === activePlayerIndex ? "bg-zinc-800" : ""
+                      index === normalizedPlayerIndex ? "bg-zinc-800" : ""
                     }`}
                   >
                     <span className="font-mono">{player.jerseyNumber || "--"}</span>

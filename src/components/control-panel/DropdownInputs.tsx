@@ -43,87 +43,94 @@ interface PenaltyReasonInputProps {
 
 export function PenaltyReasonInput({ value, onChange, inputClassName }: PenaltyReasonInputProps) {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState(value);
+  const [draft, setDraft] = useState(value);
   const [activeIndex, setActiveIndex] = useState(-1);
   const suppressBlurCommitRef = useRef(false);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const { containerRef, dropUp, maxHeight } = useDropdownPlacement(open);
 
-  useEffect(() => {
-    setQuery(value);
-  }, [value]);
+  const inputValue = open ? draft : value;
 
   const options = PENALTY_OPTIONS.filter((option) => {
-    const normalized = query.trim().toLowerCase();
+    const normalized = inputValue.trim().toLowerCase();
     if (!normalized) return true;
     return option.code.toLowerCase().includes(normalized) || option.label.toLowerCase().includes(normalized);
   });
 
-  useEffect(() => {
-    if (!open) {
-      setActiveIndex(-1);
-      return;
-    }
-    if (options.length === 0) {
-      setActiveIndex(-1);
-      return;
-    }
-    if (activeIndex === -1 || activeIndex >= options.length) {
-      setActiveIndex(0);
-    }
-  }, [open, options.length, activeIndex]);
+  const normalizedActiveIndex =
+    open && options.length > 0 ? Math.min(Math.max(activeIndex, 0), options.length - 1) : -1;
 
-  useEffect(() => {
-    if (!open || activeIndex < 0) return;
-    const el = optionRefs.current[activeIndex];
-    el?.scrollIntoView({ block: "nearest" });
-  }, [open, activeIndex]);
+  const scrollOptionIntoView = (index: number) => {
+    if (!open || index < 0) return;
+    requestAnimationFrame(() => {
+      optionRefs.current[index]?.scrollIntoView({ block: "nearest" });
+    });
+  };
 
   return (
     <div ref={containerRef} className="relative">
       <input
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        onFocus={() => setOpen(true)}
+        value={inputValue}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          if (open && options.length > 0) {
+            setActiveIndex(0);
+            scrollOptionIntoView(0);
+          }
+        }}
+        onFocus={() => {
+          setDraft(value);
+          setOpen(true);
+          if (options.length > 0) {
+            setActiveIndex(0);
+            scrollOptionIntoView(0);
+          }
+        }}
         onBlur={() => {
           if (suppressBlurCommitRef.current) {
             suppressBlurCommitRef.current = false;
             return;
           }
-          onChange(query);
+          onChange(inputValue);
           setOpen(false);
+          setActiveIndex(-1);
         }}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             if (!open) {
               setOpen(true);
-              setActiveIndex(options.length > 0 ? 0 : -1);
+              if (options.length > 0) {
+                setActiveIndex(0);
+                scrollOptionIntoView(0);
+              } else {
+                setActiveIndex(-1);
+              }
               return;
             }
             if (options.length === 0) return;
             e.preventDefault();
             const delta = e.key === "ArrowDown" ? 1 : -1;
-            setActiveIndex((prev) => {
-              const next = prev === -1 ? 0 : prev + delta;
-              if (next < 0) return options.length - 1;
-              if (next >= options.length) return 0;
-              return next;
-            });
+            const baseIndex = normalizedActiveIndex === -1 ? 0 : normalizedActiveIndex;
+            const nextIndex = (baseIndex + delta + options.length) % options.length;
+            setActiveIndex(nextIndex);
+            scrollOptionIntoView(nextIndex);
             return;
           }
           if (e.key === "Enter") {
             e.preventDefault();
-            if (open && activeIndex >= 0 && activeIndex < options.length) {
-              const selected = options[activeIndex];
-              setQuery(selected.code);
+            if (open && normalizedActiveIndex >= 0 && normalizedActiveIndex < options.length) {
+              const selected = options[normalizedActiveIndex];
+              setDraft(selected.code);
               onChange(selected.code);
               setOpen(false);
+              setActiveIndex(-1);
               suppressBlurCommitRef.current = true;
               (e.target as HTMLInputElement).blur();
               return;
             }
-            onChange(query);
+            onChange(inputValue);
             setOpen(false);
+            setActiveIndex(-1);
             (e.target as HTMLInputElement).blur();
           }
         }}
@@ -149,13 +156,14 @@ export function PenaltyReasonInput({ value, onChange, inputClassName }: PenaltyR
                 }}
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  setQuery(option.code);
+                  setDraft(option.code);
                   onChange(option.code);
                   setOpen(false);
+                  setActiveIndex(-1);
                 }}
                 onMouseEnter={() => setActiveIndex(index)}
                 className={`w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800 ${
-                  index === activeIndex ? "bg-zinc-800" : ""
+                  index === normalizedActiveIndex ? "bg-zinc-800" : ""
                 }`}
               >
                 <span className="font-mono">{option.code}</span>
@@ -188,90 +196,97 @@ export function SearchDropdownInput({
   options: SearchOption[];
 }) {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState(value);
+  const [draft, setDraft] = useState(value);
   const [activeIndex, setActiveIndex] = useState(-1);
   const suppressBlurCommitRef = useRef(false);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const { containerRef, dropUp, maxHeight } = useDropdownPlacement(open);
 
-  useEffect(() => {
-    setQuery(value);
-  }, [value]);
+  const inputValue = open ? draft : value;
 
   const filteredOptions = options.filter((option) => {
-    const normalized = query.trim().toLowerCase();
+    const normalized = inputValue.trim().toLowerCase();
     if (!normalized) return true;
     return option.value.toLowerCase().includes(normalized) || (option.label ?? "").toLowerCase().includes(normalized);
   });
 
-  useEffect(() => {
-    if (!open) {
-      setActiveIndex(-1);
-      return;
-    }
-    if (filteredOptions.length === 0) {
-      setActiveIndex(-1);
-      return;
-    }
-    if (activeIndex === -1 || activeIndex >= filteredOptions.length) {
-      setActiveIndex(0);
-    }
-  }, [open, filteredOptions.length, activeIndex]);
+  const normalizedActiveIndex =
+    open && filteredOptions.length > 0
+      ? Math.min(Math.max(activeIndex, 0), filteredOptions.length - 1)
+      : -1;
 
-  useEffect(() => {
-    if (!open || activeIndex < 0) return;
-    const el = optionRefs.current[activeIndex];
-    el?.scrollIntoView({ block: "nearest" });
-  }, [open, activeIndex]);
+  const scrollOptionIntoView = (index: number) => {
+    if (!open || index < 0) return;
+    requestAnimationFrame(() => {
+      optionRefs.current[index]?.scrollIntoView({ block: "nearest" });
+    });
+  };
 
   return (
     <div ref={containerRef} className="relative">
       <input
-        value={query}
+        value={inputValue}
         onChange={(e) => {
-          setQuery(e.target.value);
+          setDraft(e.target.value);
           setOpen(true);
+          if (filteredOptions.length > 0) {
+            setActiveIndex(0);
+            scrollOptionIntoView(0);
+          }
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          setDraft(value);
+          setOpen(true);
+          if (filteredOptions.length > 0) {
+            setActiveIndex(0);
+            scrollOptionIntoView(0);
+          }
+        }}
         onBlur={() => {
           if (suppressBlurCommitRef.current) {
             suppressBlurCommitRef.current = false;
             return;
           }
-          onChange(query);
+          onChange(inputValue);
           setOpen(false);
+          setActiveIndex(-1);
         }}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             if (!open) {
               setOpen(true);
-              setActiveIndex(filteredOptions.length > 0 ? 0 : -1);
+              if (filteredOptions.length > 0) {
+                setActiveIndex(0);
+                scrollOptionIntoView(0);
+              } else {
+                setActiveIndex(-1);
+              }
               return;
             }
             if (filteredOptions.length === 0) return;
             e.preventDefault();
             const delta = e.key === "ArrowDown" ? 1 : -1;
-            setActiveIndex((prev) => {
-              const next = prev === -1 ? 0 : prev + delta;
-              if (next < 0) return filteredOptions.length - 1;
-              if (next >= filteredOptions.length) return 0;
-              return next;
-            });
+            const baseIndex = normalizedActiveIndex === -1 ? 0 : normalizedActiveIndex;
+            const nextIndex = (baseIndex + delta + filteredOptions.length) % filteredOptions.length;
+            setActiveIndex(nextIndex);
+            scrollOptionIntoView(nextIndex);
             return;
           }
           if (e.key === "Enter") {
             e.preventDefault();
-            if (open && activeIndex >= 0 && activeIndex < filteredOptions.length) {
-              const selected = filteredOptions[activeIndex];
-              setQuery(selected.value);
+            if (open && normalizedActiveIndex >= 0 && normalizedActiveIndex < filteredOptions.length) {
+              const selected = filteredOptions[normalizedActiveIndex];
+              setDraft(selected.value);
               onChange(selected.value);
               setOpen(false);
+              setActiveIndex(-1);
               suppressBlurCommitRef.current = true;
               (e.target as HTMLInputElement).blur();
               return;
             }
-            onChange(query);
+            onChange(inputValue);
             setOpen(false);
+            setActiveIndex(-1);
             (e.target as HTMLInputElement).blur();
           }
         }}
@@ -297,13 +312,14 @@ export function SearchDropdownInput({
                 }}
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  setQuery(option.value);
+                  setDraft(option.value);
                   onChange(option.value);
                   setOpen(false);
+                  setActiveIndex(-1);
                 }}
                 onMouseEnter={() => setActiveIndex(index)}
                 className={`w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800 ${
-                  index === activeIndex ? "bg-zinc-800" : ""
+                  index === normalizedActiveIndex ? "bg-zinc-800" : ""
                 }`}
               >
                 <span className="font-mono">{option.value}</span>

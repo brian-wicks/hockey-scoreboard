@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { GameState, TeamPlayer, TeamState } from "../../store";
 import { UpdateGameState } from "./types";
@@ -59,6 +59,7 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
   const [expandedRosters, setExpandedRosters] = useState<string[]>([]);
   const [presetPendingDelete, setPresetPendingDelete] = useState<TeamPreset | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const hasLoadedRef = useRef(false);
 
   const baseUrl = useMemo(() => {
     // @ts-ignore
@@ -81,9 +82,10 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
     }
   };
 
-  useEffect(() => {
+  if (!hasLoadedRef.current) {
+    hasLoadedRef.current = true;
     void loadPresets();
-  }, []);
+  }
 
   const loadPresetTeamIntoSide = (teamPreset: TeamPresetTeam, side: "home" | "away") => {
     if (side === "home") {

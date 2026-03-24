@@ -116,6 +116,7 @@ interface StoreState {
   serverTimeOffsetMs: number;
   keyboardShortcuts: KeyboardShortcut[];
   connect: () => void;
+  ensureInitialized: () => void;
   updateState: (updates: Partial<GameState>) => void;
   startClock: () => void;
   stopClock: () => void;
@@ -157,6 +158,8 @@ const defaultShortcuts: KeyboardShortcut[] = [
   },
 ];
 
+let hasInitialized = false;
+
 export const useStore = create<StoreState>((set, get) => ({
   socket: null,
   gameState: null,
@@ -177,6 +180,13 @@ export const useStore = create<StoreState>((set, get) => ({
     });
 
     set({ socket });
+  },
+
+  ensureInitialized: () => {
+    if (hasInitialized) return;
+    hasInitialized = true;
+    get().connect();
+    void get().loadShortcuts();
   },
 
   updateState: (updates: Partial<GameState>) => {

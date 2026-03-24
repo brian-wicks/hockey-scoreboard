@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useStore } from "../store";
 import ClockControl from "./control-panel/ClockControl";
@@ -13,15 +13,12 @@ import TeamControls from "./control-panel/TeamControls";
 type ActiveTab = "controls" | "settings" | "presets";
 
 export default function ControlPanel() {
-  const { gameState, connect, updateState, startClock, stopClock, setClock, loadShortcuts, serverTimeOffsetMs } = useStore();
+  const { gameState, ensureInitialized, updateState, startClock, stopClock, setClock, serverTimeOffsetMs } = useStore();
   const [activeTab, setActiveTab] = useState<ActiveTab>("controls");
 
   useKeyboardShortcuts(activeTab === "controls");
 
-  useEffect(() => {
-    connect();
-    void loadShortcuts();
-  }, [connect, loadShortcuts]);
+  ensureInitialized();
 
   if (!gameState) {
     return <div className="flex items-center justify-center h-screen bg-zinc-950 text-white">Connecting...</div>;

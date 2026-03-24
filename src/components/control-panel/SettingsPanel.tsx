@@ -76,8 +76,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
   const [awayRosterExpanded, setAwayRosterExpanded] = useState(false);
   const [homeNewPlayerId, setHomeNewPlayerId] = useState<string | null>(null);
   const [awayNewPlayerId, setAwayNewPlayerId] = useState<string | null>(null);
-  const homeNewPlayerRef = useRef<HTMLInputElement | null>(null);
-  const awayNewPlayerRef = useRef<HTMLInputElement | null>(null);
+  const hasLoadedTeamsRef = useRef(false);
 
   const baseUrl = (() => {
     // @ts-ignore
@@ -264,9 +263,10 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
     setAwayColorText(gameState.awayTeam.color);
   }, [gameState.homeTeam, gameState.awayTeam]);
 
-  useEffect(() => {
+  if (!hasLoadedTeamsRef.current) {
+    hasLoadedTeamsRef.current = true;
     void loadSavedTeams();
-  }, []);
+  }
 
   const shortcutsByAction = new Map(keyboardShortcuts.map((shortcut, index) => [shortcut.action, { shortcut, index }]));
   const groupedActions = new Set(SHORTCUT_GROUPS.flatMap((group) => [...group.actions]));
@@ -276,20 +276,6 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
 
   const homePlayerCount = (gameState.homeTeam.players ?? []).length;
   const awayPlayerCount = (gameState.awayTeam.players ?? []).length;
-
-  useEffect(() => {
-    if (homeNewPlayerId && homeNewPlayerRef.current) {
-      homeNewPlayerRef.current.focus();
-      homeNewPlayerRef.current.select();
-    }
-  }, [homeNewPlayerId]);
-
-  useEffect(() => {
-    if (awayNewPlayerId && awayNewPlayerRef.current) {
-      awayNewPlayerRef.current.focus();
-      awayNewPlayerRef.current.select();
-    }
-  }, [awayNewPlayerId]);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -425,9 +411,10 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                       ref={
                         player.id === homeNewPlayerId
                           ? (el) => {
-                              if (el) {
-                                homeNewPlayerRef.current = el;
-                              }
+                              if (!el) return;
+                              el.focus();
+                              el.select();
+                              setHomeNewPlayerId(null);
                             }
                           : undefined
                       }
@@ -608,9 +595,10 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                       ref=
                         {player.id === awayNewPlayerId
                           ? (el) => {
-                              if (el) {
-                                awayNewPlayerRef.current = el;
-                              }
+                              if (!el) return;
+                              el.focus();
+                              el.select();
+                              setAwayNewPlayerId(null);
                             }
                           : undefined
                       }

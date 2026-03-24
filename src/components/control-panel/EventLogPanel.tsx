@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Download, SlidersHorizontal } from "lucide-react";
 import { GameEvent, GameState, TeamState, TeamPlayer } from "../../store";
 import { buildGamesheetPdfBytes, exportGamesheetPdf, GamesheetPdfLayout, getDefaultGamesheetPdfLayout } from "../../utils/gamesheetPdf";
@@ -228,40 +228,73 @@ export default function EventLogPanel({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  const hasLoadedLayoutRef = useRef(false);
+  const lastSavedLayoutRef = useRef<GamesheetPdfLayout | null>(null);
+  const previewTimerRef = useRef<number | null>(null);
+  const lastPreviewDepsRef = useRef<{
+    showPdfLayout: boolean;
+    showPdfPreview: boolean;
+    previewDebug: boolean;
+    pdfLayout: GamesheetPdfLayout;
+    homeTeam: TeamState;
+    awayTeam: TeamState;
+    eventLog: GameEvent[];
+  } | null>(null);
 
-  useEffect(() => {
+  if (lastSavedLayoutRef.current !== pdfLayout) {
+    lastSavedLayoutRef.current = pdfLayout;
     savePdfLayout(pdfLayout);
-  }, [pdfLayout]);
+  }
 
-  useEffect(() => {
-    // Load server-saved layout by default (fallback to localStorage/defaults).
-    let cancelled = false;
+  if (!hasLoadedLayoutRef.current) {
+    hasLoadedLayoutRef.current = true;
     setFileLayoutStatus("loading");
     fetch("/api/pdf-layout")
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((data) => {
-        if (cancelled) return;
         setPdfLayout(loadPdfLayoutFromUnknown(data));
         setFileLayoutStatus("loaded");
       })
       .catch(() => {
-        if (cancelled) return;
         setFileLayoutStatus("idle");
       });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  }
 
-  useEffect(() => {
-    if (!showPdfLayout || !showPdfPreview) return;
+  const previewDeps = {
+    showPdfLayout,
+    showPdfPreview,
+    previewDebug,
+    pdfLayout,
+    homeTeam,
+    awayTeam,
+    eventLog,
+  };
+  const lastPreviewDeps = lastPreviewDepsRef.current;
+  const previewDepsChanged =
+    !lastPreviewDeps ||
+    lastPreviewDeps.showPdfLayout !== previewDeps.showPdfLayout ||
+    lastPreviewDeps.showPdfPreview !== previewDeps.showPdfPreview ||
+    lastPreviewDeps.previewDebug !== previewDeps.previewDebug ||
+    lastPreviewDeps.pdfLayout !== previewDeps.pdfLayout ||
+    lastPreviewDeps.homeTeam !== previewDeps.homeTeam ||
+    lastPreviewDeps.awayTeam !== previewDeps.awayTeam ||
+    lastPreviewDeps.eventLog !== previewDeps.eventLog;
+  lastPreviewDepsRef.current = previewDeps;
 
-    let cancelled = false;
-    const handle = window.setTimeout(() => {
+  if (!showPdfLayout || !showPdfPreview) {
+    if (previewTimerRef.current) {
+      window.clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+  } else if (previewDepsChanged) {
+    if (previewTimerRef.current) {
+      window.clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+    previewTimerRef.current = window.setTimeout(() => {
       setIsGeneratingPreview(true);
       buildGamesheetPdfBytes({ homeTeam, awayTeam, eventLog }, { layout: pdfLayout, debug: previewDebug })
         .then((bytes) => {
-          if (cancelled) return;
           const blob = new Blob([bytes], { type: "application/pdf" });
           const url = URL.createObjectURL(blob);
           setPreviewUrl((prev) => {
@@ -270,32 +303,16 @@ export default function EventLogPanel({
           });
         })
         .catch(() => {
-          if (cancelled) return;
           setPreviewUrl((prev) => {
             if (prev) URL.revokeObjectURL(prev);
             return null;
           });
         })
         .finally(() => {
-          if (cancelled) return;
           setIsGeneratingPreview(false);
         });
     }, 300);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(handle);
-    };
-  }, [showPdfLayout, showPdfPreview, previewDebug, pdfLayout, homeTeam, awayTeam, eventLog]);
-
-  useEffect(() => {
-    return () => {
-      setPreviewUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return null;
-      });
-    };
-  }, []);
+  }
 
   const updateEvent = (id: string, updates: Partial<GameEvent>) => {
     const nextLog = eventLog.map((event) => (event.id === id ? { ...event, ...updates } : event));
