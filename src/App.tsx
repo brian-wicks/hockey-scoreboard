@@ -3,12 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
 import AppFooter from './components/AppFooter';
-import ChangelogPage from './components/ChangelogPage';
-import ControlPanel from './components/ControlPanel';
-import JumbotronScoreboard from './components/JumbotronScoreboard';
-import Overlay from './components/Overlay';
+
+const ControlPanel = lazy(() => import('./components/ControlPanel'));
+const Overlay = lazy(() => import('./components/Overlay'));
+const JumbotronScoreboard = lazy(() => import('./components/JumbotronScoreboard'));
+const ChangelogPage = lazy(() => import('./components/ChangelogPage'));
 
 function AppRoutes() {
   const location = useLocation();
@@ -16,12 +18,14 @@ function AppRoutes() {
 
   return (
     <>
-      <Routes>
-        <Route path="/" element={<ControlPanel />} />
-        <Route path="/overlay" element={<Overlay />} />
-        <Route path="/jumbotron" element={<JumbotronScoreboard />} />
-        <Route path="/changelog" element={<ChangelogPage />} />
-      </Routes>
+      <Suspense fallback={<div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">Loading...</div>}>
+        <Routes>
+          <Route path="/" element={<ControlPanel />} />
+          <Route path="/overlay" element={<Overlay />} />
+          <Route path="/jumbotron" element={<JumbotronScoreboard />} />
+          <Route path="/changelog" element={<ChangelogPage />} />
+        </Routes>
+      </Suspense>
       {showFooter && <AppFooter />}
     </>
   );

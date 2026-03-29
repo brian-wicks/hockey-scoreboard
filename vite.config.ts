@@ -21,6 +21,18 @@ export default defineConfig(({mode}) => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'pdf-vendor': ['pdf-lib'],
+            'ui-vendor': ['lucide-react', 'motion', 'clsx', 'tailwind-merge'],
+            'react-vendor': ['react', 'react-dom', 'react-router-dom', 'zustand', 'socket.io-client'],
+          },
+        },
+      },
+      chunkSizeWarningLimit: 1000, // Increase limit slightly as we are managing chunks
+    },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
