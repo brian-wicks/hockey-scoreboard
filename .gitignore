@@ -10,3 +10,4 @@ coverage/
 id_rsa
 qodana.sarif.json
 qodana.yaml
+src/test/.tmp

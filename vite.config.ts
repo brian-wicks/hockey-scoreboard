@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import fs from 'fs';
@@ -32,6 +33,11 @@ export default defineConfig(({mode}) => {
         },
       },
       chunkSizeWarningLimit: 1000, // Increase limit slightly as we are managing chunks
+    },
+    test: {
+      globals: true,
+      environment: 'jsdom',
+      setupFiles: './src/test/setup.ts',
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
