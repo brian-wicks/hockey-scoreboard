@@ -47,7 +47,6 @@ const baseState: GameState = {
   overlayVisible: true,
   overlayLayout: "main",
   overlayCorner: "top-left",
-  overlayTheme: "dark",
   jumbotronGradientsEnabled: true,
 };
 

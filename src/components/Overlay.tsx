@@ -101,8 +101,7 @@ function useAnimatedPenalties(penalties: any[], animationMs: number): AnimatedPe
 
 export default function Overlay({ embedded = false, skipConnect = false }: { embedded?: boolean; skipConnect?: boolean } = {}) {
   const { gameState, connect, serverTimeOffsetMs } = useStore();
-  const [renderedLayout, setRenderedLayout] = useState<"main" | "corner">("main");
-  const [renderedCorner, setRenderedCorner] = useState<"top-left" | "top-right" | "bottom-left" | "bottom-right">("top-right");
+  const [renderedLayout, setRenderedLayout] = useState<"main">("main");
   const [displayScores, setDisplayScores] = useState({ home: 0, away: 0 });
   const [goalSting, setGoalSting] = useState<{ active: boolean; team: GoalTeam }>({
     active: false,
@@ -220,26 +219,16 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
   }, []);
 
   const overlayVisible = gameState?.overlayVisible ?? true;
-  const overlayLayout = gameState?.overlayLayout ?? "main";
-  const overlayCorner = gameState?.overlayCorner ?? "top-left";
-  const overlayTheme = gameState?.overlayTheme ?? "dark";
   const penaltyAnimationMs = PENALTY_ANIMATION_MS;
   const mainHidePenaltyLiftMs = MAIN_HIDE_PENALTY_LIFT_MS;
   const mainHideScoreboardCloseMs = MAIN_HIDE_SCOREBOARD_CLOSE_MS;
   const goalStingDurationMs = GOAL_STING_DURATION_MS;
   const goalScoreRevealMs = GOAL_SCORE_REVEAL_MS;
-  const isLight = overlayTheme === "light";
   const displayTime = useClockDisplay(gameState?.clock ?? null, serverTimeOffsetMs, "20:00");
 
   useEffect(() => {
     if (!gameState) return;
-    if (renderedLayout !== overlayLayout) {
-      setRenderedLayout(overlayLayout);
-    }
-    if (renderedCorner !== overlayCorner) {
-      setRenderedCorner(overlayCorner);
-    }
-  }, [gameState, overlayLayout, overlayCorner, renderedLayout, renderedCorner]);
+  }, [gameState]);
 
   useEffect(() => {
     if (!gameState) return;
@@ -366,14 +355,6 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
 
   const { homeTeam, awayTeam, period } = gameState;
   const scoringTeamData = goalSting.team === "home" ? homeTeam : awayTeam;
-  const cornerPosition =
-    renderedCorner === "top-left"
-      ? "top-4 left-4"
-      : renderedCorner === "top-right"
-        ? "top-4 right-4"
-        : renderedCorner === "bottom-left"
-          ? "bottom-4 left-4"
-          : "bottom-4 right-4";
 
   const shouldRenderMainHideAnimation =
     renderedLayout === "main" &&
@@ -383,18 +364,17 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
       <div
         className={`${
           embedded ? "relative w-full h-full" : "w-screen h-screen"
-        } overflow-hidden bg-transparent font-sans text-white`}
+        } overflow-hidden bg-transparent font-sans text-zinc-900`}
       />
     );
   }
 
-  const borderClass = isLight ? "border-zinc-400" : "border-zinc-600";
-  const bgClass = isLight ? "bg-zinc-100 text-zinc-900" : "bg-zinc-900 text-zinc-100";
-  const textClass = isLight ? "text-zinc-900" : "text-zinc-100";
-  const mutedText = isLight ? "text-zinc-700" : "text-zinc-300";
-  const subtleText = isLight ? "text-zinc-600" : "text-zinc-400";
-  const dividerBg = isLight ? "bg-zinc-300" : "bg-zinc-700";
-  const scoreBg = isLight ? "bg-zinc-200" : "bg-zinc-800";
+  const borderClass = "border-zinc-300";
+  const bgClass = "bg-zinc-100 text-zinc-900";
+  const textClass = "text-zinc-900";
+  const mutedText = "text-zinc-600";
+  const subtleText = "text-zinc-500";
+  const scoreBg = "bg-zinc-200";
   const penaltiesLifting = mainTransitionStage === "hiding-penalties";
   const penaltiesHiddenStatic = mainTransitionStage === "hiding-close" || mainTransitionStage === "showing-open";
   const penaltiesDropping = mainTransitionStage === "showing-penalties";
@@ -443,37 +423,18 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
     <div
       className={`${
         embedded ? "relative w-full h-full" : "w-screen h-screen"
-      } overflow-hidden bg-transparent font-sans text-white`}
+      } overflow-hidden bg-transparent font-sans text-zinc-900`}
     >
-      {renderedLayout === "corner" ? (
-        <div className={`absolute ${cornerPosition} z-20`}>
-          <div className={`border ${borderClass} ${bgClass} px-3 py-2 min-w-[180px]`}>
-            <div className={`flex items-center justify-between text-xs font-semibold ${mutedText}`}>
-              <span className="font-bold">{homeTeam.abbreviation}</span>
-              <span className={`${isLight ? "text-amber-700" : "text-yellow-400"} font-mono`}>{displayTime}</span>
-              <span className="font-bold">{awayTeam.abbreviation}</span>
-            </div>
-            <div className="mt-1 flex items-center justify-between text-lg font-mono font-bold">
-              <span>{displayScores.home}</span>
-              <span className={`text-xs font-semibold uppercase ${subtleText}`}>{period}</span>
-              <span>{displayScores.away}</span>
-            </div>
-            <div className={`mt-2 h-1 w-full overflow-hidden ${dividerBg}`}>
-              <div className="h-full" style={{ width: "100%", backgroundColor: homeTeam.color }} />
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div
-          className="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-stretch gap-1"
-          style={
-            {
-              "--main-penalties-lift": `${mainAnimationVars.penaltiesLift}px`,
-              "--main-shots-hide": `${mainAnimationVars.shotsHide}px`,
-              "--main-scoreboard-height": `${mainAnimationVars.scoreboardHeight}px`,
-            } as CSSProperties
-          }
-        >
+      <div
+        className="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-stretch gap-1"
+        style={
+          {
+            "--main-penalties-lift": `${mainAnimationVars.penaltiesLift}px`,
+            "--main-shots-hide": `${mainAnimationVars.shotsHide}px`,
+            "--main-scoreboard-height": `${mainAnimationVars.scoreboardHeight}px`,
+          } as CSSProperties
+        }
+      >
           <div
             ref={shotsPanelRef}
             className={`relative z-10 px-4 py-1 border ${borderClass} ${bgClass} flex items-center gap-4 overflow-hidden ${
@@ -495,7 +456,7 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
             {goalSting.active && (
               <div className="absolute inset-0 overflow-hidden pointer-events-none z-20">
                 <div
-                  className={`goal-sting-overlay ${isLight ? "goal-sting-light" : ""} ${goalSting.team === "home" ? "goal-sting-home" : "goal-sting-away"}`}
+                  className={`goal-sting-overlay goal-sting-light ${goalSting.team === "home" ? "goal-sting-home" : "goal-sting-away"}`}
                   style={
                     {
                       "--goal-sting-color": goalSting.team === "home" ? homeTeam.color : awayTeam.color,
@@ -542,7 +503,7 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
               <div
                 className={`flex flex-col items-center justify-center px-6 h-14 ${bgClass} min-w-35 border-x border-y ${borderClass}`}
               >
-                <div className={`text-3xl font-mono font-bold tracking-tighter ${isLight ? "text-amber-700" : "text-yellow-400"}`}>
+                <div className="text-3xl font-mono font-bold tracking-tighter text-amber-700">
                   {displayTime}
                 </div>
                 <div className={`text-xs font-bold tracking-widest uppercase mt-1 ${subtleText}`}>
@@ -578,8 +539,7 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
               {renderPenaltyTimers(awayPenalties)}
             </div>
           </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -592,7 +552,7 @@ function PenaltyTimer({ penalty, className = "", style }: { penalty: any; classN
 
   return (
     <div
-      className={`penalty-item px-3 py-1 bg-red-600 border-t border-red-200/70 flex justify-center items-center ${className}`}
+      className={`penalty-item px-3 py-1 bg-red-600 border-t border-red-200/70 text-white flex justify-center items-center ${className}`}
       style={style}
     >
       <span>{display}</span>

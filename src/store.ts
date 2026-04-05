@@ -79,9 +79,8 @@ export interface GameState {
   period: string;
   eventLog: GameEvent[];
   overlayVisible: boolean;
-  overlayLayout: "main" | "corner";
-  overlayCorner: "top-left" | "top-right" | "bottom-left" | "bottom-right";
-  overlayTheme: "dark" | "light";
+  overlayLayout: "main";
+  overlayCorner?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
   jumbotronGradientsEnabled: boolean;
   serverTime?: number;
 }

@@ -359,7 +359,6 @@ export default function EventLogPanel({
       overlayVisible: incoming.overlayVisible ?? gameState.overlayVisible,
       overlayLayout: incoming.overlayLayout ?? gameState.overlayLayout,
       overlayCorner: incoming.overlayCorner ?? gameState.overlayCorner,
-      overlayTheme: incoming.overlayTheme ?? gameState.overlayTheme,
       period: incoming.period ?? gameState.period,
     } satisfies GameState;
   };

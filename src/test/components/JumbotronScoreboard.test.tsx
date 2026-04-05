@@ -35,7 +35,6 @@ const baseState = {
   overlayVisible: true,
   overlayLayout: "main" as const,
   overlayCorner: "top-left" as const,
-  overlayTheme: "dark" as const,
   jumbotronGradientsEnabled: true,
 };
 
