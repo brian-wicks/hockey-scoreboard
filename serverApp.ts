@@ -104,6 +104,13 @@ interface GameState {
   overlayLayout: "main";
   overlayCorner?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
   jumbotronGradientsEnabled: boolean;
+  jumbotronGoalHighlight?: {
+    team: "home" | "away";
+    scorer: string;
+    assist1?: string;
+    assist2?: string;
+    expiresAt: number;
+  } | null;
 }
 
 export interface ScoreboardServerOptions {
@@ -322,6 +329,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     overlayVisible: true,
     overlayLayout: "main",
     jumbotronGradientsEnabled: true,
+    jumbotronGoalHighlight: null,
   };
 
   let clockInterval: NodeJS.Timeout | null = null;

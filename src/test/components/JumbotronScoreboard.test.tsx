@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 const connect = vi.fn();
+const updateState = vi.fn();
 
 const baseState = {
   homeTeam: {
@@ -36,6 +37,7 @@ const baseState = {
   overlayLayout: "main" as const,
   overlayCorner: "top-left" as const,
   jumbotronGradientsEnabled: true,
+  jumbotronGoalHighlight: null,
 };
 
 vi.mock("../../store", () => ({
@@ -43,6 +45,7 @@ vi.mock("../../store", () => ({
     gameState: baseState,
     connect,
     serverTimeOffsetMs: 0,
+    updateState,
   }),
 }));
 

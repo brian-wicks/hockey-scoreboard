@@ -22,7 +22,7 @@ function formatTeamLabel(name: string | undefined | null, abbreviation: string |
 }
 
 export default function JumbotronScoreboard() {
-  const { gameState, connect, serverTimeOffsetMs } = useStore();
+  const { gameState, connect, serverTimeOffsetMs, updateState } = useStore();
 
   useEffect(() => {
     connect();
@@ -51,12 +51,23 @@ export default function JumbotronScoreboard() {
     overlayLayout: "main" as const,
     overlayCorner: "top-left" as const,
     jumbotronGradientsEnabled: true,
+    jumbotronGoalHighlight: null,
   };
 
-  const { homeTeam, awayTeam, period, jumbotronGradientsEnabled } = safeState;
+  const { homeTeam, awayTeam, period, jumbotronGradientsEnabled, jumbotronGoalHighlight } = safeState;
   const periodLabel = formatPeriodLabel(period);
   const homeLabel = formatTeamLabel(homeTeam.name, homeTeam.abbreviation);
   const awayLabel = formatTeamLabel(awayTeam.name, awayTeam.abbreviation);
+  const highlightActive = Boolean(jumbotronGoalHighlight);
+  const highlightTeamLabel =
+    jumbotronGoalHighlight?.team === "home"
+      ? (homeTeam.name || homeTeam.abbreviation || "").trim()
+      : (awayTeam.name || awayTeam.abbreviation || "").trim();
+  const highlightAssists = [jumbotronGoalHighlight?.assist1, jumbotronGoalHighlight?.assist2]
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean);
+  const highlightAssistText = highlightAssists.length > 0 ? highlightAssists.join(" • ") : "";
+  const highlightAssistTextFixed = highlightAssists.length > 0 ? highlightAssists.join(" / ") : "";
   const homePenalties = homeTeam.penalties ?? [];
   const awayPenalties = awayTeam.penalties ?? [];
   const homePenaltyRows = useMemo(
@@ -86,6 +97,18 @@ export default function JumbotronScoreboard() {
     [awayPenalties],
   );
 
+  useEffect(() => {
+    if (!jumbotronGoalHighlight) return;
+    const remainingMs = jumbotronGoalHighlight.expiresAt - (Date.now() + serverTimeOffsetMs);
+    if (remainingMs <= 0) {
+      updateState({ jumbotronGoalHighlight: null });
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      updateState({ jumbotronGoalHighlight: null });
+    }, remainingMs + 50);
+    return () => window.clearTimeout(timer);
+  }, [jumbotronGoalHighlight?.expiresAt, serverTimeOffsetMs, updateState]);
 
   return (
     <div className="w-screen h-screen bg-black text-white jumbotron-root">
@@ -100,8 +123,32 @@ export default function JumbotronScoreboard() {
           }
         />
       )}
-      <div className="jumbotron-content">
-        <div className="jumbotron-main">
+      {highlightActive && jumbotronGoalHighlight ? (
+        <div className="jumbotron-goal-fullscreen">
+          <div
+            className="jumbotron-goal-tag"
+            style={{ "--goal-line-ch": Math.max(1, `${highlightTeamLabel} Goal`.length) } as CSSProperties}
+          >
+            {highlightTeamLabel} Goal
+          </div>
+          <div
+            className="jumbotron-goal-scorer"
+            style={{ "--goal-line-ch": Math.max(1, jumbotronGoalHighlight.scorer.length) } as CSSProperties}
+          >
+            {jumbotronGoalHighlight.scorer}
+          </div>
+          {highlightAssistTextFixed && (
+            <div
+              className="jumbotron-goal-assists"
+              style={{ "--goal-line-ch": Math.max(1, `Assists: ${highlightAssistTextFixed}`.length) } as CSSProperties}
+            >
+              Assists: {highlightAssistTextFixed}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="jumbotron-content">
+          <div className="jumbotron-main">
           <div className="jumbotron-side">
             <div className="jumbotron-side-top">
               <div className="jumbotron-logo">
@@ -145,32 +192,33 @@ export default function JumbotronScoreboard() {
           </div>
         </div>
 
-        <div className="jumbotron-penalties">
-          <div className="jumbotron-penalty-column">
-            {homePenaltyRows.map((penalty) => (
-                penalty.number ? (
-                    <div key={penalty.id} className="jumbotron-penalty-row">
-                      <span className="jumbotron-penalty-number">{penalty.number || ""}</span>
-                      <span className="jumbotron-penalty-time">{penalty.remaining}</span>
-                      <span className="jumbotron-penalty-desc">{penalty.infraction || ""}</span>
-                    </div>
-                ) : ""
-            ))}
-          </div>
+          <div className="jumbotron-penalties">
+            <div className="jumbotron-penalty-column">
+              {homePenaltyRows.map((penalty) => (
+                  penalty.number ? (
+                      <div key={penalty.id} className="jumbotron-penalty-row">
+                        <span className="jumbotron-penalty-number">{penalty.number || ""}</span>
+                        <span className="jumbotron-penalty-time">{penalty.remaining}</span>
+                        <span className="jumbotron-penalty-desc">{penalty.infraction || ""}</span>
+                      </div>
+                  ) : ""
+              ))}
+            </div>
 
-          <div className="jumbotron-penalty-column right">
-            {awayPenaltyRows.map((penalty) => (
-                penalty.number ? (
-                    <div key={penalty.id} className="jumbotron-penalty-row right">
-                      <span className="jumbotron-penalty-desc">{penalty.infraction || ""}</span>
-                      <span className="jumbotron-penalty-time">{penalty.remaining}</span>
-                      <span className="jumbotron-penalty-number">{penalty.number || ""}</span>
-                    </div>
-                ) : ""
-            ))}
+            <div className="jumbotron-penalty-column right">
+              {awayPenaltyRows.map((penalty) => (
+                  penalty.number ? (
+                      <div key={penalty.id} className="jumbotron-penalty-row right">
+                        <span className="jumbotron-penalty-desc">{penalty.infraction || ""}</span>
+                        <span className="jumbotron-penalty-time">{penalty.remaining}</span>
+                        <span className="jumbotron-penalty-number">{penalty.number || ""}</span>
+                      </div>
+                  ) : ""
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

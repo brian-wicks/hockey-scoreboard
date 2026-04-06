@@ -43,6 +43,7 @@ export default function GoalReviewPanel({
   };
 
   const currentClockSeconds = Math.max(0, Math.floor(gameState.clock.timeRemaining / 1000));
+  const nowMs = typeof gameState.serverTime === "number" ? gameState.serverTime : Date.now();
 
   const goalReviewItems = eventLog.filter((event) => {
     if (event.type !== "goal" || event.team !== team) return false;
@@ -66,6 +67,20 @@ export default function GoalReviewPanel({
       <div className="flex flex-col gap-3">
         {goalReviewItems.map((event) => (
           <div key={event.id} className="bg-zinc-950 border border-zinc-800 rounded-lg p-3">
+            {(() => {
+              const activeHighlight = gameState.jumbotronGoalHighlight;
+              const scorer = (event.scorer ?? "").trim();
+              const assist1 = (event.assist1 ?? "").trim();
+              const assist2 = (event.assist2 ?? "").trim();
+              const isActive =
+                activeHighlight &&
+                activeHighlight.team === event.team &&
+                activeHighlight.scorer === scorer &&
+                (activeHighlight.assist1 ?? "") === assist1 &&
+                (activeHighlight.assist2 ?? "") === assist2 &&
+                nowMs < activeHighlight.expiresAt;
+              return (
+                <>
             <div className="flex items-center justify-between text-xs text-zinc-400 font-mono">
               <span>{event.period}</span>
               <span>{event.clockTime}</span>
@@ -92,7 +107,39 @@ export default function GoalReviewPanel({
                 placeholder="Assist 2"
                 options={skaterOptions}
               />
+              {isActive ? (
+                <button
+                  type="button"
+                  onClick={() => updateState({ jumbotronGoalHighlight: null })}
+                  className="px-3 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-sm font-semibold text-white transition-colors"
+                >
+                  Hide from Jumbotron
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!scorer) return;
+                  updateState({
+                    jumbotronGoalHighlight: {
+                      team: event.team,
+                      scorer,
+                      assist1,
+                      assist2,
+                      expiresAt: nowMs + 15_000,
+                    },
+                  });
+                }}
+                disabled={!scorer}
+                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-lg text-sm font-semibold text-white transition-colors"
+              >
+                  Show on Jumbotron (15s)
+              </button>
+              )}
             </div>
+                </>
+              );
+            })()}
           </div>
         ))}
       </div>
