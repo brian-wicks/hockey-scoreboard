@@ -353,21 +353,13 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
 
   if (!gameState) return null;
 
-  const { homeTeam, awayTeam, period } = gameState;
+  const { homeTeam, awayTeam, period, lowerThird } = gameState;
   const scoringTeamData = goalSting.team === "home" ? homeTeam : awayTeam;
 
   const shouldRenderMainHideAnimation =
     renderedLayout === "main" &&
     (keepMainVisibleForHide || mainTransitionStage === "showing-open" || mainTransitionStage === "showing-penalties");
-  if (!overlayVisible && !shouldRenderMainHideAnimation) {
-    return (
-      <div
-        className={`${
-          embedded ? "relative w-full h-full" : "w-screen h-screen"
-        } overflow-hidden bg-transparent font-sans text-zinc-900`}
-      />
-    );
-  }
+  const shouldRenderMain = overlayVisible || shouldRenderMainHideAnimation;
 
   const borderClass = "border-zinc-300";
   const bgClass = "bg-zinc-100 text-zinc-900";
@@ -425,16 +417,25 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
         embedded ? "relative w-full h-full" : "w-screen h-screen"
       } overflow-hidden bg-transparent font-sans text-zinc-900`}
     >
-      <div
-        className="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-stretch gap-1"
-        style={
-          {
-            "--main-penalties-lift": `${mainAnimationVars.penaltiesLift}px`,
-            "--main-shots-hide": `${mainAnimationVars.shotsHide}px`,
-            "--main-scoreboard-height": `${mainAnimationVars.scoreboardHeight}px`,
-          } as CSSProperties
-        }
-      >
+      {(lowerThird?.title || lowerThird?.subtitle) && (
+        <div className={`lower-third ${lowerThird?.active ? "lower-third-show" : "lower-third-hide"}`}>
+          <div className="lower-third-content">
+            <div className="lower-third-title">{lowerThird.title}</div>
+            {lowerThird.subtitle && <div className="lower-third-subtitle">{lowerThird.subtitle}</div>}
+          </div>
+        </div>
+      )}
+      {shouldRenderMain && (
+        <div
+          className="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-stretch gap-1"
+          style={
+            {
+              "--main-penalties-lift": `${mainAnimationVars.penaltiesLift}px`,
+              "--main-shots-hide": `${mainAnimationVars.shotsHide}px`,
+              "--main-scoreboard-height": `${mainAnimationVars.scoreboardHeight}px`,
+            } as CSSProperties
+          }
+        >
           <div
             ref={shotsPanelRef}
             className={`relative z-10 px-4 py-1 border ${borderClass} ${bgClass} flex items-center gap-4 overflow-hidden ${
@@ -539,7 +540,8 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
               {renderPenaltyTimers(awayPenalties)}
             </div>
           </div>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

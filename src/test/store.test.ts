@@ -48,6 +48,7 @@ const baseState: GameState = {
   overlayLayout: "main",
   overlayCorner: "top-left",
   jumbotronGradientsEnabled: true,
+  lowerThird: { active: false, title: "", subtitle: "" },
   jumbotronGoalHighlight: null,
 };
 

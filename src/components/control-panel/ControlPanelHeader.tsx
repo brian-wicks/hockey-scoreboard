@@ -1,11 +1,13 @@
-import {Bookmark, LayoutPanelTop, Settings, PresentationIcon, House} from "lucide-react";
+import { Bookmark, LayoutPanelTop, Settings, PresentationIcon, House, RotateCcw } from "lucide-react";
 
 interface ControlPanelHeaderProps {
   activeTab: "controls" | "settings" | "presets";
   setActiveTab: (tab: "controls" | "settings" | "presets") => void;
+  onUndo: () => void;
+  canUndo: boolean;
 }
 
-export default function ControlPanelHeader({ activeTab, setActiveTab }: ControlPanelHeaderProps) {
+export default function ControlPanelHeader({ activeTab, setActiveTab, onUndo, canUndo }: ControlPanelHeaderProps) {
   return (
     <header className="bg-zinc-900 border-b border-zinc-800 p-4 flex items-center justify-between">
       <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
@@ -13,6 +15,16 @@ export default function ControlPanelHeader({ activeTab, setActiveTab }: ControlP
         Hockey Scoreboard
       </h1>
       <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onUndo}
+          disabled={!canUndo}
+          className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-900 disabled:text-zinc-500 rounded-lg text-sm font-medium transition-colors"
+          title="Undo last score/shots/penalty change"
+        >
+          <RotateCcw size={16} />
+          Undo
+        </button>
         <a
           href="/overlay"
           target="_blank"

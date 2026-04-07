@@ -110,7 +110,12 @@ export default function GoalReviewPanel({
               {isActive ? (
                 <button
                   type="button"
-                  onClick={() => updateState({ jumbotronGoalHighlight: null })}
+                  onClick={() =>
+                    updateState({
+                      jumbotronGoalHighlight: null,
+                      lowerThird: { ...gameState.lowerThird, active: false },
+                    })
+                  }
                   className="px-3 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-sm font-semibold text-white transition-colors"
                 >
                   Hide from Jumbotron
@@ -120,16 +125,27 @@ export default function GoalReviewPanel({
                   type="button"
                   onClick={() => {
                     if (!scorer) return;
-                  updateState({
-                    jumbotronGoalHighlight: {
-                      team: event.team,
-                      scorer,
-                      assist1,
-                      assist2,
-                      expiresAt: nowMs + 15_000,
-                    },
-                  });
-                }}
+                    const teamName =
+                      event.team === "home" ? gameState.homeTeam.name : gameState.awayTeam.name;
+                    const assistText = [assist1, assist2].filter(Boolean).join(", ");
+                    const subtitle = assistText
+                      ? `${scorer} | Assists: ${assistText}`
+                      : `${scorer}`;
+                    updateState({
+                      jumbotronGoalHighlight: {
+                        team: event.team,
+                        scorer,
+                        assist1,
+                        assist2,
+                        expiresAt: nowMs + 15_000,
+                      },
+                      lowerThird: {
+                        active: true,
+                        title: `${teamName || "Goal"} GOAL`,
+                        subtitle,
+                      },
+                    });
+                  }}
                 disabled={!scorer}
                 className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-lg text-sm font-semibold text-white transition-colors"
               >

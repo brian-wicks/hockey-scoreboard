@@ -37,6 +37,7 @@ const baseState = {
   overlayLayout: "main" as const,
   overlayCorner: "top-left" as const,
   jumbotronGradientsEnabled: true,
+  lowerThird: { active: false, title: "", subtitle: "" },
   jumbotronGoalHighlight: null,
 };
 

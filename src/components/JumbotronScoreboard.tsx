@@ -51,6 +51,7 @@ export default function JumbotronScoreboard() {
     overlayLayout: "main" as const,
     overlayCorner: "top-left" as const,
     jumbotronGradientsEnabled: true,
+    lowerThird: { active: false, title: "", subtitle: "" },
     jumbotronGoalHighlight: null,
   };
 
@@ -66,7 +67,7 @@ export default function JumbotronScoreboard() {
   const highlightAssists = [jumbotronGoalHighlight?.assist1, jumbotronGoalHighlight?.assist2]
     .map((value) => String(value ?? "").trim())
     .filter(Boolean);
-  const highlightAssistText = highlightAssists.length > 0 ? highlightAssists.join(" / ") : "";
+  const highlightAssistText = highlightAssists.length > 0 ? highlightAssists.join(", ") : "";
   const homePenalties = homeTeam.penalties ?? [];
   const awayPenalties = awayTeam.penalties ?? [];
   const homePenaltyRows = useMemo(
@@ -100,14 +101,20 @@ export default function JumbotronScoreboard() {
     if (!jumbotronGoalHighlight) return;
     const remainingMs = jumbotronGoalHighlight.expiresAt - (Date.now() + serverTimeOffsetMs);
     if (remainingMs <= 0) {
-      updateState({ jumbotronGoalHighlight: null });
+      updateState({
+        jumbotronGoalHighlight: null,
+        lowerThird: { ...safeState.lowerThird, active: false },
+      });
       return;
     }
     const timer = window.setTimeout(() => {
-      updateState({ jumbotronGoalHighlight: null });
+      updateState({
+        jumbotronGoalHighlight: null,
+        lowerThird: { ...safeState.lowerThird, active: false },
+      });
     }, remainingMs + 50);
     return () => window.clearTimeout(timer);
-  }, [jumbotronGoalHighlight?.expiresAt, serverTimeOffsetMs, updateState]);
+  }, [jumbotronGoalHighlight?.expiresAt, serverTimeOffsetMs, updateState, safeState.lowerThird]);
 
   return (
     <div className="w-screen h-screen bg-black text-white jumbotron-root">

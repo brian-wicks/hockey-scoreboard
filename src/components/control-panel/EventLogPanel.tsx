@@ -361,6 +361,7 @@ export default function EventLogPanel({
       overlayCorner: incoming.overlayCorner ?? gameState.overlayCorner,
       period: incoming.period ?? gameState.period,
       jumbotronGoalHighlight: incoming.jumbotronGoalHighlight ?? gameState.jumbotronGoalHighlight,
+      lowerThird: incoming.lowerThird ?? gameState.lowerThird,
     } satisfies GameState;
   };
 

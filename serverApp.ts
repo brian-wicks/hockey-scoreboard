@@ -104,6 +104,11 @@ interface GameState {
   overlayLayout: "main";
   overlayCorner?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
   jumbotronGradientsEnabled: boolean;
+  lowerThird?: {
+    active: boolean;
+    title: string;
+    subtitle?: string;
+  };
   jumbotronGoalHighlight?: {
     team: "home" | "away";
     scorer: string;
@@ -329,6 +334,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     overlayVisible: true,
     overlayLayout: "main",
     jumbotronGradientsEnabled: true,
+    lowerThird: { active: false, title: "", subtitle: "" },
     jumbotronGoalHighlight: null,
   };
 

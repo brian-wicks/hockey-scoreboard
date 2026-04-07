@@ -13,7 +13,17 @@ import TeamControls from "./control-panel/TeamControls";
 type ActiveTab = "controls" | "settings" | "presets";
 
 export default function ControlPanel() {
-  const { gameState, ensureInitialized, updateState, startClock, stopClock, setClock, serverTimeOffsetMs } = useStore();
+  const {
+    gameState,
+    ensureInitialized,
+    updateState,
+    startClock,
+    stopClock,
+    setClock,
+    serverTimeOffsetMs,
+    undoLastUpdate,
+    undoState,
+  } = useStore();
   const [activeTab, setActiveTab] = useState<ActiveTab>("controls");
 
   useKeyboardShortcuts(activeTab === "controls");
@@ -24,11 +34,25 @@ export default function ControlPanel() {
     return <div className="flex items-center justify-center h-screen bg-zinc-950 text-white">Connecting...</div>;
   }
 
-  const { homeTeam, awayTeam, clock, period, overlayVisible, jumbotronGradientsEnabled, eventLog } = gameState;
+  const {
+    homeTeam,
+    awayTeam,
+    clock,
+    period,
+    overlayVisible,
+    jumbotronGradientsEnabled,
+    eventLog,
+    lowerThird,
+  } = gameState;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex flex-col">
-      <ControlPanelHeader activeTab={activeTab} setActiveTab={setActiveTab} />
+      <ControlPanelHeader
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onUndo={undoLastUpdate}
+        canUndo={Boolean(undoState)}
+      />
 
       <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
         {activeTab === "controls" ? (
@@ -55,6 +79,7 @@ export default function ControlPanel() {
               overlayVisible={overlayVisible}
               jumbotronGradientsEnabled={jumbotronGradientsEnabled}
               updateState={updateState}
+              lowerThird={lowerThird}
             />
             <EventLogPanel
               gameState={gameState}

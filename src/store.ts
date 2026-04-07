@@ -82,6 +82,11 @@ export interface GameState {
   overlayLayout: "main";
   overlayCorner?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
   jumbotronGradientsEnabled: boolean;
+  lowerThird?: {
+    active: boolean;
+    title: string;
+    subtitle?: string;
+  };
   jumbotronGoalHighlight?: {
     team: "home" | "away";
     scorer: string;
@@ -121,9 +126,11 @@ interface StoreState {
   gameState: GameState | null;
   serverTimeOffsetMs: number;
   keyboardShortcuts: KeyboardShortcut[];
+  undoState: GameState | null;
   connect: () => void;
   ensureInitialized: () => void;
   updateState: (updates: Partial<GameState>) => void;
+  undoLastUpdate: () => void;
   startClock: () => void;
   stopClock: () => void;
   clockIncrease: () => void;
@@ -165,12 +172,43 @@ const defaultShortcuts: KeyboardShortcut[] = [
 ];
 
 let hasInitialized = false;
+const STATE_CACHE_KEY = "scoreboard:gameStateCache:v1";
+
+const shouldSnapshotForUndo = (updates: Partial<GameState>) => {
+  const home = updates.homeTeam;
+  const away = updates.awayTeam;
+  return (
+    (home && (typeof home.score === "number" || typeof home.shots === "number" || Array.isArray(home.penalties))) ||
+    (away && (typeof away.score === "number" || typeof away.shots === "number" || Array.isArray(away.penalties)))
+  );
+};
+
+const loadCachedState = (): GameState | null => {
+  try {
+    const raw = localStorage.getItem(STATE_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as GameState;
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const saveCachedState = (state: GameState) => {
+  try {
+    localStorage.setItem(STATE_CACHE_KEY, JSON.stringify(state));
+  } catch {
+    // ignore cache failures
+  }
+};
 
 export const useStore = create<StoreState>((set, get) => ({
   socket: null,
   gameState: null,
   serverTimeOffsetMs: 0,
   keyboardShortcuts: [...defaultShortcuts],
+  undoState: null,
 
   connect: () => {
     const socket = io(BASE_URL);
@@ -183,6 +221,7 @@ export const useStore = create<StoreState>((set, get) => ({
       const serverTime = typeof state.serverTime === "number" ? state.serverTime : null;
       const serverTimeOffsetMs = serverTime === null ? get().serverTimeOffsetMs : serverTime - Date.now();
       set({ gameState: state, serverTimeOffsetMs });
+      saveCachedState(state);
     });
 
     set({ socket });
@@ -191,6 +230,12 @@ export const useStore = create<StoreState>((set, get) => ({
   ensureInitialized: () => {
     if (hasInitialized) return;
     hasInitialized = true;
+    if (!get().gameState) {
+      const cached = loadCachedState();
+      if (cached) {
+        set({ gameState: cached });
+      }
+    }
     get().connect();
     void get().loadShortcuts();
   },
@@ -198,10 +243,22 @@ export const useStore = create<StoreState>((set, get) => ({
   updateState: (updates: Partial<GameState>) => {
     const { socket, gameState } = get();
     if (socket && gameState) {
+      if (shouldSnapshotForUndo(updates)) {
+        set({ undoState: gameState });
+      }
       const newState = { ...gameState, ...updates };
       set({ gameState: newState });
+      saveCachedState(newState);
       socket.emit("updateGameState", updates);
     }
+  },
+
+  undoLastUpdate: () => {
+    const { socket, undoState, gameState } = get();
+    if (!socket || !undoState || !gameState) return;
+    set({ gameState: undoState, undoState: null });
+    saveCachedState(undoState);
+    socket.emit("updateGameState", undoState);
   },
 
   startClock: () => {
