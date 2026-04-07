@@ -57,6 +57,23 @@ describe("store", () => {
     vi.clearAllMocks();
     listeners.clear();
     vi.resetModules();
+    if (!globalThis.localStorage || typeof globalThis.localStorage.clear !== "function") {
+      const store = new Map<string, string>();
+      vi.stubGlobal("localStorage", {
+        getItem: (key: string) => store.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          store.set(key, String(value));
+        },
+        removeItem: (key: string) => {
+          store.delete(key);
+        },
+        clear: () => {
+          store.clear();
+        },
+      });
+    } else {
+      localStorage.clear();
+    }
   });
 
   it("connects and hydrates game state with server time offset", async () => {
@@ -83,6 +100,32 @@ describe("store", () => {
     useStore.getState().updateState({ period: "2nd" });
     expect(socketMock.emit).toHaveBeenCalledWith("updateGameState", { period: "2nd" });
     expect(useStore.getState().gameState?.period).toBe("2nd");
+  });
+
+  it("supports undo for score/shots/penalty updates", async () => {
+    const { useStore } = await import("../store");
+    useStore.setState({ socket: socketMock as any, gameState: baseState });
+
+    useStore.getState().updateState({
+      homeTeam: { ...baseState.homeTeam, score: baseState.homeTeam.score + 1 },
+    });
+
+    expect(useStore.getState().undoState?.homeTeam.score).toBe(baseState.homeTeam.score);
+    useStore.getState().undoLastUpdate();
+
+    expect(socketMock.emit).toHaveBeenCalledWith("updateGameState", baseState);
+    expect(useStore.getState().gameState?.homeTeam.score).toBe(baseState.homeTeam.score);
+  });
+
+  it("hydrates from cached state before socket updates arrive", async () => {
+    localStorage.setItem("scoreboard:gameStateCache:v1", JSON.stringify({ ...baseState, period: "cached" }));
+    const fetchMock = vi.fn().mockResolvedValue({ json: () => Promise.resolve([]) });
+    vi.stubGlobal("fetch", fetchMock);
+    const { useStore } = await import("../store");
+
+    useStore.getState().ensureInitialized();
+
+    expect(useStore.getState().gameState?.period).toBe("cached");
   });
 
   it("posts shortcut updates to the server", async () => {
