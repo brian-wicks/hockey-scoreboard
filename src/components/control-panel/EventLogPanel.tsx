@@ -372,7 +372,11 @@ export default function EventLogPanel({
       try {
         const raw = typeof reader.result === "string" ? reader.result : "";
         const parsed = JSON.parse(raw) as Partial<GameState>;
-        if (!parsed || typeof parsed !== "object") throw new Error("Invalid JSON");
+        if (!parsed || typeof parsed !== "object") {
+          setJsonIoStatus("error");
+          setTimeout(() => setJsonIoStatus("idle"), 2000);
+          return;
+        }
         const merged = mergeImportedState(parsed);
         updateState(merged);
         setJsonIoStatus("imported");
@@ -479,7 +483,11 @@ export default function EventLogPanel({
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify(pdfLayout),
                     });
-                    if (!res.ok) throw new Error(String(res.status));
+                    if (!res.ok) {
+                      setFileLayoutStatus("error");
+                      setTimeout(() => setFileLayoutStatus("idle"), 2000);
+                      return;
+                    }
                     setFileLayoutStatus("saved");
                     setTimeout(() => setFileLayoutStatus("idle"), 1200);
                   } catch {
@@ -497,7 +505,11 @@ export default function EventLogPanel({
                   try {
                     setFileLayoutStatus("loading");
                     const res = await fetch("/api/pdf-layout");
-                    if (!res.ok) throw new Error(String(res.status));
+                    if (!res.ok) {
+                      setFileLayoutStatus("error");
+                      setTimeout(() => setFileLayoutStatus("idle"), 2000);
+                      return;
+                    }
                     const data = (await res.json()) as unknown;
                     setPdfLayout(loadPdfLayoutFromUnknown(data));
                     setFileLayoutStatus("loaded");

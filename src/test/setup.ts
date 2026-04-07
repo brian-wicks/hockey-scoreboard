@@ -5,13 +5,13 @@ process.env.NODE_ENV = "test";
 
 if (!globalThis.requestAnimationFrame) {
   globalThis.requestAnimationFrame = (callback: FrameRequestCallback) => {
-    return globalThis.setTimeout(() => callback(Date.now()), 16);
+    return globalThis.setTimeout(() => callback(Date.now()), 16) as unknown as number;
   };
 }
 
 if (!globalThis.cancelAnimationFrame) {
   globalThis.cancelAnimationFrame = (id: number) => {
-    globalThis.clearTimeout(id);
+    globalThis.clearTimeout(id as unknown as ReturnType<typeof setTimeout>);
   };
 }
 

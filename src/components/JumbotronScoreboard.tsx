@@ -66,8 +66,7 @@ export default function JumbotronScoreboard() {
   const highlightAssists = [jumbotronGoalHighlight?.assist1, jumbotronGoalHighlight?.assist2]
     .map((value) => String(value ?? "").trim())
     .filter(Boolean);
-  const highlightAssistText = highlightAssists.length > 0 ? highlightAssists.join(" • ") : "";
-  const highlightAssistTextFixed = highlightAssists.length > 0 ? highlightAssists.join(" / ") : "";
+  const highlightAssistText = highlightAssists.length > 0 ? highlightAssists.join(" / ") : "";
   const homePenalties = homeTeam.penalties ?? [];
   const awayPenalties = awayTeam.penalties ?? [];
   const homePenaltyRows = useMemo(
@@ -137,12 +136,12 @@ export default function JumbotronScoreboard() {
           >
             {jumbotronGoalHighlight.scorer}
           </div>
-          {highlightAssistTextFixed && (
+          {highlightAssistText && (
             <div
               className="jumbotron-goal-assists"
-              style={{ "--goal-line-ch": Math.max(1, `Assists: ${highlightAssistTextFixed}`.length) } as CSSProperties}
+              style={{ "--goal-line-ch": Math.max(1, `Assists: ${highlightAssistText}`.length) } as CSSProperties}
             >
-              Assists: {highlightAssistTextFixed}
+              Assists: {highlightAssistText}
             </div>
           )}
         </div>
