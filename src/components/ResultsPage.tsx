@@ -15,7 +15,7 @@ export default function ResultsPage() {
     return <div className="flex items-center justify-center h-screen bg-slate-900 text-white">Connecting...</div>;
   }
 
-  const { homeTeam, awayTeam, period } = gameState;
+  const { homeTeam, awayTeam } = gameState;
 
   return (
     <div className="results-page" style={{ "--results-bg": `url('${backgroundUrl}')` } as CSSProperties}>
