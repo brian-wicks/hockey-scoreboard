@@ -1,20 +1,28 @@
-import { Bookmark, LayoutPanelTop, Settings, PresentationIcon, House, RotateCcw, Trophy } from "lucide-react";
+import { AlertCircle, LayoutPanelTop, PresentationIcon, RotateCcw, Trophy } from "lucide-react";
 
 interface ControlPanelHeaderProps {
-  activeTab: "controls" | "settings" | "presets";
-  setActiveTab: (tab: "controls" | "settings" | "presets") => void;
+  isConnected: boolean;
   onUndo: () => void;
   canUndo: boolean;
 }
 
-export default function ControlPanelHeader({ activeTab, setActiveTab, onUndo, canUndo }: ControlPanelHeaderProps) {
+export default function ControlPanelHeader({ isConnected, onUndo, canUndo }: ControlPanelHeaderProps) {
   return (
-    <header className="bg-zinc-900 border-b border-zinc-800 p-4 flex items-center justify-between">
-      <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-        <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
-        Hockey Scoreboard
-      </h1>
-      <div className="flex gap-2">
+    <header className="bg-zinc-900 border-b border-zinc-800 p-4 flex items-center justify-between gap-4">
+      <div className="flex items-center gap-3">
+        <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+          {isConnected ? (
+            <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" title="Connected to server" />
+          ) : (
+            <span
+              className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-red-500/60 bg-red-500/15 text-red-400"
+              title="Server connection lost"
+            >
+              <AlertCircle size={14} />
+            </span>
+          )}
+          Hockey Scoreboard
+        </h1>
         <button
           type="button"
           onClick={onUndo}
@@ -25,6 +33,8 @@ export default function ControlPanelHeader({ activeTab, setActiveTab, onUndo, ca
           <RotateCcw size={16} />
           Undo
         </button>
+      </div>
+      <div className="flex gap-2 flex-wrap justify-end">
         <a
           href="/overlay"
           target="_blank"
@@ -49,34 +59,6 @@ export default function ControlPanelHeader({ activeTab, setActiveTab, onUndo, ca
           <Trophy size={16} />
           Open Results
         </a>
-        <button
-          onClick={() => setActiveTab("controls")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            activeTab === "controls" ? "bg-indigo-600 text-white" : "bg-zinc-800 hover:bg-zinc-700"
-          }`}
-        >
-          <House size={16} />
-        </button>
-        <button
-          onClick={() => setActiveTab("settings")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
-            activeTab === "settings" ? "bg-indigo-600 text-white" : "bg-zinc-800 hover:bg-zinc-700"
-          }`}
-          aria-label="Settings"
-          title="Settings"
-        >
-          <Settings size={16} />
-        </button>
-        <button
-          onClick={() => setActiveTab("presets")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            activeTab === "presets" ? "bg-indigo-600 text-white" : "bg-zinc-800 hover:bg-zinc-700"
-          }`}
-          aria-label="Presets"
-          title="Presets"
-        >
-          <Bookmark size={16} />
-        </button>
       </div>
     </header>
   );

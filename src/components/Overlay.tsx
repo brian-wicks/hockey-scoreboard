@@ -100,7 +100,7 @@ function useAnimatedPenalties(penalties: any[], animationMs: number): AnimatedPe
 }
 
 export default function Overlay({ embedded = false, skipConnect = false }: { embedded?: boolean; skipConnect?: boolean } = {}) {
-  const { gameState, connect, serverTimeOffsetMs } = useStore();
+  const { gameState, connect, serverTimeOffsetMs, updateState } = useStore();
   const [renderedLayout, setRenderedLayout] = useState<"main">("main");
   const [displayScores, setDisplayScores] = useState({ home: 0, away: 0 });
   const [goalSting, setGoalSting] = useState<{ active: boolean; team: GoalTeam }>({
@@ -229,6 +229,24 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
   useEffect(() => {
     if (!gameState) return;
   }, [gameState]);
+
+  const jumbotronGoalHighlight = gameState?.jumbotronGoalHighlight;
+  useEffect(() => {
+    if (!jumbotronGoalHighlight) return;
+    const remainingMs = jumbotronGoalHighlight.expiresAt - (Date.now() + serverTimeOffsetMs);
+    const hide = () => {
+      updateState({
+        jumbotronGoalHighlight: null,
+        lowerThird: { ...(gameState?.lowerThird ?? { active: false, title: "", subtitle: "" }), active: false },
+      });
+    };
+    if (remainingMs <= 0) {
+      hide();
+      return;
+    }
+    const timer = window.setTimeout(hide, remainingMs + 50);
+    return () => window.clearTimeout(timer);
+  }, [jumbotronGoalHighlight?.expiresAt, serverTimeOffsetMs]);
 
   useEffect(() => {
     if (!gameState) return;

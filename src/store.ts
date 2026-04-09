@@ -124,6 +124,7 @@ export interface KeyboardShortcut {
 interface StoreState {
   socket: Socket | null;
   gameState: GameState | null;
+  isConnected: boolean;
   serverTimeOffsetMs: number;
   keyboardShortcuts: KeyboardShortcut[];
   undoState: GameState | null;
@@ -206,6 +207,7 @@ const saveCachedState = (state: GameState) => {
 export const useStore = create<StoreState>((set, get) => ({
   socket: null,
   gameState: null,
+  isConnected: false,
   serverTimeOffsetMs: 0,
   keyboardShortcuts: [...defaultShortcuts],
   undoState: null,
@@ -215,6 +217,15 @@ export const useStore = create<StoreState>((set, get) => ({
 
     socket.on("connect", () => {
       console.log("Connected to server");
+      set({ isConnected: true });
+    });
+
+    socket.on("disconnect", () => {
+      set({ isConnected: false });
+    });
+
+    socket.on("connect_error", () => {
+      set({ isConnected: false });
     });
 
     socket.on("gameState", (state: GameState) => {
@@ -224,7 +235,7 @@ export const useStore = create<StoreState>((set, get) => ({
       saveCachedState(state);
     });
 
-    set({ socket });
+    set({ socket, isConnected: socket.connected });
   },
 
   ensureInitialized: () => {

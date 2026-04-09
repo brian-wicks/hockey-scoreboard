@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Bookmark, House, Settings } from "lucide-react";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useStore } from "../store";
 import ClockControl from "./control-panel/ClockControl";
@@ -15,6 +16,7 @@ type ActiveTab = "controls" | "settings" | "presets";
 export default function ControlPanel() {
   const {
     gameState,
+    isConnected,
     ensureInitialized,
     updateState,
     startClock,
@@ -44,17 +46,55 @@ export default function ControlPanel() {
     eventLog,
     lowerThird,
   } = gameState;
+  const activeTabIndex = activeTab === "controls" ? 0 : activeTab === "settings" ? 1 : 2;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex flex-col">
       <ControlPanelHeader
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        isConnected={isConnected}
         onUndo={undoLastUpdate}
         canUndo={Boolean(undoState)}
       />
 
       <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
+        <div className="relative mb-6 border border-zinc-800 bg-zinc-900/80 rounded-2xl p-2 grid grid-cols-3 gap-2 w-full overflow-hidden">
+          <div
+            aria-hidden="true"
+            className="absolute top-2 bottom-2 left-2 w-[calc((100%-2rem)/3)] rounded-xl bg-indigo-600 shadow-[0_0_30px_rgba(79,70,229,0.35)] transition-transform duration-300 ease-out"
+            style={{ transform: `translateX(calc(${activeTabIndex} * (100% + 0.5rem)))` }}
+          />
+          <button
+            type="button"
+            onClick={() => setActiveTab("controls")}
+            className={`relative z-10 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === "controls" ? "text-white" : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+            }`}
+          >
+            <House size={16} />
+            Controls
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("settings")}
+            className={`relative z-10 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === "settings" ? "text-white" : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+            }`}
+          >
+            <Settings size={16} />
+            Settings
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("presets")}
+            className={`relative z-10 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === "presets" ? "text-white" : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+            }`}
+          >
+            <Bookmark size={16} />
+            Team Presets
+          </button>
+        </div>
+
         {activeTab === "controls" ? (
           <div className="flex flex-col gap-6">
             <div className="grid grid-cols-1 min-[950px]:grid-cols-3 gap-6">

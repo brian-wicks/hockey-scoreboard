@@ -93,6 +93,21 @@ describe("store", () => {
     nowSpy.mockRestore();
   });
 
+  it("tracks socket connection state", async () => {
+    const { useStore } = await import("../store");
+
+    useStore.getState().connect();
+
+    listeners.get("connect")?.(undefined);
+    expect(useStore.getState().isConnected).toBe(true);
+
+    listeners.get("disconnect")?.(undefined);
+    expect(useStore.getState().isConnected).toBe(false);
+
+    listeners.get("connect_error")?.(undefined);
+    expect(useStore.getState().isConnected).toBe(false);
+  });
+
   it("emits updates through the socket", async () => {
     const { useStore } = await import("../store");
     useStore.setState({ socket: socketMock as any, gameState: baseState });
