@@ -11,10 +11,14 @@ const ControlPanel = lazy(() => import('./components/ControlPanel'));
 const Overlay = lazy(() => import('./components/Overlay'));
 const JumbotronScoreboard = lazy(() => import('./components/JumbotronScoreboard'));
 const ChangelogPage = lazy(() => import('./components/ChangelogPage'));
+const ResultsPage = lazy(() => import('./components/ResultsPage'));
 
 function AppRoutes() {
   const location = useLocation();
-  const showFooter = location.pathname !== '/overlay' && location.pathname !== '/jumbotron';
+  const showFooter =
+    location.pathname !== '/overlay' &&
+    location.pathname !== '/jumbotron' &&
+    location.pathname !== '/results';
 
   return (
     <>
@@ -23,6 +27,7 @@ function AppRoutes() {
           <Route path="/" element={<ControlPanel />} />
           <Route path="/overlay" element={<Overlay />} />
           <Route path="/jumbotron" element={<JumbotronScoreboard />} />
+          <Route path="/results" element={<ResultsPage />} />
           <Route path="/changelog" element={<ChangelogPage />} />
         </Routes>
       </Suspense>

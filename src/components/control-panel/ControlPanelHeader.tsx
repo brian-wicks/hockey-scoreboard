@@ -1,4 +1,4 @@
-import { Bookmark, LayoutPanelTop, Settings, PresentationIcon, House, RotateCcw } from "lucide-react";
+import { Bookmark, LayoutPanelTop, Settings, PresentationIcon, House, RotateCcw, Trophy } from "lucide-react";
 
 interface ControlPanelHeaderProps {
   activeTab: "controls" | "settings" | "presets";
@@ -40,6 +40,14 @@ export default function ControlPanelHeader({ activeTab, setActiveTab, onUndo, ca
         >
           <PresentationIcon size={16} />
           Open Jumbotron
+        </a>
+        <a
+          href="/results"
+          target="_blank"
+          className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium transition-colors"
+        >
+          <Trophy size={16} />
+          Open Results
         </a>
         <button
           onClick={() => setActiveTab("controls")}
