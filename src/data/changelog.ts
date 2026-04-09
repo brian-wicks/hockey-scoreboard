@@ -11,6 +11,25 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.6.0',
+    date: '2026-04-09',
+    sections: {
+      added: [
+        'Add results page.',
+        'Add goal highlights to the jumbotron.',
+        'Add lower third overlay with goal scorer and assist information.',
+        'Server connectivity is now displayed in navbar.',
+      ],
+      changed: [
+        'Reorganise navigation.',
+        'Fixed width of timer on jumbotron.',
+      ],
+      removed: [
+        'Remove corner overlays and dark mode.',
+      ],
+    },
+  },
+  {
     version: '1.5.3',
     date: '2026-03-24',
     sections: {
