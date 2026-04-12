@@ -56,8 +56,8 @@ export default function ControlPanel() {
         canUndo={Boolean(undoState)}
       />
 
-      <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
-        <div className="relative mb-6 border border-zinc-800 bg-zinc-900/80 rounded-2xl p-2 grid grid-cols-3 gap-2 w-full overflow-hidden">
+      <main className="flex-1 p-3 sm:p-6 max-w-7xl mx-auto w-full">
+        <div className="relative mb-3 sm:mb-6 border border-zinc-800 bg-zinc-900/80 rounded-2xl p-2 grid grid-cols-3 gap-1 sm:gap-2 w-full overflow-hidden">
           <div
             aria-hidden="true"
             className="absolute top-2 bottom-2 left-2 w-[calc((100%-2rem)/3)] rounded-xl bg-indigo-600 shadow-[0_0_30px_rgba(79,70,229,0.35)] transition-transform duration-300 ease-out"
@@ -66,32 +66,32 @@ export default function ControlPanel() {
           <button
             type="button"
             onClick={() => setActiveTab("controls")}
-            className={`relative z-10 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
+            className={`relative z-10 flex w-full items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-medium transition-colors ${
               activeTab === "controls" ? "text-white" : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
             }`}
           >
-            <House size={16} />
-            Controls
+            <House size={15} />
+            <span>Controls</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("settings")}
-            className={`relative z-10 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
+            className={`relative z-10 flex w-full items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-medium transition-colors ${
               activeTab === "settings" ? "text-white" : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
             }`}
           >
-            <Settings size={16} />
-            Settings
+            <Settings size={15} />
+            <span>Settings</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("presets")}
-            className={`relative z-10 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
+            className={`relative z-10 flex w-full items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-medium transition-colors ${
               activeTab === "presets" ? "text-white" : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
             }`}
           >
-            <Bookmark size={16} />
-            Team Presets
+            <Bookmark size={15} />
+            <span>Presets</span>
           </button>
         </div>
 

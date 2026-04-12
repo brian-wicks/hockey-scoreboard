@@ -398,9 +398,9 @@ export default function EventLogPanel({
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex flex-col gap-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold text-zinc-300 uppercase tracking-wider">Event Log</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <input
               ref={importInputRef}
               type="file"
@@ -433,19 +433,19 @@ export default function EventLogPanel({
               onClick={() => setShowPdfLayout((v) => !v)}
               className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium flex items-center gap-2 text-zinc-200"
               title="Adjust PDF layout"
-          >
-            <SlidersHorizontal size={16} />
-            PDF Layout
-          </button>
-          <button
-            type="button"
-            onClick={() => exportGamesheetPdf({ homeTeam, awayTeam, eventLog }, { layout: pdfLayout })}
-            className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium flex items-center gap-2 text-zinc-200"
-            title="Export gamesheet PDF"
-          >
-            <Download size={16} />
-            Export PDF
-          </button>
+            >
+              <SlidersHorizontal size={16} />
+              PDF Layout
+            </button>
+            <button
+              type="button"
+              onClick={() => exportGamesheetPdf({ homeTeam, awayTeam, eventLog }, { layout: pdfLayout })}
+              className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium flex items-center gap-2 text-zinc-200"
+              title="Export gamesheet PDF"
+            >
+              <Download size={16} />
+              Export PDF
+            </button>
             <button
               type="button"
               onClick={() => exportGamesheetPdf({ homeTeam, awayTeam, eventLog }, { layout: pdfLayout, debug: true })}

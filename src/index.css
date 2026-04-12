@@ -370,6 +370,27 @@
   .results-score-core {
     grid-template-columns: 1fr;
   }
+
+  .results-score.home {
+    clip-path: none;
+    justify-content: space-between;
+    border-radius: 4px 4px 0 0;
+  }
+
+  .results-score.away {
+    clip-path: none;
+    justify-content: space-between;
+    border-radius: 0 0 4px 4px;
+  }
+
+  .results-score-badge {
+    display: none;
+  }
+
+  .results-corner-logo {
+    width: clamp(36px, 10vw, 52px);
+    height: clamp(36px, 10vw, 52px);
+  }
 }
 
 .jumbotron-main {

@@ -62,9 +62,9 @@ export default function TeamControls({ team, state, gameState, eventLog, updateS
         eventLog={eventLog}
         rosterPlayers={rosterPlayers}
         updateState={updateState}
-        className={`hidden min-[1200px]:block absolute top-0 ${
-          team === "home" ? "-left-[240px]" : "-right-[240px]"
-        } w-[220px]`}
+        className={`min-[1200px]:absolute min-[1200px]:top-0 ${
+          team === "home" ? "min-[1200px]:-left-[240px]" : "min-[1200px]:-right-[240px]"
+        } min-[1200px]:w-[220px]`}
       />
       <div className="flex items-center justify-between pb-4">
         <div className="flex items-center gap-3">

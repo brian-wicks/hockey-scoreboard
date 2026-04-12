@@ -8,9 +8,9 @@ interface ControlPanelHeaderProps {
 
 export default function ControlPanelHeader({ isConnected, onUndo, canUndo }: ControlPanelHeaderProps) {
   return (
-    <header className="bg-zinc-900 border-b border-zinc-800 p-4 flex items-center justify-between gap-4">
-      <div className="flex items-center gap-3">
-        <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+    <header className="bg-zinc-900 border-b border-zinc-800 px-3 py-2 sm:p-4 flex flex-wrap items-center justify-between gap-2">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white flex items-center gap-2">
           {isConnected ? (
             <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" title="Connected to server" />
           ) : (
@@ -27,37 +27,37 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo }: Con
           type="button"
           onClick={onUndo}
           disabled={!canUndo}
-          className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-900 disabled:text-zinc-500 rounded-lg text-sm font-medium transition-colors"
+          className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-900 disabled:text-zinc-500 rounded-lg text-sm font-medium transition-colors"
           title="Undo last score/shots/penalty change"
         >
           <RotateCcw size={16} />
-          Undo
+          <span className="hidden sm:inline">Undo</span>
         </button>
       </div>
-      <div className="flex gap-2 flex-wrap justify-end">
+      <div className="flex gap-1 sm:gap-2 flex-wrap justify-end">
         <a
           href="/overlay"
           target="_blank"
-          className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium transition-colors"
+          className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium transition-colors"
         >
           <LayoutPanelTop size={16} />
-          Open Overlay
+          <span className="hidden sm:inline">Open Overlay</span>
         </a>
         <a
           href="/jumbotron"
           target="_blank"
-          className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium transition-colors"
+          className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium transition-colors"
         >
           <PresentationIcon size={16} />
-          Open Jumbotron
+          <span className="hidden sm:inline">Open Jumbotron</span>
         </a>
         <a
           href="/results"
           target="_blank"
-          className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium transition-colors"
+          className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium transition-colors"
         >
           <Trophy size={16} />
-          Open Results
+          <span className="hidden sm:inline">Open Results</span>
         </a>
       </div>
     </header>
