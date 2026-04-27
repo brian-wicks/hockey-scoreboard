@@ -112,7 +112,9 @@ export type ShortcutAction =
   | "homePenaltyAdd"
   | "awayPenaltyAdd"
   | "homePenaltyRemoveEarliest"
-  | "awayPenaltyRemoveEarliest";
+  | "awayPenaltyRemoveEarliest"
+  | "nextPeriod"
+  | "prevPeriod";
 
 export interface KeyboardShortcut {
   key: string;
@@ -189,6 +191,8 @@ const defaultShortcuts: KeyboardShortcut[] = [
     action: "awayPenaltyRemoveEarliest",
     description: "Remove Earliest Away Penalty",
   },
+  { key: "[", action: "prevPeriod", description: "Previous Period" },
+  { key: "]", action: "nextPeriod", description: "Next Period" },
 ];
 
 const defaultStreamDeckConfig: StreamDeckConfig = {

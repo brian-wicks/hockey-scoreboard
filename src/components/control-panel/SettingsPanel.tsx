@@ -32,7 +32,7 @@ const SHORTCUT_GROUPS = [
   {
     title: "Clock",
     description: "Start/stop and adjust game time.",
-    actions: ["toggleClock", "clockIncrease", "clockDecrease"] as const,
+    actions: ["toggleClock", "clockIncrease", "clockDecrease", "prevPeriod", "nextPeriod"] as const,
   },
   {
     title: "Scoring",
