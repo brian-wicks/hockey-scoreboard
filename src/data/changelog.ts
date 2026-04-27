@@ -11,6 +11,22 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.7.0',
+    date: '2026-04-27',
+    sections: {
+      added: [
+        'Add dedicated Stream Deck interface to Control Panel with customizable buttons.',
+        'Add keyboard shortcuts for Next and Previous Period.',
+      ],
+      fixed:[
+          'Fixed mobile layout.'
+      ],
+      removed: [
+        'Removed some unnecessary text across the app.',
+      ],
+    },
+  },
+  {
     version: '1.6.0',
     date: '2026-04-09',
     sections: {
