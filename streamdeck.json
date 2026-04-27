@@ -2,19 +2,21 @@
   "buttons": [
     {
       "id": "btn-0",
-      "label": "Home +1",
+      "label": "HOME GOAL",
       "action": "homeScoreUp",
       "backgroundColor": "#1e3a8a",
       "textColor": "#ffffff",
-      "icon": "Trophy"
+      "icon": "Goal",
+      "colorSource": "home"
     },
     {
       "id": "btn-1",
-      "label": "H. Shots",
+      "label": "HOME SHOT",
       "action": "homeShotsUp",
       "backgroundColor": "#1e40af",
       "textColor": "#ffffff",
-      "icon": "Activity"
+      "icon": "Puck",
+      "colorSource": "home"
     },
     {
       "id": "btn-2",
@@ -26,19 +28,21 @@
     },
     {
       "id": "btn-3",
-      "label": "A. Shots",
+      "label": "AWAY SHOT",
       "action": "awayShotsUp",
       "backgroundColor": "#991b1b",
       "textColor": "#ffffff",
-      "icon": "Activity"
+      "icon": "Puck",
+      "colorSource": "away"
     },
     {
       "id": "btn-4",
-      "label": "Away +1",
+      "label": "AWAY GOAL",
       "action": "awayScoreUp",
       "backgroundColor": "#7f1d1d",
       "textColor": "#ffffff",
-      "icon": "Trophy"
+      "icon": "Goal",
+      "colorSource": "away"
     },
     {
       "id": "btn-5",
@@ -46,7 +50,8 @@
       "action": "homeScoreDown",
       "backgroundColor": "#1e3a8a",
       "textColor": "#ffffff",
-      "icon": "Minus"
+      "icon": "ChevronDown",
+      "colorSource": "home"
     },
     {
       "id": "btn-6",
@@ -54,15 +59,16 @@
       "action": "homeShotsDown",
       "backgroundColor": "#1e40af",
       "textColor": "#ffffff",
-      "icon": "Minus"
+      "icon": "ChevronDown",
+      "colorSource": "home"
     },
     {
       "id": "btn-7",
-      "label": "Clock +1s",
-      "action": "clockIncrease",
+      "label": "Next Period",
+      "action": "nextPeriod",
       "backgroundColor": "#3f3f46",
       "textColor": "#ffffff",
-      "icon": "ChevronUp"
+      "icon": "ArrowRight"
     },
     {
       "id": "btn-8",
@@ -70,7 +76,8 @@
       "action": "awayShotsDown",
       "backgroundColor": "#991b1b",
       "textColor": "#ffffff",
-      "icon": "Minus"
+      "icon": "ChevronDown",
+      "colorSource": "away"
     },
     {
       "id": "btn-9",
@@ -78,7 +85,8 @@
       "action": "awayScoreDown",
       "backgroundColor": "#7f1d1d",
       "textColor": "#ffffff",
-      "icon": "Minus"
+      "icon": "ChevronDown",
+      "colorSource": "away"
     },
     {
       "id": "btn-10",
@@ -86,31 +94,34 @@
       "action": "homePenaltyAdd",
       "backgroundColor": "#1e3a8a",
       "textColor": "#ffffff",
-      "icon": "AlertCircle"
+      "icon": "Whistle",
+      "colorSource": "home"
     },
     {
       "id": "btn-11",
-      "label": "H. Pen Rem",
+      "label": "Remove Penalty",
       "action": "homePenaltyRemoveEarliest",
       "backgroundColor": "#1e40af",
       "textColor": "#ffffff",
-      "icon": "RotateCcw"
+      "icon": "RotateCcw",
+      "colorSource": "home"
     },
     {
       "id": "btn-12",
-      "label": "Clock -1s",
-      "action": "clockDecrease",
+      "label": "Previous Period",
+      "action": "prevPeriod",
       "backgroundColor": "#3f3f46",
       "textColor": "#ffffff",
-      "icon": "ChevronDown"
+      "icon": "ArrowLeft"
     },
     {
       "id": "btn-13",
-      "label": "A. Pen Rem",
+      "label": "Remove Penalty",
       "action": "awayPenaltyRemoveEarliest",
       "backgroundColor": "#991b1b",
       "textColor": "#ffffff",
-      "icon": "RotateCcw"
+      "icon": "RotateCcw",
+      "colorSource": "away"
     },
     {
       "id": "btn-14",
@@ -118,7 +129,8 @@
       "action": "awayPenaltyAdd",
       "backgroundColor": "#7f1d1d",
       "textColor": "#ffffff",
-      "icon": "AlertCircle"
+      "icon": "Whistle",
+      "colorSource": "away"
     }
   ]
 }

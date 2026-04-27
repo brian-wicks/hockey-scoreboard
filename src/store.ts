@@ -133,6 +133,7 @@ export interface StreamDeckButton {
   textColor: string;
   icon?: string;
   image?: string;
+  colorSource?: "custom" | "home" | "away";
 }
 
 export interface StreamDeckConfig {
@@ -197,26 +198,138 @@ const defaultShortcuts: KeyboardShortcut[] = [
 
 const defaultStreamDeckConfig: StreamDeckConfig = {
   buttons: [
-    // Row 1: Home Score +1 | Home Shots +1 | Toggle Clock | Away Shots +1 | Away Score +1
-    { id: "btn-0", label: "Home +1", action: "homeScoreUp", backgroundColor: "#1e3a8a", textColor: "#ffffff", icon: "Trophy" },
-    { id: "btn-1", label: "H. Shots", action: "homeShotsUp", backgroundColor: "#1e40af", textColor: "#ffffff", icon: "Activity" },
-    { id: "btn-2", label: "Start/Stop", action: "toggleClock", backgroundColor: "#065f46", textColor: "#ffffff", icon: "Timer" },
-    { id: "btn-3", label: "A. Shots", action: "awayShotsUp", backgroundColor: "#991b1b", textColor: "#ffffff", icon: "Activity" },
-    { id: "btn-4", label: "Away +1", action: "awayScoreUp", backgroundColor: "#7f1d1d", textColor: "#ffffff", icon: "Trophy" },
-
-    // Row 2: Home Score -1 | Home Shots -1 | Clock +1s | Away Shots -1 | Away Score -1
-    { id: "btn-5", label: "Home -1", action: "homeScoreDown", backgroundColor: "#1e3a8a", textColor: "#ffffff", icon: "Minus" },
-    { id: "btn-6", label: "H. Shots -1", action: "homeShotsDown", backgroundColor: "#1e40af", textColor: "#ffffff", icon: "Minus" },
-    { id: "btn-7", label: "Clock +1s", action: "clockIncrease", backgroundColor: "#3f3f46", textColor: "#ffffff", icon: "ChevronUp" },
-    { id: "btn-8", label: "A. Shots -1", action: "awayShotsDown", backgroundColor: "#991b1b", textColor: "#ffffff", icon: "Minus" },
-    { id: "btn-9", label: "Away -1", action: "awayScoreDown", backgroundColor: "#7f1d1d", textColor: "#ffffff", icon: "Minus" },
-
-    // Row 3: Home Penalty | Home Pen Rem | Clock -1s | Away Pen Rem | Away Penalty
-    { id: "btn-10", label: "H. Penalty", action: "homePenaltyAdd", backgroundColor: "#1e3a8a", textColor: "#ffffff", icon: "AlertCircle" },
-    { id: "btn-11", label: "H. Pen Rem", action: "homePenaltyRemoveEarliest", backgroundColor: "#1e40af", textColor: "#ffffff", icon: "RotateCcw" },
-    { id: "btn-12", label: "Clock -1s", action: "clockDecrease", backgroundColor: "#3f3f46", textColor: "#ffffff", icon: "ChevronDown" },
-    { id: "btn-13", label: "A. Pen Rem", action: "awayPenaltyRemoveEarliest", backgroundColor: "#991b1b", textColor: "#ffffff", icon: "RotateCcw" },
-    { id: "btn-14", label: "A. Penalty", action: "awayPenaltyAdd", backgroundColor: "#7f1d1d", textColor: "#ffffff", icon: "AlertCircle" },
+    {
+      "id": "btn-0",
+      "label": "HOME GOAL",
+      "action": "homeScoreUp",
+      "backgroundColor": "#1e3a8a",
+      "textColor": "#ffffff",
+      "icon": "Goal",
+      "colorSource": "home"
+    },
+    {
+      "id": "btn-1",
+      "label": "HOME SHOT",
+      "action": "homeShotsUp",
+      "backgroundColor": "#1e40af",
+      "textColor": "#ffffff",
+      "icon": "Puck",
+      "colorSource": "home"
+    },
+    {
+      "id": "btn-2",
+      "label": "Start/Stop",
+      "action": "toggleClock",
+      "backgroundColor": "#065f46",
+      "textColor": "#ffffff",
+      "icon": "Timer"
+    },
+    {
+      "id": "btn-3",
+      "label": "AWAY SHOT",
+      "action": "awayShotsUp",
+      "backgroundColor": "#991b1b",
+      "textColor": "#ffffff",
+      "icon": "Puck",
+      "colorSource": "away"
+    },
+    {
+      "id": "btn-4",
+      "label": "AWAY GOAL",
+      "action": "awayScoreUp",
+      "backgroundColor": "#7f1d1d",
+      "textColor": "#ffffff",
+      "icon": "Goal",
+      "colorSource": "away"
+    },
+    {
+      "id": "btn-5",
+      "label": "Home -1",
+      "action": "homeScoreDown",
+      "backgroundColor": "#1e3a8a",
+      "textColor": "#ffffff",
+      "icon": "ChevronDown",
+      "colorSource": "home"
+    },
+    {
+      "id": "btn-6",
+      "label": "H. Shots -1",
+      "action": "homeShotsDown",
+      "backgroundColor": "#1e40af",
+      "textColor": "#ffffff",
+      "icon": "ChevronDown",
+      "colorSource": "home"
+    },
+    {
+      "id": "btn-7",
+      "label": "Next Period",
+      "action": "nextPeriod",
+      "backgroundColor": "#3f3f46",
+      "textColor": "#ffffff",
+      "icon": "ArrowRight"
+    },
+    {
+      "id": "btn-8",
+      "label": "A. Shots -1",
+      "action": "awayShotsDown",
+      "backgroundColor": "#991b1b",
+      "textColor": "#ffffff",
+      "icon": "ChevronDown",
+      "colorSource": "away"
+    },
+    {
+      "id": "btn-9",
+      "label": "Away -1",
+      "action": "awayScoreDown",
+      "backgroundColor": "#7f1d1d",
+      "textColor": "#ffffff",
+      "icon": "ChevronDown",
+      "colorSource": "away"
+    },
+    {
+      "id": "btn-10",
+      "label": "H. Penalty",
+      "action": "homePenaltyAdd",
+      "backgroundColor": "#1e3a8a",
+      "textColor": "#ffffff",
+      "icon": "Whistle",
+      "colorSource": "home"
+    },
+    {
+      "id": "btn-11",
+      "label": "Remove Penalty",
+      "action": "homePenaltyRemoveEarliest",
+      "backgroundColor": "#1e40af",
+      "textColor": "#ffffff",
+      "icon": "RotateCcw",
+      "colorSource": "home"
+    },
+    {
+      "id": "btn-12",
+      "label": "Previous Period",
+      "action": "prevPeriod",
+      "backgroundColor": "#3f3f46",
+      "textColor": "#ffffff",
+      "icon": "ArrowLeft"
+    },
+    {
+      "id": "btn-13",
+      "label": "Remove Penalty",
+      "action": "awayPenaltyRemoveEarliest",
+      "backgroundColor": "#991b1b",
+      "textColor": "#ffffff",
+      "icon": "RotateCcw",
+      "colorSource": "away"
+    },
+    {
+      "id": "btn-14",
+      "label": "A. Penalty",
+      "action": "awayPenaltyAdd",
+      "backgroundColor": "#7f1d1d",
+      "textColor": "#ffffff",
+      "icon": "Whistle",
+      "colorSource": "away"
+    }
   ],
 };
 

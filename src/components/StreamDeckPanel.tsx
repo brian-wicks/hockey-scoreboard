@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   Settings,
   X,
-  Plus,
-  Minus,
   Timer,
   Trophy,
   Activity,
@@ -13,7 +11,11 @@ import {
   ChevronDown,
   ArrowUp,
   ArrowDown,
+  ArrowLeft,
+  ArrowRight,
   RotateCcw,
+  Info,
+  Target,
 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { useStore, ShortcutAction, StreamDeckButton } from "../store";
@@ -22,17 +24,67 @@ import Overlay from "./Overlay";
 import GoalReviewPanel from "./control-panel/GoalReviewPanel";
 import PenaltyItem from "./control-panel/PenaltyItem";
 
+// Custom Ice Hockey Icons
+const PuckIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" className={className}>
+        {/* Body of the puck */}
+        <path d="M2 12v5c0 3 4.5 5 10 5s10-2 10-5v-5c0 3-4.5 5-10 5s-10-2-10-5Z" />
+        {/* Top surface */}
+        <ellipse cx="12" cy="10" rx="10" ry="5" />
+        {/* Highlight on top */}
+        <ellipse cx="12" cy="9" rx="8" ry="3" fill="white" fillOpacity="0.2" />
+    </svg>
+);
+
+const HockeyStickIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
+    <svg width={size} height={size} viewBox="0 0 504 504" fill="currentColor" xmlns="http://www.w3.org/2000/svg" className={className}>
+        <path d="M476.4,377.677c-0.176,0-0.328,0.284-0.504,0.284H323.784l-67.848-67.504v0.195L20.044,74.301
+c-4.464-4.468-12.168-4.596-16.624-0.14C1.184,76.397,0,79.297,0,82.453c0,3.16,1.252,6.092,3.484,8.324l338.684,338.648
+c2.232,2.232,5.204,3.668,8.364,3.668c0.32,0,0.62,0.024,0.916,0.024H476.4c15.224,0,27.6-12.504,27.6-27.72
+S491.62,377.677,476.4,377.677z"/>
+    </svg>
+);
+
+const GoalIcon = ({size = 24, className = ""}: { size?: number; className?: string }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+         className={className}>
+        <path d="M3 20V6C3 4.89543 3.89543 4 5 4H19C20.1046 4 21 4.89543 21 6V20" stroke="currentColor"
+              strokeWidth="2"/>
+        <path d="M3 10H21M3 15H21M7 4V20M12 4V20M17 4V20" stroke="currentColor" strokeWidth="1" opacity="0.4"/>
+    </svg>
+);
+
+const WhistleIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
+    <svg width={size} height={size} viewBox="0 0 297 297" fill="currentColor" xmlns="http://www.w3.org/2000/svg" className={className}>
+        <path d="M286.966,57.833H104.569c-18.481,0-35.701,5.496-50.12,14.932c-4.36-10.082-14.4-17.157-26.064-17.157
+C12.733,55.609,0,68.342,0,83.994c0,13.14,8.977,24.22,21.118,27.438c-5.343,11.632-8.328,24.564-8.328,38.18
+c0,50.607,41.172,91.779,91.779,91.779c50.608,0,91.78-41.172,91.78-91.779v-16.659h90.618c5.541,0,10.034-4.493,10.034-10.034
+V67.867C297,62.326,292.507,57.833,286.966,57.833z M28.385,75.677c4.586,0,8.317,3.731,8.317,8.317s-3.731,8.317-8.317,8.317
+s-8.317-3.731-8.317-8.317S23.799,75.677,28.385,75.677z M276.932,112.886h-90.618c-5.541,0-10.034,4.493-10.034,10.034v26.692
+c0,39.541-32.17,71.711-71.712,71.711c-39.541,0-71.711-32.17-71.711-71.711s32.17-71.711,71.711-71.711h8.318v26.668
+c0,5.541,4.493,10.034,10.034,10.034s10.034-4.493,10.034-10.034V77.901h143.978V112.886z"/>
+    </svg>
+);
+
 const AVAILABLE_ICONS = [
   { name: "None", icon: null },
+  { name: "Puck", icon: PuckIcon },
+  { name: "Stick", icon: HockeyStickIcon },
+  { name: "Goal", icon: GoalIcon },
+  { name: "Whistle", icon: WhistleIcon },
   { name: "Timer", icon: Timer },
   { name: "Trophy", icon: Trophy },
+  { name: "Target", icon: Target },
   { name: "Activity", icon: Activity },
   { name: "AlertCircle", icon: AlertCircle },
   { name: "Clock", icon: Clock },
+  { name: "Info", icon: Info },
   { name: "ChevronUp", icon: ChevronUp },
   { name: "ChevronDown", icon: ChevronDown },
   { name: "ArrowUp", icon: ArrowUp },
   { name: "ArrowDown", icon: ArrowDown },
+  { name: "ArrowLeft", icon: ArrowLeft },
+  { name: "ArrowRight", icon: ArrowRight },
   { name: "RotateCcw", icon: RotateCcw },
   { name: "Settings", icon: Settings },
 ];
@@ -42,6 +94,8 @@ const ACTION_OPTIONS: { value: ShortcutAction | "none"; label: string }[] = [
   { value: "toggleClock", label: "Toggle Clock" },
   { value: "clockIncrease", label: "Clock +1s" },
   { value: "clockDecrease", label: "Clock -1s" },
+  { value: "nextPeriod", label: "Next Period" },
+  { value: "prevPeriod", label: "Previous Period" },
   { value: "homeScoreUp", label: "Home Score +1" },
   { value: "awayScoreUp", label: "Away Score +1" },
   { value: "homeShotsUp", label: "Home Shots +1" },
@@ -64,7 +118,6 @@ function ScoreboardPreview() {
     const updateScale = () => {
       if (!containerRef.current) return;
       const { width } = containerRef.current.getBoundingClientRect();
-      // Target a narrower virtual width to "zoom in" on the central scoreboard bug
       const targetWidth = 760;
       setScale(width / targetWidth);
     };
@@ -75,20 +128,11 @@ function ScoreboardPreview() {
   }, []);
 
   return (
-    <div className="w-full bg-zinc-950 rounded-xl overflow-hidden border border-zinc-800 shadow-2xl mb-8">
-      <div className="flex items-center justify-between px-4 py-2 bg-zinc-900 border-b border-zinc-800">
-        <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Scoreboard Preview</span>
-        <div className="flex gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-red-500/20" />
-          <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/20" />
-          <div className="w-2.5 h-2.5 rounded-full bg-green-500/20" />
-        </div>
-      </div>
-      <div
-        ref={containerRef}
-        className="relative w-full overflow-hidden bg-[url('/assets/grunge-navy.jpg')] bg-cover bg-center"
-        style={{ height: `${160 * scale}px` }}
-      >
+    <div
+    ref={containerRef}
+    className="relative w-full overflow-hidden bg-[url('/assets/grunge-navy.jpg')] bg-cover bg-center"
+    style={{ height: `${200 * scale}px` }}
+    >
         <div
           style={{
             transform: `scale(${scale})`,
@@ -104,7 +148,6 @@ function ScoreboardPreview() {
         >
           <Overlay skipConnect />
         </div>
-      </div>
     </div>
   );
 }
@@ -155,42 +198,63 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Background</label>
-              <div className="flex gap-2">
-                <input
-                  type="color"
-                  value={edited.backgroundColor}
-                  onChange={(e) => setEdited({ ...edited, backgroundColor: e.target.value })}
-                  className="w-10 h-10 bg-transparent border-0 p-0 cursor-pointer"
-                />
-                <input
-                  type="text"
-                  value={edited.backgroundColor}
-                  onChange={(e) => setEdited({ ...edited, backgroundColor: e.target.value })}
-                  className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Text Color</label>
-              <div className="flex gap-2">
-                <input
-                  type="color"
-                  value={edited.textColor}
-                  onChange={(e) => setEdited({ ...edited, textColor: e.target.value })}
-                  className="w-10 h-10 bg-transparent border-0 p-0 cursor-pointer"
-                />
-                <input
-                  type="text"
-                  value={edited.textColor}
-                  onChange={(e) => setEdited({ ...edited, textColor: e.target.value })}
-                  className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono"
-                />
-              </div>
+          <div>
+            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Color Source</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(["custom", "home", "away"] as const).map((source) => (
+                <button
+                  key={source}
+                  onClick={() => setEdited({ ...edited, colorSource: source })}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all uppercase ${
+                    (edited.colorSource || "custom") === source
+                      ? "bg-indigo-600 border-indigo-500 text-white"
+                      : "bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-700"
+                  }`}
+                >
+                  {source}
+                </button>
+              ))}
             </div>
           </div>
+
+          {(edited.colorSource === "custom" || !edited.colorSource) && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Background</label>
+                <div className="flex gap-2">
+                  <input
+                    type="color"
+                    value={edited.backgroundColor}
+                    onChange={(e) => setEdited({ ...edited, backgroundColor: e.target.value })}
+                    className="w-10 h-10 bg-transparent border-0 p-0 cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={edited.backgroundColor}
+                    onChange={(e) => setEdited({ ...edited, backgroundColor: e.target.value })}
+                    className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Text Color</label>
+                <div className="flex gap-2">
+                  <input
+                    type="color"
+                    value={edited.textColor}
+                    onChange={(e) => setEdited({ ...edited, textColor: e.target.value })}
+                    className="w-10 h-10 bg-transparent border-0 p-0 cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={edited.textColor}
+                    onChange={(e) => setEdited({ ...edited, textColor: e.target.value })}
+                    className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Icon</label>
@@ -263,6 +327,27 @@ export default function StreamDeckPanel() {
     }
   };
 
+  const resolveButtonColors = (button: StreamDeckButton) => {
+    if (!gameState) return { bg: button.backgroundColor, text: button.textColor };
+
+    // Special handling for toggleClock: Green when stopped, Red when running
+    if (button.action === "toggleClock") {
+        const isRunning = gameState.clock.isRunning;
+        return {
+            bg: isRunning ? "#991b1b" : "#065f46", // red-800 vs emerald-800
+            text: "#ffffff"
+        };
+    }
+
+    if (button.colorSource === "home") {
+        return { bg: gameState.homeTeam.color, text: "#ffffff" };
+    }
+    if (button.colorSource === "away") {
+        return { bg: gameState.awayTeam.color, text: "#ffffff" };
+    }
+    return { bg: button.backgroundColor, text: button.textColor };
+  };
+
   const handlePenaltyChange = (team: "home" | "away", index: number, updated: any) => {
     if (!gameState) return;
     const teamKey = `${team}Team` as "homeTeam" | "awayTeam";
@@ -302,17 +387,19 @@ export default function StreamDeckPanel() {
 
       <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 sm:gap-4 p-4 sm:p-6 bg-zinc-900/50 border border-zinc-800 rounded-3xl shadow-inner mb-8">
         {streamDeckConfig.buttons.map((button, index) => {
-          const IconComponent = button.icon
-            ? (LucideIcons as any)[button.icon]
-            : null;
+          // Resolve icon component from AVAILABLE_ICONS first, then fallback to LucideIcons
+          const iconItem = AVAILABLE_ICONS.find(i => i.name === button.icon);
+          const IconComponent = iconItem ? iconItem.icon : (button.icon ? (LucideIcons as any)[button.icon] : null);
+          
+          const { bg, text } = resolveButtonColors(button);
 
           return (
             <div key={button.id} className="relative group aspect-square">
               <button
                 onClick={() => handleButtonClick(button)}
                 style={{
-                  backgroundColor: button.backgroundColor,
-                  color: button.textColor,
+                  backgroundColor: bg,
+                  color: text,
                 }}
                 className="w-full h-full rounded-2xl flex flex-col items-center justify-center p-2 shadow-lg transition-all active:scale-95 hover:brightness-110 group-hover:shadow-indigo-500/10 overflow-hidden relative border border-white/5"
               >
@@ -389,18 +476,6 @@ export default function StreamDeckPanel() {
                 ))}
             </div>
          </div>
-      </div>
-
-      <div className="mt-6 p-4 border border-indigo-500/20 bg-indigo-500/5 rounded-2xl flex items-start gap-3">
-        <div className="p-2 bg-indigo-600/20 text-indigo-400 rounded-lg">
-          <Settings size={18} />
-        </div>
-        <div>
-          <h4 className="text-sm font-bold text-indigo-300">Stream Deck Controls</h4>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            Use the buttons above for quick actions. Goal and Penalty reviews will appear automatically when triggered.
-          </p>
-        </div>
       </div>
 
       {editingIndex !== null && (
