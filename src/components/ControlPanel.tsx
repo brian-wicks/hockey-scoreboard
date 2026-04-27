@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bookmark, House, Settings } from "lucide-react";
+import { Bookmark, House, LayoutGrid, Settings } from "lucide-react";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useStore } from "../store";
 import ClockControl from "./control-panel/ClockControl";
@@ -10,8 +10,9 @@ import OverlayControlsPanel from "./control-panel/OverlayControlsPanel";
 import PresetsPanel from "./control-panel/PresetsPanel";
 import SettingsPanel from "./control-panel/SettingsPanel";
 import TeamControls from "./control-panel/TeamControls";
+import StreamDeckPanel from "./StreamDeckPanel";
 
-type ActiveTab = "controls" | "settings" | "presets";
+type ActiveTab = "controls" | "settings" | "presets" | "streamdeck";
 
 export default function ControlPanel() {
   const {
@@ -28,7 +29,7 @@ export default function ControlPanel() {
   } = useStore();
   const [activeTab, setActiveTab] = useState<ActiveTab>("controls");
 
-  useKeyboardShortcuts(activeTab === "controls");
+  useKeyboardShortcuts(activeTab === "controls" || activeTab === "streamdeck");
 
   ensureInitialized();
 
@@ -46,7 +47,8 @@ export default function ControlPanel() {
     eventLog,
     lowerThird,
   } = gameState;
-  const activeTabIndex = activeTab === "controls" ? 0 : activeTab === "settings" ? 1 : 2;
+  const tabs: ActiveTab[] = ["controls", "settings", "presets", "streamdeck"];
+  const activeTabIndex = tabs.indexOf(activeTab);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex flex-col">
@@ -57,10 +59,10 @@ export default function ControlPanel() {
       />
 
       <main className="flex-1 p-3 sm:p-6 max-w-7xl mx-auto w-full">
-        <div className="relative mb-3 sm:mb-6 border border-zinc-800 bg-zinc-900/80 rounded-2xl p-2 grid grid-cols-3 gap-1 sm:gap-2 w-full overflow-hidden">
+        <div className="relative mb-3 sm:mb-6 border border-zinc-800 bg-zinc-900/80 rounded-2xl p-2 grid grid-cols-4 gap-1 sm:gap-2 w-full overflow-hidden">
           <div
             aria-hidden="true"
-            className="absolute top-2 bottom-2 left-2 w-[calc((100%-2rem)/3)] rounded-xl bg-indigo-600 shadow-[0_0_30px_rgba(79,70,229,0.35)] transition-transform duration-300 ease-out"
+            className="absolute top-2 bottom-2 left-2 w-[calc((100%-2.5rem)/4)] rounded-xl bg-indigo-600 shadow-[0_0_30px_rgba(79,70,229,0.35)] transition-transform duration-300 ease-out"
             style={{ transform: `translateX(calc(${activeTabIndex} * (100% + 0.5rem)))` }}
           />
           <button
@@ -71,7 +73,7 @@ export default function ControlPanel() {
             }`}
           >
             <House size={15} />
-            <span>Controls</span>
+            <span className="hidden xs:inline">Controls</span>
           </button>
           <button
             type="button"
@@ -81,7 +83,7 @@ export default function ControlPanel() {
             }`}
           >
             <Settings size={15} />
-            <span>Settings</span>
+            <span className="hidden xs:inline">Settings</span>
           </button>
           <button
             type="button"
@@ -91,7 +93,17 @@ export default function ControlPanel() {
             }`}
           >
             <Bookmark size={15} />
-            <span>Presets</span>
+            <span className="hidden xs:inline">Presets</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("streamdeck")}
+            className={`relative z-10 flex w-full items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-medium transition-colors ${
+              activeTab === "streamdeck" ? "text-white" : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+            }`}
+          >
+            <LayoutGrid size={15} />
+            <span className="hidden xs:inline">Stream Deck</span>
           </button>
         </div>
 
@@ -135,6 +147,8 @@ export default function ControlPanel() {
           <SettingsPanel gameState={gameState} updateState={updateState} />
         ) : activeTab === "presets" ? (
           <PresetsPanel gameState={gameState} updateState={updateState} />
+        ) : activeTab === "streamdeck" ? (
+          <StreamDeckPanel />
         ) : null}
       </main>
     </div>

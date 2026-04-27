@@ -1,0 +1,124 @@
+{
+  "buttons": [
+    {
+      "id": "btn-0",
+      "label": "Home +1",
+      "action": "homeScoreUp",
+      "backgroundColor": "#1e3a8a",
+      "textColor": "#ffffff",
+      "icon": "Trophy"
+    },
+    {
+      "id": "btn-1",
+      "label": "H. Shots",
+      "action": "homeShotsUp",
+      "backgroundColor": "#1e40af",
+      "textColor": "#ffffff",
+      "icon": "Activity"
+    },
+    {
+      "id": "btn-2",
+      "label": "Start/Stop",
+      "action": "toggleClock",
+      "backgroundColor": "#065f46",
+      "textColor": "#ffffff",
+      "icon": "Timer"
+    },
+    {
+      "id": "btn-3",
+      "label": "A. Shots",
+      "action": "awayShotsUp",
+      "backgroundColor": "#991b1b",
+      "textColor": "#ffffff",
+      "icon": "Activity"
+    },
+    {
+      "id": "btn-4",
+      "label": "Away +1",
+      "action": "awayScoreUp",
+      "backgroundColor": "#7f1d1d",
+      "textColor": "#ffffff",
+      "icon": "Trophy"
+    },
+    {
+      "id": "btn-5",
+      "label": "Home -1",
+      "action": "homeScoreDown",
+      "backgroundColor": "#1e3a8a",
+      "textColor": "#ffffff",
+      "icon": "Minus"
+    },
+    {
+      "id": "btn-6",
+      "label": "H. Shots -1",
+      "action": "homeShotsDown",
+      "backgroundColor": "#1e40af",
+      "textColor": "#ffffff",
+      "icon": "Minus"
+    },
+    {
+      "id": "btn-7",
+      "label": "Clock +1s",
+      "action": "clockIncrease",
+      "backgroundColor": "#3f3f46",
+      "textColor": "#ffffff",
+      "icon": "ChevronUp"
+    },
+    {
+      "id": "btn-8",
+      "label": "A. Shots -1",
+      "action": "awayShotsDown",
+      "backgroundColor": "#991b1b",
+      "textColor": "#ffffff",
+      "icon": "Minus"
+    },
+    {
+      "id": "btn-9",
+      "label": "Away -1",
+      "action": "awayScoreDown",
+      "backgroundColor": "#7f1d1d",
+      "textColor": "#ffffff",
+      "icon": "Minus"
+    },
+    {
+      "id": "btn-10",
+      "label": "H. Penalty",
+      "action": "homePenaltyAdd",
+      "backgroundColor": "#1e3a8a",
+      "textColor": "#ffffff",
+      "icon": "AlertCircle"
+    },
+    {
+      "id": "btn-11",
+      "label": "H. Pen Rem",
+      "action": "homePenaltyRemoveEarliest",
+      "backgroundColor": "#1e40af",
+      "textColor": "#ffffff",
+      "icon": "RotateCcw"
+    },
+    {
+      "id": "btn-12",
+      "label": "Clock -1s",
+      "action": "clockDecrease",
+      "backgroundColor": "#3f3f46",
+      "textColor": "#ffffff",
+      "icon": "ChevronDown"
+    },
+    {
+      "id": "btn-13",
+      "label": "A. Pen Rem",
+      "action": "awayPenaltyRemoveEarliest",
+      "backgroundColor": "#991b1b",
+      "textColor": "#ffffff",
+      "icon": "RotateCcw"
+    },
+    {
+      "id": "btn-14",
+      "label": "A. Penalty",
+      "action": "awayPenaltyAdd",
+      "backgroundColor": "#7f1d1d",
+      "textColor": "#ffffff",
+      "icon": "AlertCircle"
+    }
+  ]
+}

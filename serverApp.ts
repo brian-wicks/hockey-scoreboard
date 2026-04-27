@@ -130,6 +130,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   const randomId = options.randomId ?? (() => Math.random().toString(36).slice(2, 11));
 
   const SHORTCUTS_FILE = join(dataDir, "shortcuts.json");
+  const STREAMDECK_FILE = join(dataDir, "streamdeck.json");
   const TEAM_DEFAULTS_FILE = join(dataDir, "team-defaults.json");
   const TEAM_PRESETS_FILE = join(dataDir, "team-presets.json");
   const TEAM_LIBRARY_FILE = join(dataDir, "team-library.json");
@@ -697,6 +698,30 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     } catch (error) {
       console.error("Error saving shortcuts:", error);
       res.status(500).json({ success: false, error: "Failed to save shortcuts" });
+    }
+  });
+
+  app.get("/api/streamdeck", (req, res) => {
+    try {
+      if (existsSync(STREAMDECK_FILE)) {
+        const data = readFileSync(STREAMDECK_FILE, "utf-8");
+        res.json(JSON.parse(data));
+      } else {
+        res.json(null);
+      }
+    } catch (error) {
+      console.error("Error reading Stream Deck config:", error);
+      res.json(null);
+    }
+  });
+
+  app.post("/api/streamdeck", (req, res) => {
+    try {
+      writeFileSync(STREAMDECK_FILE, JSON.stringify(req.body, null, 2));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error saving Stream Deck config:", error);
+      res.status(500).json({ success: false, error: "Failed to save Stream Deck config" });
     }
   });
 

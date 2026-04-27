@@ -97,28 +97,44 @@ export interface GameState {
   serverTime?: number;
 }
 
+export type ShortcutAction =
+  | "toggleClock"
+  | "clockIncrease"
+  | "clockDecrease"
+  | "homeScoreUp"
+  | "awayScoreUp"
+  | "homeShotsUp"
+  | "awayShotsUp"
+  | "homeScoreDown"
+  | "awayScoreDown"
+  | "homeShotsDown"
+  | "awayShotsDown"
+  | "homePenaltyAdd"
+  | "awayPenaltyAdd"
+  | "homePenaltyRemoveEarliest"
+  | "awayPenaltyRemoveEarliest";
+
 export interface KeyboardShortcut {
   key: string;
   ctrl?: boolean;
   shift?: boolean;
   alt?: boolean;
-  action:
-    | "toggleClock"
-    | "clockIncrease"
-    | "clockDecrease"
-    | "homeScoreUp"
-    | "awayScoreUp"
-    | "homeShotsUp"
-    | "awayShotsUp"
-    | "homeScoreDown"
-    | "awayScoreDown"
-    | "homeShotsDown"
-    | "awayShotsDown"
-    | "homePenaltyAdd"
-    | "awayPenaltyAdd"
-    | "homePenaltyRemoveEarliest"
-    | "awayPenaltyRemoveEarliest";
+  action: ShortcutAction;
   description: string;
+}
+
+export interface StreamDeckButton {
+  id: string;
+  label: string;
+  action: ShortcutAction | "none";
+  backgroundColor: string;
+  textColor: string;
+  icon?: string;
+  image?: string;
+}
+
+export interface StreamDeckConfig {
+  buttons: StreamDeckButton[];
 }
 
 interface StoreState {
@@ -127,6 +143,7 @@ interface StoreState {
   isConnected: boolean;
   serverTimeOffsetMs: number;
   keyboardShortcuts: KeyboardShortcut[];
+  streamDeckConfig: StreamDeckConfig;
   undoState: GameState | null;
   connect: () => void;
   ensureInitialized: () => void;
@@ -140,6 +157,8 @@ interface StoreState {
   updateShortcut: (index: number, shortcut: KeyboardShortcut) => void;
   resetShortcuts: () => void;
   loadShortcuts: () => Promise<void>;
+  updateStreamDeckButton: (index: number, button: StreamDeckButton) => void;
+  loadStreamDeckConfig: () => Promise<void>;
 }
 
 const defaultShortcuts: KeyboardShortcut[] = [
@@ -171,6 +190,31 @@ const defaultShortcuts: KeyboardShortcut[] = [
     description: "Remove Earliest Away Penalty",
   },
 ];
+
+const defaultStreamDeckConfig: StreamDeckConfig = {
+  buttons: [
+    // Row 1: Home Score +1 | Home Shots +1 | Toggle Clock | Away Shots +1 | Away Score +1
+    { id: "btn-0", label: "Home +1", action: "homeScoreUp", backgroundColor: "#1e3a8a", textColor: "#ffffff", icon: "Trophy" },
+    { id: "btn-1", label: "H. Shots", action: "homeShotsUp", backgroundColor: "#1e40af", textColor: "#ffffff", icon: "Activity" },
+    { id: "btn-2", label: "Start/Stop", action: "toggleClock", backgroundColor: "#065f46", textColor: "#ffffff", icon: "Timer" },
+    { id: "btn-3", label: "A. Shots", action: "awayShotsUp", backgroundColor: "#991b1b", textColor: "#ffffff", icon: "Activity" },
+    { id: "btn-4", label: "Away +1", action: "awayScoreUp", backgroundColor: "#7f1d1d", textColor: "#ffffff", icon: "Trophy" },
+
+    // Row 2: Home Score -1 | Home Shots -1 | Clock +1s | Away Shots -1 | Away Score -1
+    { id: "btn-5", label: "Home -1", action: "homeScoreDown", backgroundColor: "#1e3a8a", textColor: "#ffffff", icon: "Minus" },
+    { id: "btn-6", label: "H. Shots -1", action: "homeShotsDown", backgroundColor: "#1e40af", textColor: "#ffffff", icon: "Minus" },
+    { id: "btn-7", label: "Clock +1s", action: "clockIncrease", backgroundColor: "#3f3f46", textColor: "#ffffff", icon: "ChevronUp" },
+    { id: "btn-8", label: "A. Shots -1", action: "awayShotsDown", backgroundColor: "#991b1b", textColor: "#ffffff", icon: "Minus" },
+    { id: "btn-9", label: "Away -1", action: "awayScoreDown", backgroundColor: "#7f1d1d", textColor: "#ffffff", icon: "Minus" },
+
+    // Row 3: Home Penalty | Home Pen Rem | Clock -1s | Away Pen Rem | Away Penalty
+    { id: "btn-10", label: "H. Penalty", action: "homePenaltyAdd", backgroundColor: "#1e3a8a", textColor: "#ffffff", icon: "AlertCircle" },
+    { id: "btn-11", label: "H. Pen Rem", action: "homePenaltyRemoveEarliest", backgroundColor: "#1e40af", textColor: "#ffffff", icon: "RotateCcw" },
+    { id: "btn-12", label: "Clock -1s", action: "clockDecrease", backgroundColor: "#3f3f46", textColor: "#ffffff", icon: "ChevronDown" },
+    { id: "btn-13", label: "A. Pen Rem", action: "awayPenaltyRemoveEarliest", backgroundColor: "#991b1b", textColor: "#ffffff", icon: "RotateCcw" },
+    { id: "btn-14", label: "A. Penalty", action: "awayPenaltyAdd", backgroundColor: "#7f1d1d", textColor: "#ffffff", icon: "AlertCircle" },
+  ],
+};
 
 let hasInitialized = false;
 const STATE_CACHE_KEY = "scoreboard:gameStateCache:v1";
@@ -210,6 +254,7 @@ export const useStore = create<StoreState>((set, get) => ({
   isConnected: false,
   serverTimeOffsetMs: 0,
   keyboardShortcuts: [...defaultShortcuts],
+  streamDeckConfig: defaultStreamDeckConfig,
   undoState: null,
 
   connect: () => {
@@ -249,6 +294,7 @@ export const useStore = create<StoreState>((set, get) => ({
     }
     get().connect();
     void get().loadShortcuts();
+    void get().loadStreamDeckConfig();
   },
 
   updateState: (updates: Partial<GameState>) => {
@@ -342,6 +388,32 @@ export const useStore = create<StoreState>((set, get) => ({
       }
     } catch (error) {
       console.error("Failed to load shortcuts from server:", error);
+    }
+  },
+
+  updateStreamDeckButton: (index: number, button: StreamDeckButton) => {
+    const config = { ...get().streamDeckConfig };
+    config.buttons = [...config.buttons];
+    config.buttons[index] = button;
+    set({ streamDeckConfig: config });
+
+    // Save to server
+    fetch(`${BASE_URL}/api/streamdeck`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(config),
+    }).catch((error) => console.error("Failed to save Stream Deck config:", error));
+  },
+
+  loadStreamDeckConfig: async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/streamdeck`);
+      const data = await response.json();
+      if (data && data.buttons) {
+        set({ streamDeckConfig: data });
+      }
+    } catch (error) {
+      console.error("Failed to load Stream Deck config from server:", error);
     }
   },
 }));

@@ -99,7 +99,7 @@ function useAnimatedPenalties(penalties: any[], animationMs: number): AnimatedPe
   return animatedPenalties;
 }
 
-export default function Overlay({ embedded = false, skipConnect = false }: { embedded?: boolean; skipConnect?: boolean } = {}) {
+export default function Overlay({ skipConnect = false }: { skipConnect?: boolean } = {}) {
   const { gameState, connect, serverTimeOffsetMs, updateState } = useStore();
   const [renderedLayout, setRenderedLayout] = useState<"main">("main");
   const [displayScores, setDisplayScores] = useState({ home: 0, away: 0 });
@@ -366,7 +366,7 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
       }
     };
     window.addEventListener("resize", resizeHandler);
-    return () => window.removeEventListener("resize", resizeHandler);
+    return () => window.addEventListener("resize", resizeHandler);
   }, [renderedLayout, homePenalties.length, awayPenalties.length, gameState?.period]);
 
   if (!gameState) return null;
@@ -431,9 +431,7 @@ export default function Overlay({ embedded = false, skipConnect = false }: { emb
 
   return (
     <div
-      className={`${
-        embedded ? "relative w-full h-full" : "w-screen h-screen"
-      } overflow-hidden bg-transparent font-sans text-zinc-900`}
+      className="w-screen h-screen overflow-hidden bg-transparent font-sans text-zinc-900"
     >
       {(lowerThird?.title || lowerThird?.subtitle) && (
         <div className={`lower-third ${lowerThird?.active ? "lower-third-show" : "lower-third-hide"}`}>
