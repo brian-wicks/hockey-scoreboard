@@ -830,10 +830,6 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
             </div>
           </section>
         )}
-
-        <div className="mt-4 text-xs text-zinc-600">
-          Tip: click any shortcut button and press a new key combination to remap.
-        </div>
       </div>
 
       {saveConflict && (
