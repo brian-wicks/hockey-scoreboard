@@ -130,7 +130,7 @@ function ScoreboardPreview() {
   return (
     <div
     ref={containerRef}
-    className="relative w-full overflow-hidden bg-[url('/assets/grunge-navy.jpg')] bg-cover bg-center"
+    className="relative w-full overflow-hidden"
     style={{ height: `${200 * scale}px` }}
     >
         <div
