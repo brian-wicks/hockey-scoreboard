@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
-import { GameState, TeamPlayer, TeamState } from "../../store";
+import { GameState, TeamPlayer, TeamState, useStore } from "../../store";
 import { UpdateGameState } from "./types";
 
 interface TeamIdentity {
@@ -52,6 +52,7 @@ function applyPresetTeam(team: TeamState, identity: TeamPresetTeam): TeamState {
 }
 
 export default function PresetsPanel({ gameState, updateState }: PresetsPanelProps) {
+  const { user } = useStore();
   const [presets, setPresets] = useState<TeamPreset[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingDefaults, setSavingDefaults] = useState(false);
@@ -68,10 +69,14 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
   }, []);
 
   const loadPresets = async () => {
+      if (!user) return;
       setLoading(true);
       setError("");
       try {
-      const response = await fetch(`${baseUrl}/api/teams`);
+      const token = await user.getIdToken();
+      const response = await fetch(`${baseUrl}/api/teams`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
       const data = await response.json();
       setPresets(Array.isArray(data) ? data : []);
       } catch (loadError) {
@@ -82,7 +87,7 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
     }
   };
 
-  if (!hasLoadedRef.current) {
+  if (!hasLoadedRef.current && user) {
     hasLoadedRef.current = true;
     void loadPresets();
   }
@@ -96,10 +101,13 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
   };
 
   const deletePreset = async (name: string) => {
+    if (!user) return;
     setError("");
     try {
+      const token = await user.getIdToken();
       const response = await fetch(`${baseUrl}/api/teams/${encodeURIComponent(name)}`, {
         method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
       });
       const data = await response.json();
       setPresets(Array.isArray(data?.teams) ? data.teams : []);
@@ -111,12 +119,17 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
   };
 
   const saveDefaultsNow = async () => {
+    if (!user) return;
     setSavingDefaults(true);
     setError("");
     try {
+      const token = await user.getIdToken();
       await fetch(`${baseUrl}/api/team-defaults`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({
           homeTeam: pickPresetTeam(gameState.homeTeam),
           awayTeam: pickPresetTeam(gameState.awayTeam),

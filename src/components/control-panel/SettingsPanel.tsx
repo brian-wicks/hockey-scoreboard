@@ -57,7 +57,7 @@ const SHORTCUT_GROUPS = [
 ];
 
 export default function SettingsPanel({ gameState, updateState }: SettingsPanelProps) {
-  const { keyboardShortcuts, updateShortcut, resetShortcuts } = useStore();
+  const { user, keyboardShortcuts, updateShortcut, resetShortcuts } = useStore();
   const [homeName, setHomeName] = useState(gameState.homeTeam.name);
   const [homeAbbr, setHomeAbbr] = useState(gameState.homeTeam.abbreviation);
   const [homeLogo, setHomeLogo] = useState(gameState.homeTeam.logo);
@@ -219,8 +219,12 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
   });
 
   const loadSavedTeams = async () => {
+    if (!user) return;
     try {
-      const response = await fetch(`${baseUrl}/api/teams`);
+      const token = await user.getIdToken();
+      const response = await fetch(`${baseUrl}/api/teams`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
       const data = await response.json();
       setSavedTeams(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -254,9 +258,13 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
               logo: awayLogo,
               color: normalizeHexInput(awayColorText),
             };
+      const token = await user.getIdToken();
       const response = await fetch(`${baseUrl}/api/teams`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({
           name: saveName,
           team: mapTeamToPreset(teamSource),
@@ -330,7 +338,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
     setAwayRosterDraft(gameState.awayTeam.players ?? []);
   }, [gameState.homeTeam, gameState.awayTeam]);
 
-  if (!hasLoadedTeamsRef.current) {
+  if (!hasLoadedTeamsRef.current && user) {
     hasLoadedTeamsRef.current = true;
     void loadSavedTeams();
   }
