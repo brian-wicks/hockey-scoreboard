@@ -8,7 +8,7 @@
     "build": "vite build",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "test": "vitest",
+    "test": "vitest run",
     "start": "tsx server.ts",
     "deploy:stage": "pm2 deploy ecosystem.config.cjs staging",
     "deploy:prod": "pm2 deploy ecosystem.config.cjs production"

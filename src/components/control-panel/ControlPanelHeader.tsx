@@ -16,6 +16,8 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, onSha
   const isViewer = useStore((state) => state.isViewer);
   const shareId = useStore((state) => state.shareId);
 
+  const [imageError, setImageError] = useState(false);
+
   const overlayPath = isViewer ? `/share/${shareId}/overlay` : "/overlay";
   const jumbotronPath = isViewer ? `/share/${shareId}/jumbotron` : "/jumbotron";
   const resultsPath = "/results";
@@ -97,8 +99,18 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, onSha
           {user && !isViewer && (
             <div className="flex items-center gap-3 pl-4 border-l border-zinc-800">
               <div className="flex items-center gap-2 group cursor-default">
-                {user.photoURL ? (
-                  <img src={user.photoURL} alt={user.displayName || ""} className="w-8 h-8 rounded-full border border-zinc-700" />
+                {user.photoURL && !imageError ? (
+                  <img 
+                    src={user.photoURL} 
+                    alt={user.displayName || ""} 
+                    className="w-8 h-8 rounded-full border border-zinc-700"
+                    referrerPolicy="no-referrer"
+                    crossOrigin="anonymous"
+                    onError={(e) => {
+                      console.error("Profile image load failed:", e);
+                      setImageError(true);
+                    }}
+                  />
                 ) : (
                   <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center">
                     <UserIcon size={14} className="text-zinc-400" />
@@ -123,8 +135,18 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, onSha
         <div className="lg:hidden flex items-center gap-2">
           {user && !isViewer && (
              <div className="flex items-center mr-1">
-               {user.photoURL ? (
-                 <img src={user.photoURL} alt={user.displayName || ""} className="w-7 h-7 rounded-full border border-zinc-700" />
+               {user.photoURL && !imageError ? (
+                 <img 
+                   src={user.photoURL} 
+                   alt={user.displayName || ""} 
+                   className="w-7 h-7 rounded-full border border-zinc-700"
+                   referrerPolicy="no-referrer"
+                   crossOrigin="anonymous"
+                   onError={(e) => {
+                     console.error("Mobile profile image load failed:", e);
+                     setImageError(true);
+                   }}
+                 />
                ) : (
                  <div className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center">
                    <UserIcon size={12} className="text-zinc-400" />

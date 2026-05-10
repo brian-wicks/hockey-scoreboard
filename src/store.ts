@@ -154,12 +154,14 @@ interface StoreState {
   // Auth State
   user: User | null;
   authLoading: boolean;
+  authError: string | null;
   shareId: string | null;
   isViewer: boolean;
 
   connect: () => void;
   connectViewer: (shareId: string) => void;
   ensureInitialized: () => void;
+  setAuthError: (error: string | null) => void;
   updateState: (updates: Partial<GameState>) => void;
   undoLastUpdate: () => void;
   startClock: () => void;
@@ -391,17 +393,24 @@ export const useStore = create<StoreState>((set, get) => ({
   undoState: null,
   user: null,
   authLoading: true,
+  authError: null,
   shareId: null,
   isViewer: false,
 
-  setUser: (user) => set({ user }),
+  setUser: (user) => set((state) => ({ 
+    user, 
+    authError: state.isViewer ? state.authError : null 
+  })),
   setAuthLoading: (authLoading) => set({ authLoading }),
+  setAuthError: (authError) => set({ authError, authLoading: false }),
 
   login: async () => {
     try {
+      set({ authError: null });
       await signInWithPopup(auth, googleProvider);
     } catch (error) {
       console.error("Login failed:", error);
+      set({ authError: "Login failed. Please try again." });
     }
   },
 
@@ -412,7 +421,7 @@ export const useStore = create<StoreState>((set, get) => ({
         socket.disconnect();
       }
       await signOut(auth);
-      set({ user: null, gameState: null, socket: null, isViewer: false, shareId: null });
+      set({ user: null, gameState: null, socket: null, isViewer: false, shareId: null, authError: null });
     } catch (error) {
       console.error("Logout failed:", error);
     }
@@ -420,7 +429,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   connectViewer: async (shareId: string) => {
     try {
-      set({ shareId, isViewer: true, authLoading: false });
+      set({ shareId, isViewer: true, authLoading: true, authError: null });
       
       // Disconnect existing socket if any
       if (get().socket) {
@@ -432,13 +441,13 @@ export const useStore = create<StoreState>((set, get) => ({
         auth: { shareId },
         transports: ["websocket", "polling"],
         reconnection: true,
-        reconnectionAttempts: Infinity,
+        reconnectionAttempts: 5,
         reconnectionDelay: 1000,
       });
 
       socket.on("connect", () => {
         console.log("Viewer connected to server for share:", shareId);
-        set({ isConnected: true });
+        set({ isConnected: true, authLoading: false, authError: null });
       });
 
       socket.on("disconnect", () => {
@@ -447,13 +456,13 @@ export const useStore = create<StoreState>((set, get) => ({
 
       socket.on("connect_error", (error) => {
         console.error("Viewer connection error:", error.message);
-        set({ isConnected: false });
+        set({ isConnected: false, authError: error.message, authLoading: false });
       });
 
       socket.on("gameState", (state: GameState) => {
         const serverTime = typeof state.serverTime === "number" ? state.serverTime : null;
         const serverTimeOffsetMs = serverTime === null ? get().serverTimeOffsetMs : serverTime - Date.now();
-        set({ gameState: state, serverTimeOffsetMs });
+        set({ gameState: state, serverTimeOffsetMs, authLoading: false, authError: null });
       });
 
       set({ socket, isConnected: socket.connected });
@@ -465,10 +474,21 @@ export const useStore = create<StoreState>((set, get) => ({
         const state = await response.json();
         const serverTime = typeof state.serverTime === "number" ? state.serverTime : null;
         const serverTimeOffsetMs = serverTime === null ? get().serverTimeOffsetMs : serverTime - Date.now();
-        set({ gameState: state, serverTimeOffsetMs });
+        set({ gameState: state, serverTimeOffsetMs, authLoading: false, authError: null });
+      } else {
+        const data = await response.json().catch(() => ({}));
+        set({ 
+          authError: data.error || "Invalid or expired share link", 
+          authLoading: false
+        });
+        socket.disconnect();
       }
     } catch (error) {
       console.error("Failed to connect viewer:", error);
+      set({ 
+        authError: "Failed to connect to the shared scoreboard", 
+        authLoading: false
+      });
     }
   },
 
@@ -477,6 +497,7 @@ export const useStore = create<StoreState>((set, get) => ({
     if (!user) return;
 
     try {
+      set({ authError: null, authLoading: true });
       const token = await user.getIdToken();
       
       // Disconnect existing socket if any
@@ -497,7 +518,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
       socket.on("connect", () => {
         console.log("Connected to server");
-        set({ isConnected: true });
+        set({ isConnected: true, authError: null, authLoading: false });
       });
 
       socket.on("disconnect", () => {
@@ -506,7 +527,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
       socket.on("connect_error", (error) => {
         console.error("Connection error:", error.message);
-        set({ isConnected: false });
+        set({ isConnected: false, authError: `Connection error: ${error.message}`, authLoading: false });
       });
 
       socket.on("gameState", (state: GameState) => {

@@ -5,6 +5,7 @@
 
 import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { AlertCircle } from 'lucide-react';
 import AppFooter from './components/AppFooter';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './lib/firebase';
@@ -22,6 +23,7 @@ function AppRoutes() {
   const user = useStore((state) => state.user);
   const isViewer = useStore((state) => state.isViewer);
   const authLoading = useStore((state) => state.authLoading);
+  const authError = useStore((state) => state.authError);
   const setUser = useStore((state) => state.setUser);
   const setAuthLoading = useStore((state) => state.setAuthLoading);
   const ensureInitialized = useStore((state) => state.ensureInitialized);
@@ -44,6 +46,40 @@ function AppRoutes() {
     location.pathname !== '/overlay' &&
     location.pathname !== '/jumbotron' &&
     location.pathname !== '/results';
+
+  if (authError) {
+    const err = authError.toLowerCase();
+    const isNotFound = err.includes("not found") || err.includes("invalid") || err.includes("expired") || err.includes("no shareid");
+    
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white p-4">
+        <div className="max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-8 text-center shadow-2xl">
+          <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertCircle size={32} className="text-red-500" />
+          </div>
+          <h2 className="text-xl font-bold text-white mb-2">
+            {isNotFound ? "Share Link Not Found" : "Connection Failed"}
+          </h2>
+          <p className="text-zinc-400 mb-6">
+            {isNotFound 
+              ? "The scoreboard you are looking for doesn't exist or the link has expired." 
+              : authError}
+          </p>
+          <button
+            onClick={() => {
+              window.location.href = '/';
+            }}
+            className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold transition-all mb-3 shadow-lg shadow-indigo-500/20"
+          >
+            Go to Homepage
+          </button>
+          <p className="text-xs text-zinc-500">
+            If you are the owner, please check your share settings and generate a new link.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (authLoading) {
     return (
