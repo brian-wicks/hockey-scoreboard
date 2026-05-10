@@ -385,7 +385,7 @@ export default function StreamDeckPanel() {
     <div className="flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto">
       <ScoreboardPreview />
 
-      <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 sm:gap-4 p-4 sm:p-6 bg-zinc-900/50 border border-zinc-800 rounded-3xl shadow-inner mb-8">
+      <div className="grid grid-cols-5 gap-2 sm:gap-4 p-2 sm:p-6 bg-zinc-900/50 border border-zinc-800 rounded-3xl shadow-inner mb-8 mx-auto w-full max-w-2xl lg:max-w-3xl">
         {streamDeckConfig.buttons.map((button, index) => {
           // Resolve icon component from AVAILABLE_ICONS first, then fallback to LucideIcons
           const iconItem = AVAILABLE_ICONS.find(i => i.name === button.icon);
@@ -401,15 +401,15 @@ export default function StreamDeckPanel() {
                   backgroundColor: bg,
                   color: text,
                 }}
-                className="w-full h-full rounded-2xl flex flex-col items-center justify-center p-2 shadow-lg transition-all active:scale-95 hover:brightness-110 group-hover:shadow-indigo-500/10 overflow-hidden relative border border-white/5"
+                className="w-full h-full rounded-lg sm:rounded-2xl flex flex-col items-center justify-center p-1 sm:p-2 shadow-lg transition-all active:scale-95 hover:brightness-110 group-hover:shadow-indigo-500/10 overflow-hidden relative border border-white/5"
               >
                 {button.image ? (
                   <img src={button.image} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
                 ) : null}
 
-                <div className="relative z-10 flex flex-col items-center gap-1.5 sm:gap-2">
-                  {IconComponent && <IconComponent size={28} className="drop-shadow-md" />}
-                  <span className="text-[10px] sm:text-xs font-bold text-center leading-tight drop-shadow-sm px-1">
+                <div className="relative z-10 flex flex-col items-center gap-1 sm:gap-2">
+                  {IconComponent && <IconComponent size={20} className="sm:w-7 sm:h-7 drop-shadow-md" />}
+                  <span className="text-[8px] sm:text-xs font-bold text-center leading-tight drop-shadow-sm px-0.5">
                     {button.label}
                   </span>
                 </div>
