@@ -100,7 +100,7 @@ function useAnimatedPenalties(penalties: any[], animationMs: number): AnimatedPe
 }
 
 export default function Overlay({ skipConnect = false }: { skipConnect?: boolean } = {}) {
-  const { gameState, connect, serverTimeOffsetMs, updateState } = useStore();
+  const { gameState, serverTimeOffsetMs, updateState, ensureInitialized } = useStore();
   const [renderedLayout, setRenderedLayout] = useState<"main">("main");
   const [displayScores, setDisplayScores] = useState({ home: 0, away: 0 });
   const [goalSting, setGoalSting] = useState<{ active: boolean; team: GoalTeam }>({
@@ -206,10 +206,8 @@ export default function Overlay({ skipConnect = false }: { skipConnect?: boolean
   };
 
   useEffect(() => {
-    if (!skipConnect) {
-      connect();
-    }
-  }, [connect, skipConnect]);
+    ensureInitialized();
+  }, [ensureInitialized]);
 
   useEffect(() => {
     return () => {

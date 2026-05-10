@@ -11,6 +11,7 @@ import PresetsPanel from "./control-panel/PresetsPanel";
 import SettingsPanel from "./control-panel/SettingsPanel";
 import TeamControls from "./control-panel/TeamControls";
 import StreamDeckPanel from "./StreamDeckPanel";
+import ShareModal from "./control-panel/ShareModal";
 
 type ActiveTab = "controls" | "settings" | "presets" | "streamdeck";
 
@@ -26,10 +27,12 @@ export default function ControlPanel() {
     serverTimeOffsetMs,
     undoLastUpdate,
     undoState,
+    isViewer,
   } = useStore();
   const [activeTab, setActiveTab] = useState<ActiveTab>("controls");
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
-  useKeyboardShortcuts(activeTab === "controls" || activeTab === "streamdeck");
+  useKeyboardShortcuts((activeTab === "controls" || activeTab === "streamdeck") && !isViewer);
 
   ensureInitialized();
 
@@ -51,63 +54,72 @@ export default function ControlPanel() {
   const activeTabIndex = tabs.indexOf(activeTab);
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans flex flex-col">
+    <div className={`min-h-screen bg-zinc-950 text-zinc-100 font-sans flex flex-col ${isViewer ? 'select-none pointer-events-none' : ''}`}>
       <ControlPanelHeader
         isConnected={isConnected}
         onUndo={undoLastUpdate}
-        canUndo={Boolean(undoState)}
+        canUndo={Boolean(undoState) && !isViewer}
+        onShare={() => setIsShareModalOpen(true)}
       />
 
-      <main className="flex-1 p-3 sm:p-6 max-w-7xl mx-auto w-full">
-        <div className="relative mb-3 sm:mb-6 border border-zinc-800 bg-zinc-900/80 rounded-2xl p-2 grid grid-cols-4 gap-1 sm:gap-2 w-full overflow-hidden">
-          <div
-            aria-hidden="true"
-            className="absolute top-2 bottom-2 left-2 w-[calc((100%-2.5rem)/4)] rounded-xl bg-indigo-600 shadow-[0_0_30px_rgba(79,70,229,0.35)] transition-transform duration-300 ease-out"
-            style={{ transform: `translateX(calc(${activeTabIndex} * (100% + 0.5rem)))` }}
-          />
-          <button
-            type="button"
-            onClick={() => setActiveTab("controls")}
-            className={`relative z-10 flex w-full items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-medium transition-colors ${
-              activeTab === "controls" ? "text-white" : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
-            }`}
-          >
-            <House size={15} />
-            <span className="hidden xs:inline">Controls</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("settings")}
-            className={`relative z-10 flex w-full items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-medium transition-colors ${
-              activeTab === "settings" ? "text-white" : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
-            }`}
-          >
-            <Settings size={15} />
-            <span className="hidden xs:inline">Settings</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("presets")}
-            className={`relative z-10 flex w-full items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-medium transition-colors ${
-              activeTab === "presets" ? "text-white" : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
-            }`}
-          >
-            <Bookmark size={15} />
-            <span className="hidden xs:inline">Presets</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("streamdeck")}
-            className={`relative z-10 flex w-full items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-medium transition-colors ${
-              activeTab === "streamdeck" ? "text-white" : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
-            }`}
-          >
-            <LayoutGrid size={15} />
-            <span className="hidden xs:inline">Stream Deck</span>
-          </button>
+      {isViewer && (
+        <div className="bg-amber-900/40 border-b border-amber-800 py-1.5 px-4 text-center">
+          <p className="text-xs font-medium text-amber-200 uppercase tracking-widest">Viewer Mode — Read Only</p>
         </div>
+      )}
 
-        {activeTab === "controls" ? (
+      <main className="flex-1 p-3 sm:p-6 max-w-7xl mx-auto w-full">
+        {!isViewer && (
+          <div className="relative mb-3 sm:mb-6 border border-zinc-800 bg-zinc-900/80 rounded-2xl p-2 grid grid-cols-4 gap-1 sm:gap-2 w-full overflow-hidden">
+            <div
+              aria-hidden="true"
+              className="absolute top-2 bottom-2 left-2 w-[calc((100%-2.5rem)/4)] rounded-xl bg-indigo-600 shadow-[0_0_30px_rgba(79,70,229,0.35)] transition-transform duration-300 ease-out"
+              style={{ transform: `translateX(calc(${activeTabIndex} * (100% + 0.5rem)))` }}
+            />
+            <button
+              type="button"
+              onClick={() => setActiveTab("controls")}
+              className={`relative z-10 flex w-full items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-medium transition-colors ${
+                activeTab === "controls" ? "text-white" : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+              }`}
+            >
+              <House size={15} />
+              <span className="hidden xs:inline">Controls</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("settings")}
+              className={`relative z-10 flex w-full items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-medium transition-colors ${
+                activeTab === "settings" ? "text-white" : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+              }`}
+            >
+              <Settings size={15} />
+              <span className="hidden xs:inline">Settings</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("presets")}
+              className={`relative z-10 flex w-full items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-medium transition-colors ${
+                activeTab === "presets" ? "text-white" : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+              }`}
+            >
+              <Bookmark size={15} />
+              <span className="hidden xs:inline">Presets</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("streamdeck")}
+              className={`relative z-10 flex w-full items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-medium transition-colors ${
+                activeTab === "streamdeck" ? "text-white" : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+              }`}
+            >
+              <LayoutGrid size={15} />
+              <span className="hidden xs:inline">Stream Deck</span>
+            </button>
+          </div>
+        )}
+
+        {activeTab === "controls" || isViewer ? (
           <div className="flex flex-col gap-6">
             <div className="grid grid-cols-1 min-[950px]:grid-cols-3 gap-6">
               <TeamControls team="home" state={homeTeam} gameState={gameState} eventLog={eventLog} updateState={updateState} />
@@ -151,6 +163,11 @@ export default function ControlPanel() {
           <StreamDeckPanel />
         ) : null}
       </main>
+
+      <ShareModal 
+        isOpen={isShareModalOpen} 
+        onClose={() => setIsShareModalOpen(false)} 
+      />
     </div>
   );
 }

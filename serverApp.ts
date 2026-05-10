@@ -4,6 +4,34 @@ import { Server, Socket } from "socket.io";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { readFileSync, writeFileSync, existsSync } from "fs";
+import admin from "firebase-admin";
+import cors from "cors";
+import { 
+  getUserConfig, 
+  setUserConfig, 
+  getGameState, 
+  saveGameState,
+  getShareUserId,
+  getUserIdShare,
+  setUserIdShare
+} from "./src/db/database.ts";
+
+// Initialize Firebase Admin
+let serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT 
+  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT) 
+  : null;
+
+if (serviceAccount && serviceAccount.private_key) {
+  serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+}
+
+if (serviceAccount) {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
+} else {
+  console.warn("FIREBASE_SERVICE_ACCOUNT not found in environment variables. Authentication will fail.");
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -137,15 +165,79 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   const PDF_LAYOUT_FILE = join(dataDir, "gamesheet-layout.json");
 
   const app = express();
+  
+  // Simple request logger
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+  });
+
+  app.use(cors({
+    origin: (origin, callback) => {
+      // Allow all origins in development for debugging
+      callback(null, true);
+    },
+    credentials: true
+  }));
+  app.use(express.json());
+
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
     cors: {
-      origin: "*",
+      origin: true,
       methods: ["GET", "POST"],
+      credentials: true
     },
+    allowEIO3: true
   });
 
-  app.use(express.json());
+  // Per-user contexts
+  interface UserContext {
+    gameState: GameState;
+    clockInterval: NodeJS.Timeout | null;
+  }
+  const userContexts = new Map<string, UserContext>();
+
+  function getInitialGameState(userId: string): GameState {
+    const savedState = getGameState(userId);
+    if (savedState) {
+      try {
+        return JSON.parse(savedState);
+      } catch (e) {
+        console.error(`Error parsing saved game state for user ${userId}:`, e);
+      }
+    }
+
+    const persistedDefaults = readTeamDefaults(userId);
+    return {
+      homeTeam: persistedDefaults ? { ...baseHomeTeam, ...persistedDefaults.homeTeam } : baseHomeTeam,
+      awayTeam: persistedDefaults ? { ...baseAwayTeam, ...persistedDefaults.awayTeam } : baseAwayTeam,
+      clock: {
+        timeRemaining: 20 * 60 * 1000,
+        isRunning: false,
+        lastUpdate: now(),
+      },
+      period: "1st",
+      eventLog: [],
+      overlayVisible: true,
+      overlayLayout: "main",
+      jumbotronGradientsEnabled: true,
+      lowerThird: { active: false, title: "", subtitle: "" },
+      jumbotronGoalHighlight: null,
+    };
+  }
+
+  function getUserContext(userId: string): UserContext {
+    let context = userContexts.get(userId);
+    if (!context) {
+      context = {
+        gameState: getInitialGameState(userId),
+        clockInterval: null,
+      };
+      userContexts.set(userId, context);
+    }
+    return context;
+  }
 
   const baseHomeTeam: TeamState = {
     name: "Home Team",
@@ -215,11 +307,21 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     };
   }
 
-  function readTeamDefaultsFromDisk(): TeamDefaults | null {
+  function readTeamDefaults(userId: string): TeamDefaults | null {
     try {
-      if (!existsSync(TEAM_DEFAULTS_FILE)) return null;
-      const data = JSON.parse(readFileSync(TEAM_DEFAULTS_FILE, "utf-8"));
-      if (!data?.homeTeam || !data?.awayTeam) return null;
+      const dataStr = getUserConfig(userId, "team-defaults");
+      const data = dataStr ? JSON.parse(dataStr) : null;
+      if (!data) {
+        // Fallback to global file for initial default if it exists
+        if (existsSync(TEAM_DEFAULTS_FILE)) {
+          const fileData = JSON.parse(readFileSync(TEAM_DEFAULTS_FILE, "utf-8"));
+          return {
+            homeTeam: normalizePresetTeam(fileData.homeTeam),
+            awayTeam: normalizePresetTeam(fileData.awayTeam),
+          } as TeamDefaults;
+        }
+        return null;
+      }
       return {
         homeTeam: normalizePresetTeam(data.homeTeam),
         awayTeam: normalizePresetTeam(data.awayTeam),
@@ -230,37 +332,39 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   }
 
-  function writeTeamDefaultsToDisk(defaults: TeamDefaults) {
-    try {
-      writeFileSync(TEAM_DEFAULTS_FILE, JSON.stringify(defaults, null, 2));
-    } catch (error) {
-      console.error("Error saving team defaults:", error);
-    }
+  function writeTeamDefaults(userId: string, defaults: TeamDefaults) {
+    setUserConfig(userId, "team-defaults", JSON.stringify(defaults));
   }
 
-  function readPdfLayoutFromDisk(): unknown | null {
+  function readPdfLayout(userId: string): unknown | null {
     try {
-      if (!existsSync(PDF_LAYOUT_FILE)) return null;
-      return JSON.parse(readFileSync(PDF_LAYOUT_FILE, "utf-8"));
+      const dataStr = getUserConfig(userId, "pdf-layout");
+      if (dataStr) return JSON.parse(dataStr);
+      
+      if (existsSync(PDF_LAYOUT_FILE)) {
+        return JSON.parse(readFileSync(PDF_LAYOUT_FILE, "utf-8"));
+      }
+      return null;
     } catch (error) {
       console.error("Error reading PDF layout:", error);
       return null;
     }
   }
 
-  function writePdfLayoutToDisk(layout: unknown) {
-    try {
-      writeFileSync(PDF_LAYOUT_FILE, JSON.stringify(layout, null, 2));
-    } catch (error) {
-      console.error("Error saving PDF layout:", error);
-    }
+  function writePdfLayout(userId: string, layout: unknown) {
+    setUserConfig(userId, "pdf-layout", JSON.stringify(layout));
   }
 
-  function readTeamPresetsFromDisk(): TeamPreset[] {
+  function readTeamPresets(userId: string): TeamPreset[] {
     try {
-      if (!existsSync(TEAM_PRESETS_FILE)) return [];
-      const data = JSON.parse(readFileSync(TEAM_PRESETS_FILE, "utf-8"));
-      if (!Array.isArray(data)) return [];
+      const dataStr = getUserConfig(userId, "team-presets");
+      const data = dataStr ? JSON.parse(dataStr) : null;
+      if (!Array.isArray(data)) {
+        if (existsSync(TEAM_PRESETS_FILE)) {
+          return JSON.parse(readFileSync(TEAM_PRESETS_FILE, "utf-8"));
+        }
+        return [];
+      }
       return data
         .map((preset) => {
           const raw = (preset ?? {}) as Partial<TeamPreset>;
@@ -281,19 +385,20 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   }
 
-  function writeTeamPresetsToDisk(presets: TeamPreset[]) {
-    try {
-      writeFileSync(TEAM_PRESETS_FILE, JSON.stringify(presets, null, 2));
-    } catch (error) {
-      console.error("Error saving team presets:", error);
-    }
+  function writeTeamPresets(userId: string, presets: TeamPreset[]) {
+    setUserConfig(userId, "team-presets", JSON.stringify(presets));
   }
 
-  function readTeamLibraryFromDisk(): SavedTeam[] {
+  function readTeamLibrary(userId: string): SavedTeam[] {
     try {
-      if (!existsSync(TEAM_LIBRARY_FILE)) return [];
-      const data = JSON.parse(readFileSync(TEAM_LIBRARY_FILE, "utf-8"));
-      if (!Array.isArray(data)) return [];
+      const dataStr = getUserConfig(userId, "team-library");
+      const data = dataStr ? JSON.parse(dataStr) : null;
+      if (!Array.isArray(data)) {
+        if (existsSync(TEAM_LIBRARY_FILE)) {
+          return JSON.parse(readFileSync(TEAM_LIBRARY_FILE, "utf-8"));
+        }
+        return [];
+      }
       return data
         .map((entry) => {
           const raw = (entry ?? {}) as Partial<SavedTeam>;
@@ -312,34 +417,9 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   }
 
-  function writeTeamLibraryToDisk(teams: SavedTeam[]) {
-    try {
-      writeFileSync(TEAM_LIBRARY_FILE, JSON.stringify(teams, null, 2));
-    } catch (error) {
-      console.error("Error saving team library:", error);
-    }
+  function writeTeamLibrary(userId: string, teams: SavedTeam[]) {
+    setUserConfig(userId, "team-library", JSON.stringify(teams));
   }
-
-  const persistedDefaults = readTeamDefaultsFromDisk();
-
-  let gameState: GameState = {
-    homeTeam: persistedDefaults ? { ...baseHomeTeam, ...persistedDefaults.homeTeam, players: persistedDefaults.homeTeam.players } : baseHomeTeam,
-    awayTeam: persistedDefaults ? { ...baseAwayTeam, ...persistedDefaults.awayTeam, players: persistedDefaults.awayTeam.players } : baseAwayTeam,
-    clock: {
-      timeRemaining: 20 * 60 * 1000,
-      isRunning: false,
-      lastUpdate: now(),
-    },
-    period: "1st",
-    eventLog: [],
-    overlayVisible: true,
-    overlayLayout: "main",
-    jumbotronGradientsEnabled: true,
-    lowerThird: { active: false, title: "", subtitle: "" },
-    jumbotronGoalHighlight: null,
-  };
-
-  let clockInterval: NodeJS.Timeout | null = null;
 
   function formatClockTime(timeRemainingMs: number): string {
     const totalSeconds = Math.ceil(Math.max(0, timeRemainingMs) / 1000);
@@ -348,7 +428,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   }
 
-  function createBaseEvent(type: EventType, team: "home" | "away"): Omit<GameEvent, "id" | "createdAt"> {
+  function createBaseEvent(gameState: GameState, type: EventType, team: "home" | "away"): Omit<GameEvent, "id" | "createdAt"> {
     return {
       type,
       team,
@@ -357,7 +437,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     };
   }
 
-  function createPeriodEndEvent(): Omit<GameEvent, "id" | "createdAt"> {
+  function createPeriodEndEvent(gameState: GameState): Omit<GameEvent, "id" | "createdAt"> {
     return {
       type: "period_end",
       team: "home",
@@ -368,7 +448,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     };
   }
 
-  function appendEvent(event: Omit<GameEvent, "id" | "createdAt">) {
+  function appendEvent(gameState: GameState, event: Omit<GameEvent, "id" | "createdAt">) {
     gameState.eventLog = [
       ...gameState.eventLog,
       {
@@ -379,7 +459,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     ];
   }
 
-  function getMostRecentGoalDetails(team: "home" | "away"): Pick<GameEvent, "scorer" | "assist1" | "assist2"> {
+  function getMostRecentGoalDetails(gameState: GameState, team: "home" | "away"): Pick<GameEvent, "scorer" | "assist1" | "assist2"> {
     const latestGoal = [...gameState.eventLog]
       .reverse()
       .find((event) => event.type === "goal" && event.team === team);
@@ -398,59 +478,59 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     return { added, removed };
   }
 
-  function logScoreAndPenaltyChanges(previousState: GameState, nextState: GameState) {
+  function logScoreAndPenaltyChanges(userId: string, gameState: GameState, previousState: GameState, nextState: GameState) {
     const homeGoalDelta = nextState.homeTeam.score - previousState.homeTeam.score;
     const awayGoalDelta = nextState.awayTeam.score - previousState.awayTeam.score;
 
     if (homeGoalDelta > 0) {
       for (let i = 0; i < homeGoalDelta; i += 1) {
-        appendEvent(createBaseEvent("goal", "home"));
+        appendEvent(gameState, createBaseEvent(gameState, "goal", "home"));
       }
     } else if (homeGoalDelta < 0) {
       for (let i = 0; i < Math.abs(homeGoalDelta); i += 1) {
-        appendEvent({
-          ...createBaseEvent("goal_revoked", "home"),
-          ...getMostRecentGoalDetails("home"),
+        appendEvent(gameState, {
+          ...createBaseEvent(gameState, "goal_revoked", "home"),
+          ...getMostRecentGoalDetails(gameState, "home"),
         });
       }
     }
 
     if (awayGoalDelta > 0) {
       for (let i = 0; i < awayGoalDelta; i += 1) {
-        appendEvent(createBaseEvent("goal", "away"));
+        appendEvent(gameState, createBaseEvent(gameState, "goal", "away"));
       }
     } else if (awayGoalDelta < 0) {
       for (let i = 0; i < Math.abs(awayGoalDelta); i += 1) {
-        appendEvent({
-          ...createBaseEvent("goal_revoked", "away"),
-          ...getMostRecentGoalDetails("away"),
+        appendEvent(gameState, {
+          ...createBaseEvent(gameState, "goal_revoked", "away"),
+          ...getMostRecentGoalDetails(gameState, "away"),
         });
       }
     }
 
     const homePenaltyDiff = getPenaltyDiff(previousState.homeTeam.penalties, nextState.homeTeam.penalties);
     homePenaltyDiff.added.forEach((penalty) =>
-      appendEvent({
-        ...createBaseEvent("penalty_added", "home"),
+      appendEvent(gameState, {
+        ...createBaseEvent(gameState, "penalty_added", "home"),
         penaltyId: penalty.id,
         penaltyDurationMs: penalty.duration,
         playerNumber: penalty.playerNumber,
         infraction: penalty.infraction,
       }),
     );
-    homePenaltyDiff.removed.forEach((penalty) => closePenaltyEvent("home", penalty, "manual"));
+    homePenaltyDiff.removed.forEach((penalty) => closePenaltyEvent(gameState, "home", penalty, "manual"));
 
     const awayPenaltyDiff = getPenaltyDiff(previousState.awayTeam.penalties, nextState.awayTeam.penalties);
     awayPenaltyDiff.added.forEach((penalty) =>
-      appendEvent({
-        ...createBaseEvent("penalty_added", "away"),
+      appendEvent(gameState, {
+        ...createBaseEvent(gameState, "penalty_added", "away"),
         penaltyId: penalty.id,
         penaltyDurationMs: penalty.duration,
         playerNumber: penalty.playerNumber,
         infraction: penalty.infraction,
       }),
     );
-    awayPenaltyDiff.removed.forEach((penalty) => closePenaltyEvent("away", penalty, "manual"));
+    awayPenaltyDiff.removed.forEach((penalty) => closePenaltyEvent(gameState, "away", penalty, "manual"));
   }
 
   function syncActivePenaltyEventDetails(state: GameState) {
@@ -514,7 +594,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     };
   }
 
-  function tickTeamPenalties(team: TeamState, side: "home" | "away", elapsedMs: number): Penalty[] {
+  function tickTeamPenalties(gameState: GameState, team: TeamState, side: "home" | "away", elapsedMs: number): Penalty[] {
     const nextPenalties: Penalty[] = [];
 
     team.penalties.forEach((penalty) => {
@@ -524,13 +604,13 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         return;
       }
 
-      closePenaltyEvent(side, penalty, "expired");
+      closePenaltyEvent(gameState, side, penalty, "expired");
     });
 
     return nextPenalties;
   }
 
-  function closePenaltyEvent(side: "home" | "away", penalty: Penalty, reason: "manual" | "expired") {
+  function closePenaltyEvent(gameState: GameState, side: "home" | "away", penalty: Penalty, reason: "manual" | "expired") {
     const eventIndex = [...gameState.eventLog]
       .map((event, index) => ({ event, index }))
       .reverse()
@@ -552,8 +632,8 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       );
     }
 
-    appendEvent({
-      ...createBaseEvent("penalty_over_notice", side),
+    appendEvent(gameState, {
+      ...createBaseEvent(gameState, "penalty_over_notice", side),
       penaltyId: penalty.id,
       playerNumber: penalty.playerNumber,
       infraction: penalty.infraction,
@@ -563,127 +643,211 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     });
   }
 
-  function buildGameStatePayload() {
+  function buildGameStatePayload(gameState: GameState) {
     return { ...gameState, serverTime: now() };
   }
 
-  function emitGameState() {
-    io.emit("gameState", buildGameStatePayload());
+  function emitGameState(userId: string) {
+    const context = getUserContext(userId);
+    io.to(userId).emit("gameState", buildGameStatePayload(context.gameState));
+    saveGameState(userId, JSON.stringify(context.gameState));
   }
 
-  function emitGameStateTo(socket: Socket) {
-    socket.emit("gameState", buildGameStatePayload());
+  function emitGameStateTo(socket: Socket, gameState: GameState) {
+    socket.emit("gameState", buildGameStatePayload(gameState));
   }
 
-  function persistCurrentTeamDefaults() {
-    writeTeamDefaultsToDisk({
+  function persistCurrentTeamDefaults(userId: string, gameState: GameState) {
+    writeTeamDefaults(userId, {
       homeTeam: extractPresetTeam(gameState.homeTeam),
       awayTeam: extractPresetTeam(gameState.awayTeam),
     });
   }
 
-  function startClockInterval() {
-    if (clockInterval) {
-      clearInterval(clockInterval);
+  function startClockInterval(userId: string) {
+    const context = getUserContext(userId);
+    if (context.clockInterval) {
+      clearInterval(context.clockInterval);
     }
 
-    clockInterval = setInterval(() => {
+    context.clockInterval = setInterval(() => {
+      const { gameState } = context;
       if (gameState.clock.isRunning) {
         const currentTime = now();
         const elapsed = currentTime - gameState.clock.lastUpdate;
         gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining - elapsed);
         gameState.clock.lastUpdate = currentTime;
 
-        gameState.homeTeam.penalties = tickTeamPenalties(gameState.homeTeam, "home", elapsed);
-        gameState.awayTeam.penalties = tickTeamPenalties(gameState.awayTeam, "away", elapsed);
+        gameState.homeTeam.penalties = tickTeamPenalties(gameState, gameState.homeTeam, "home", elapsed);
+        gameState.awayTeam.penalties = tickTeamPenalties(gameState, gameState.awayTeam, "away", elapsed);
 
         if (gameState.clock.timeRemaining <= 0) {
           gameState.clock.timeRemaining = 0;
-          appendEvent(createPeriodEndEvent());
+          appendEvent(gameState, createPeriodEndEvent(gameState));
           gameState.clock.isRunning = false;
-          if (clockInterval) {
-            clearInterval(clockInterval);
-            clockInterval = null;
+          if (context.clockInterval) {
+            clearInterval(context.clockInterval);
+            context.clockInterval = null;
           }
         }
 
-        emitGameState();
+        emitGameState(userId);
       }
     }, 100);
   }
 
-  io.on("connection", (socket) => {
-    console.log("Client connected:", socket.id);
+  // Authentication Middleware for Socket.io
+  io.use(async (socket, next) => {
+    const token = socket.handshake.auth.token;
+    const shareId = socket.handshake.auth.shareId;
 
-    emitGameStateTo(socket);
+    if (shareId) {
+      const userId = getShareUserId(shareId);
+      if (userId) {
+        socket.data.userId = userId;
+        socket.data.isViewer = true;
+        console.log(`[Socket] Auth success: Viewer connected for share ${shareId} (User ${userId})`);
+        return next();
+      }
+      console.warn(`[Socket] Auth failed: Invalid shareId ${shareId}`);
+      return next(new Error("Authentication error: Invalid share link"));
+    }
+
+    if (!token) {
+      console.warn(`[Socket] Auth failed: No token provided for socket ${socket.id}`);
+      return next(new Error("Authentication error: Token required"));
+    }
+    try {
+      const decodedToken = await admin.auth().verifyIdToken(token);
+      socket.data.userId = decodedToken.uid;
+      console.log(`[Socket] Auth success: User ${decodedToken.uid} verified`);
+      next();
+    } catch (error) {
+      console.error(`[Socket] Auth Error for socket ${socket.id}:`, error);
+      next(new Error("Authentication error: Invalid token"));
+    }
+  });
+
+  // Authentication Middleware for Express
+  const authenticateExpress = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      console.warn(`[Express] Auth failed: Missing or invalid Authorization header for ${req.method} ${req.url}`);
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const token = authHeader.split(" ")[1];
+    try {
+      const decodedToken = await admin.auth().verifyIdToken(token);
+      (req as any).user = decodedToken;
+      console.log(`[Express] Auth success: User ${decodedToken.uid} verified for ${req.method} ${req.url}`);
+      next();
+    } catch (error) {
+      console.error(`[Express] Auth Error for ${req.method} ${req.url}:`, error);
+      res.status(401).json({ error: "Unauthorized" });
+    }
+  };
+
+  io.on("connection", (socket) => {
+    const userId = socket.data.userId;
+    const isViewer = socket.data.isViewer === true;
+    console.log(`User ${userId} connected via socket ${socket.id} (Viewer: ${isViewer})`);
+    
+    // Join a room for this user to enable per-user broadcasts
+    socket.join(userId);
+
+    const { gameState } = getUserContext(userId);
+    emitGameStateTo(socket, gameState);
 
     socket.on("updateGameState", (updates: Partial<GameState>) => {
-      const previousState = gameState;
-      let nextState: GameState = { ...gameState, ...updates };
+      if (isViewer) {
+        console.warn(`[Socket] Unauthorized update attempt from viewer for user ${userId}`);
+        return;
+      }
+      const context = getUserContext(userId);
+      const previousState = { ...context.gameState };
+      let nextState: GameState = { ...context.gameState, ...updates };
       const hasEventLogUpdate = Array.isArray(updates.eventLog);
 
       if (hasEventLogUpdate) {
         nextState = syncActivePenaltyStateFromEventLog(nextState);
       }
 
-      gameState = nextState;
+      context.gameState = nextState;
       if (!hasEventLogUpdate) {
-        logScoreAndPenaltyChanges(previousState, nextState);
+        logScoreAndPenaltyChanges(userId, context.gameState, previousState, nextState);
       }
-      syncActivePenaltyEventDetails(gameState);
-      emitGameState();
+      syncActivePenaltyEventDetails(context.gameState);
+      emitGameState(userId);
     });
 
     socket.on("startClock", () => {
+      const context = getUserContext(userId);
+      const { gameState } = context;
       if (!gameState.clock.isRunning && gameState.clock.timeRemaining > 0) {
         gameState.clock.isRunning = true;
         gameState.clock.lastUpdate = now();
-        emitGameState();
-        startClockInterval();
+        emitGameState(userId);
+        startClockInterval(userId);
       }
     });
 
     socket.on("stopClock", () => {
+      const context = getUserContext(userId);
+      const { gameState } = context;
       if (gameState.clock.isRunning) {
         const currentTime = now();
         const elapsed = currentTime - gameState.clock.lastUpdate;
         gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining - elapsed);
-        gameState.homeTeam.penalties = tickTeamPenalties(gameState.homeTeam, "home", elapsed);
-        gameState.awayTeam.penalties = tickTeamPenalties(gameState.awayTeam, "away", elapsed);
+        gameState.homeTeam.penalties = tickTeamPenalties(gameState, gameState.homeTeam, "home", elapsed);
+        gameState.awayTeam.penalties = tickTeamPenalties(gameState, gameState.awayTeam, "away", elapsed);
         gameState.clock.isRunning = false;
         gameState.clock.lastUpdate = currentTime;
-        emitGameState();
+        emitGameState(userId);
       }
     });
 
     socket.on("setClock", (timeMs: number) => {
+      const context = getUserContext(userId);
+      const { gameState } = context;
       gameState.clock.timeRemaining = timeMs;
       gameState.clock.lastUpdate = now();
-      emitGameState();
+      emitGameState(userId);
     });
 
     socket.on("clockIncrease", () => {
+      const context = getUserContext(userId);
+      const { gameState } = context;
       gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining + 1000);
-      emitGameState();
+      emitGameState(userId);
     });
 
     socket.on("clockDecrease", () => {
+      const context = getUserContext(userId);
+      const { gameState } = context;
       gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining - 1000);
-      emitGameState();
+      emitGameState(userId);
     });
 
     socket.on("disconnect", () => {
-      console.log("Client disconnected:", socket.id);
+      console.log(`User ${userId} disconnected from socket ${socket.id}`);
     });
   });
 
-  app.get("/api/shortcuts", (req, res) => {
+  app.get("/api/shortcuts", authenticateExpress, (req, res) => {
+    const userId = (req as any).user.uid;
     try {
-      if (existsSync(SHORTCUTS_FILE)) {
-        const data = readFileSync(SHORTCUTS_FILE, "utf-8");
-        res.json(JSON.parse(data));
+      const dataStr = getUserConfig(userId, "shortcuts");
+      if (dataStr) {
+        res.json(JSON.parse(dataStr));
       } else {
-        res.json(null);
+        // Fallback to global file
+        if (existsSync(SHORTCUTS_FILE)) {
+          const data = readFileSync(SHORTCUTS_FILE, "utf-8");
+          res.json(JSON.parse(data));
+        } else {
+          res.json(null);
+        }
       }
     } catch (error) {
       console.error("Error reading shortcuts:", error);
@@ -691,9 +855,10 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
-  app.post("/api/shortcuts", (req, res) => {
+  app.post("/api/shortcuts", authenticateExpress, (req, res) => {
+    const userId = (req as any).user.uid;
     try {
-      writeFileSync(SHORTCUTS_FILE, JSON.stringify(req.body, null, 2));
+      setUserConfig(userId, "shortcuts", JSON.stringify(req.body));
       res.json({ success: true });
     } catch (error) {
       console.error("Error saving shortcuts:", error);
@@ -701,13 +866,20 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
-  app.get("/api/streamdeck", (req, res) => {
+  app.get("/api/streamdeck", authenticateExpress, (req, res) => {
+    const userId = (req as any).user.uid;
     try {
-      if (existsSync(STREAMDECK_FILE)) {
-        const data = readFileSync(STREAMDECK_FILE, "utf-8");
-        res.json(JSON.parse(data));
+      const dataStr = getUserConfig(userId, "streamdeck");
+      if (dataStr) {
+        res.json(JSON.parse(dataStr));
       } else {
-        res.json(null);
+        // Fallback to global file
+        if (existsSync(STREAMDECK_FILE)) {
+          const data = readFileSync(STREAMDECK_FILE, "utf-8");
+          res.json(JSON.parse(data));
+        } else {
+          res.json(null);
+        }
       }
     } catch (error) {
       console.error("Error reading Stream Deck config:", error);
@@ -715,9 +887,10 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
-  app.post("/api/streamdeck", (req, res) => {
+  app.post("/api/streamdeck", authenticateExpress, (req, res) => {
+    const userId = (req as any).user.uid;
     try {
-      writeFileSync(STREAMDECK_FILE, JSON.stringify(req.body, null, 2));
+      setUserConfig(userId, "streamdeck", JSON.stringify(req.body));
       res.json({ success: true });
     } catch (error) {
       console.error("Error saving Stream Deck config:", error);
@@ -725,8 +898,9 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
-  app.get("/api/pdf-layout", (req, res) => {
-    const layout = readPdfLayoutFromDisk();
+  app.get("/api/pdf-layout", authenticateExpress, (req, res) => {
+    const userId = (req as any).user.uid;
+    const layout = readPdfLayout(userId);
     if (!layout) {
       res.status(404).json({ error: "No saved PDF layout" });
       return;
@@ -734,14 +908,15 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     res.json(layout);
   });
 
-  app.post("/api/pdf-layout", (req, res) => {
+  app.post("/api/pdf-layout", authenticateExpress, (req, res) => {
+    const userId = (req as any).user.uid;
     try {
       const layout = req.body;
       if (!layout || typeof layout !== "object") {
         res.status(400).json({ error: "Invalid layout" });
         return;
       }
-      writePdfLayoutToDisk(layout);
+      writePdfLayout(userId, layout);
       res.json({ success: true });
     } catch (error) {
       console.error("Error saving PDF layout:", error);
@@ -749,40 +924,44 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
-  app.get("/api/team-defaults", (req, res) => {
+  app.get("/api/team-defaults", authenticateExpress, (req, res) => {
+    const userId = (req as any).user.uid;
+    const { gameState } = getUserContext(userId);
     res.json({
       homeTeam: extractPresetTeam(gameState.homeTeam),
       awayTeam: extractPresetTeam(gameState.awayTeam),
     });
   });
 
-  app.post("/api/team-defaults", (req, res) => {
+  app.post("/api/team-defaults", authenticateExpress, (req, res) => {
+    const userId = (req as any).user.uid;
     try {
+      const context = getUserContext(userId);
       const updates = req.body as Partial<TeamDefaults>;
       if (updates.homeTeam) {
         const preset = normalizePresetTeam(updates.homeTeam);
-        gameState.homeTeam = {
-          ...gameState.homeTeam,
-          name: preset.name || gameState.homeTeam.name,
-          abbreviation: preset.abbreviation || gameState.homeTeam.abbreviation,
-          logo: preset.logo ?? gameState.homeTeam.logo,
-          color: preset.color || gameState.homeTeam.color,
-          players: preset.players ?? gameState.homeTeam.players,
+        context.gameState.homeTeam = {
+          ...context.gameState.homeTeam,
+          name: preset.name || context.gameState.homeTeam.name,
+          abbreviation: preset.abbreviation || context.gameState.homeTeam.abbreviation,
+          logo: preset.logo ?? context.gameState.homeTeam.logo,
+          color: preset.color || context.gameState.homeTeam.color,
+          players: preset.players ?? context.gameState.homeTeam.players,
         };
       }
       if (updates.awayTeam) {
         const preset = normalizePresetTeam(updates.awayTeam);
-        gameState.awayTeam = {
-          ...gameState.awayTeam,
-          name: preset.name || gameState.awayTeam.name,
-          abbreviation: preset.abbreviation || gameState.awayTeam.abbreviation,
-          logo: preset.logo ?? gameState.awayTeam.logo,
-          color: preset.color || gameState.awayTeam.color,
-          players: preset.players ?? gameState.awayTeam.players,
+        context.gameState.awayTeam = {
+          ...context.gameState.awayTeam,
+          name: preset.name || context.gameState.awayTeam.name,
+          abbreviation: preset.abbreviation || context.gameState.awayTeam.abbreviation,
+          logo: preset.logo ?? context.gameState.awayTeam.logo,
+          color: preset.color || context.gameState.awayTeam.color,
+          players: preset.players ?? context.gameState.awayTeam.players,
         };
       }
-      persistCurrentTeamDefaults();
-      io.emit("gameState", gameState);
+      persistCurrentTeamDefaults(userId, context.gameState);
+      emitGameState(userId);
       res.json({ success: true });
     } catch (error) {
       console.error("Error saving team defaults:", error);
@@ -790,22 +969,25 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
-  app.get("/api/team-presets", (req, res) => {
-    res.json(readTeamPresetsFromDisk());
+  app.get("/api/team-presets", authenticateExpress, (req, res) => {
+    const userId = (req as any).user.uid;
+    res.json(readTeamPresets(userId));
   });
 
-  app.post("/api/team-presets", (req, res) => {
+  app.post("/api/team-presets", authenticateExpress, (req, res) => {
+    const userId = (req as any).user.uid;
     try {
+      const context = getUserContext(userId);
       const payload = req.body as Partial<TeamPreset>;
       const name = String(payload.name ?? "").trim();
       if (!name) {
         return res.status(400).json({ success: false, error: "Preset name is required" });
       }
 
-      const homeTeam = payload.homeTeam ? normalizePresetTeam(payload.homeTeam) : extractPresetTeam(gameState.homeTeam);
-      const awayTeam = payload.awayTeam ? normalizePresetTeam(payload.awayTeam) : extractPresetTeam(gameState.awayTeam);
+      const homeTeam = payload.homeTeam ? normalizePresetTeam(payload.homeTeam) : extractPresetTeam(context.gameState.homeTeam);
+      const awayTeam = payload.awayTeam ? normalizePresetTeam(payload.awayTeam) : extractPresetTeam(context.gameState.awayTeam);
 
-      const presets = readTeamPresetsFromDisk();
+      const presets = readTeamPresets(userId);
       const existingIndex = presets.findIndex((preset) => preset.name.toLowerCase() === name.toLowerCase());
       const nextPreset: TeamPreset = {
         name,
@@ -820,7 +1002,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         presets.push(nextPreset);
       }
 
-      writeTeamPresetsToDisk(presets);
+      writeTeamPresets(userId, presets);
       res.json({ success: true, presets });
     } catch (error) {
       console.error("Error saving team preset:", error);
@@ -828,12 +1010,13 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
-  app.delete("/api/team-presets/:name", (req, res) => {
+  app.delete("/api/team-presets/:name", authenticateExpress, (req, res) => {
+    const userId = (req as any).user.uid;
     try {
       const name = decodeURIComponent(req.params.name);
-      const presets = readTeamPresetsFromDisk();
+      const presets = readTeamPresets(userId);
       const filtered = presets.filter((preset) => preset.name.toLowerCase() !== name.toLowerCase());
-      writeTeamPresetsToDisk(filtered);
+      writeTeamPresets(userId, filtered);
       res.json({ success: true, presets: filtered });
     } catch (error) {
       console.error("Error deleting team preset:", error);
@@ -841,20 +1024,23 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
-  app.get("/api/teams", (req, res) => {
-    res.json(readTeamLibraryFromDisk());
+  app.get("/api/teams", authenticateExpress, (req, res) => {
+    const userId = (req as any).user.uid;
+    res.json(readTeamLibrary(userId));
   });
 
-  app.post("/api/teams", (req, res) => {
+  app.post("/api/teams", authenticateExpress, (req, res) => {
+    const userId = (req as any).user.uid;
     try {
+      const context = getUserContext(userId);
       const payload = req.body as Partial<SavedTeam>;
       const name = String(payload.name ?? "").trim();
       if (!name) {
         return res.status(400).json({ success: false, error: "Team name is required" });
       }
 
-      const team = payload.team ? normalizePresetTeam(payload.team) : extractPresetTeam(gameState.homeTeam);
-      const teams = readTeamLibraryFromDisk();
+      const team = payload.team ? normalizePresetTeam(payload.team) : extractPresetTeam(context.gameState.homeTeam);
+      const teams = readTeamLibrary(userId);
       const existingIndex = teams.findIndex((entry) => entry.name.toLowerCase() === name.toLowerCase());
       const nextEntry: SavedTeam = {
         name,
@@ -868,7 +1054,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         teams.push(nextEntry);
       }
 
-      writeTeamLibraryToDisk(teams);
+      writeTeamLibrary(userId, teams);
       res.json({ success: true, teams });
     } catch (error) {
       console.error("Error saving team entry:", error);
@@ -876,17 +1062,41 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
-  app.delete("/api/teams/:name", (req, res) => {
+  app.delete("/api/teams/:name", authenticateExpress, (req, res) => {
+    const userId = (req as any).user.uid;
     try {
       const name = decodeURIComponent(req.params.name);
-      const teams = readTeamLibraryFromDisk();
+      const teams = readTeamLibrary(userId);
       const filtered = teams.filter((entry) => entry.name.toLowerCase() !== name.toLowerCase());
-      writeTeamLibraryToDisk(filtered);
+      writeTeamLibrary(userId, filtered);
       res.json({ success: true, teams: filtered });
     } catch (error) {
       console.error("Error deleting team entry:", error);
       res.status(500).json({ success: false, error: "Failed to delete team entry" });
     }
+  });
+
+  app.get("/api/share", authenticateExpress, (req, res) => {
+    const userId = (req as any).user.uid;
+    const shareId = getUserIdShare(userId);
+    res.json({ shareId });
+  });
+
+  app.post("/api/share", authenticateExpress, (req, res) => {
+    const userId = (req as any).user.uid;
+    const shareId = randomId();
+    setUserIdShare(userId, shareId);
+    res.json({ shareId });
+  });
+
+  app.get("/api/share/:shareId/state", (req, res) => {
+    const { shareId } = req.params;
+    const userId = getShareUserId(shareId);
+    if (!userId) {
+      return res.status(404).json({ error: "Invalid share link" });
+    }
+    const { gameState } = getUserContext(userId);
+    res.json(buildGameStatePayload(gameState));
   });
 
   app.use(express.static(join(__dirname, "dist")));
@@ -895,19 +1105,12 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     res.sendFile(join(__dirname, "dist", "index.html"));
   });
 
-  function getState() {
-    return gameState;
-  }
-
-  function setState(nextState: GameState) {
-    gameState = nextState;
-  }
-
   function start(port: number) {
     return new Promise<number>((resolve) => {
-      httpServer.listen(port, () => {
+      httpServer.listen(port, "0.0.0.0", () => {
         const address = httpServer.address();
         const selectedPort = typeof address === "object" && address ? address.port : port;
+        console.log(`[Server] Listening on 0.0.0.0:${selectedPort}`);
         resolve(selectedPort);
       });
     });
@@ -915,9 +1118,11 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
 
   function stop() {
     return new Promise<void>((resolve, reject) => {
-      if (clockInterval) {
-        clearInterval(clockInterval);
-        clockInterval = null;
+      for (const context of userContexts.values()) {
+        if (context.clockInterval) {
+          clearInterval(context.clockInterval);
+          context.clockInterval = null;
+        }
       }
       const finalizeClose = () => {
         if (!httpServer.listening) {
@@ -946,7 +1151,5 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     io,
     start,
     stop,
-    getState,
-    setState,
   };
 }

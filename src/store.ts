@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { io, Socket } from "socket.io-client";
+import { User, signInWithPopup, signOut } from "firebase/auth";
+import { auth, googleProvider } from "./lib/firebase";
 
 const normalizeBaseUrl = (url: string) => url.replace(/\/+$/, "");
 // @ts-ignore
@@ -148,7 +150,15 @@ interface StoreState {
   keyboardShortcuts: KeyboardShortcut[];
   streamDeckConfig: StreamDeckConfig;
   undoState: GameState | null;
+
+  // Auth State
+  user: User | null;
+  authLoading: boolean;
+  shareId: string | null;
+  isViewer: boolean;
+
   connect: () => void;
+  connectViewer: (shareId: string) => void;
   ensureInitialized: () => void;
   updateState: (updates: Partial<GameState>) => void;
   undoLastUpdate: () => void;
@@ -162,6 +172,12 @@ interface StoreState {
   loadShortcuts: () => Promise<void>;
   updateStreamDeckButton: (index: number, button: StreamDeckButton) => void;
   loadStreamDeckConfig: () => Promise<void>;
+
+  // Auth Actions
+  setUser: (user: User | null) => void;
+  setAuthLoading: (loading: boolean) => void;
+  login: () => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const defaultShortcuts: KeyboardShortcut[] = [
@@ -373,35 +389,155 @@ export const useStore = create<StoreState>((set, get) => ({
   keyboardShortcuts: [...defaultShortcuts],
   streamDeckConfig: defaultStreamDeckConfig,
   undoState: null,
+  user: null,
+  authLoading: true,
+  shareId: null,
+  isViewer: false,
 
-  connect: () => {
-    const socket = io(BASE_URL);
+  setUser: (user) => set({ user }),
+  setAuthLoading: (authLoading) => set({ authLoading }),
 
-    socket.on("connect", () => {
-      console.log("Connected to server");
-      set({ isConnected: true });
-    });
+  login: async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      console.error("Login failed:", error);
+    }
+  },
 
-    socket.on("disconnect", () => {
-      set({ isConnected: false });
-    });
+  logout: async () => {
+    try {
+      const { socket } = get();
+      if (socket) {
+        socket.disconnect();
+      }
+      await signOut(auth);
+      set({ user: null, gameState: null, socket: null, isViewer: false, shareId: null });
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  },
 
-    socket.on("connect_error", () => {
-      set({ isConnected: false });
-    });
+  connectViewer: async (shareId: string) => {
+    try {
+      set({ shareId, isViewer: true, authLoading: false });
+      
+      // Disconnect existing socket if any
+      if (get().socket) {
+        get().socket?.disconnect();
+      }
 
-    socket.on("gameState", (state: GameState) => {
-      const serverTime = typeof state.serverTime === "number" ? state.serverTime : null;
-      const serverTimeOffsetMs = serverTime === null ? get().serverTimeOffsetMs : serverTime - Date.now();
-      set({ gameState: state, serverTimeOffsetMs });
-      saveCachedState(state);
-    });
+      const socketUrl = BASE_URL === window.location.origin ? undefined : BASE_URL;
+      const socket = io(socketUrl, {
+        auth: { shareId },
+        transports: ["websocket", "polling"],
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+      });
 
-    set({ socket, isConnected: socket.connected });
+      socket.on("connect", () => {
+        console.log("Viewer connected to server for share:", shareId);
+        set({ isConnected: true });
+      });
+
+      socket.on("disconnect", () => {
+        set({ isConnected: false });
+      });
+
+      socket.on("connect_error", (error) => {
+        console.error("Viewer connection error:", error.message);
+        set({ isConnected: false });
+      });
+
+      socket.on("gameState", (state: GameState) => {
+        const serverTime = typeof state.serverTime === "number" ? state.serverTime : null;
+        const serverTimeOffsetMs = serverTime === null ? get().serverTimeOffsetMs : serverTime - Date.now();
+        set({ gameState: state, serverTimeOffsetMs });
+      });
+
+      set({ socket, isConnected: socket.connected });
+
+      // Load initial state via API as well to be fast
+      const apiUrl = BASE_URL === window.location.origin ? "" : BASE_URL;
+      const response = await fetch(`${apiUrl}/api/share/${shareId}/state`);
+      if (response.ok) {
+        const state = await response.json();
+        const serverTime = typeof state.serverTime === "number" ? state.serverTime : null;
+        const serverTimeOffsetMs = serverTime === null ? get().serverTimeOffsetMs : serverTime - Date.now();
+        set({ gameState: state, serverTimeOffsetMs });
+      }
+    } catch (error) {
+      console.error("Failed to connect viewer:", error);
+    }
+  },
+
+  connect: async () => {
+    const { user } = get();
+    if (!user) return;
+
+    try {
+      const token = await user.getIdToken();
+      
+      // Disconnect existing socket if any
+      if (get().socket) {
+        get().socket?.disconnect();
+      }
+
+      // Use relative URL if the base URL matches the current origin or if no base URL is provided
+      const socketUrl = BASE_URL === window.location.origin ? undefined : BASE_URL;
+
+      const socket = io(socketUrl, {
+        auth: { token },
+        transports: ["websocket", "polling"],
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+      });
+
+      socket.on("connect", () => {
+        console.log("Connected to server");
+        set({ isConnected: true });
+      });
+
+      socket.on("disconnect", () => {
+        set({ isConnected: false });
+      });
+
+      socket.on("connect_error", (error) => {
+        console.error("Connection error:", error.message);
+        set({ isConnected: false });
+      });
+
+      socket.on("gameState", (state: GameState) => {
+        const serverTime = typeof state.serverTime === "number" ? state.serverTime : null;
+        const serverTimeOffsetMs = serverTime === null ? get().serverTimeOffsetMs : serverTime - Date.now();
+        set({ gameState: state, serverTimeOffsetMs });
+        saveCachedState(state);
+      });
+
+      set({ socket, isConnected: socket.connected });
+    } catch (error) {
+      console.error("Failed to connect to socket:", error);
+    }
   },
 
   ensureInitialized: () => {
     if (hasInitialized) return;
+    
+    // Check for share ID in URL
+    const pathParts = window.location.pathname.split("/");
+    const shareIndex = pathParts.indexOf("share");
+    if (shareIndex !== -1 && pathParts[shareIndex + 1]) {
+      const shareId = pathParts[shareIndex + 1];
+      hasInitialized = true;
+      get().connectViewer(shareId);
+      return;
+    }
+
+    const { user } = get();
+    if (!user) return; // Wait for user to be available
+    
     hasInitialized = true;
     if (!get().gameState) {
       const cached = loadCachedState();
@@ -470,33 +606,67 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
-  updateShortcut: (index: number, shortcut: KeyboardShortcut) => {
+  updateShortcut: async (index: number, shortcut: KeyboardShortcut) => {
+    const { user } = get();
+    if (!user) return;
+    
     const shortcuts = [...get().keyboardShortcuts];
     shortcuts[index] = shortcut;
     set({ keyboardShortcuts: shortcuts });
 
-    // Save to server
-    fetch(`${BASE_URL}/api/shortcuts`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(shortcuts),
-    }).catch((error) => console.error("Failed to save shortcuts:", error));
+    try {
+      const token = await user.getIdToken();
+      // Use relative path if BASE_URL matches origin
+      const apiUrl = BASE_URL === window.location.origin ? "" : BASE_URL;
+
+      // Save to server
+      fetch(`${apiUrl}/api/shortcuts`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(shortcuts),
+      }).catch((error) => console.error("Failed to save shortcuts:", error));
+    } catch (error) {
+      console.error("Failed to get token for shortcut update:", error);
+    }
   },
 
-  resetShortcuts: () => {
+  resetShortcuts: async () => {
+    const { user } = get();
+    if (!user) return;
+
     set({ keyboardShortcuts: [...defaultShortcuts] });
 
-    // Save to server
-    fetch(`${BASE_URL}/api/shortcuts`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(defaultShortcuts),
-    }).catch((error) => console.error("Failed to save shortcuts:", error));
+    try {
+      const token = await user.getIdToken();
+      const apiUrl = BASE_URL === window.location.origin ? "" : BASE_URL;
+
+      // Save to server
+      fetch(`${apiUrl}/api/shortcuts`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(defaultShortcuts),
+      }).catch((error) => console.error("Failed to save shortcuts:", error));
+    } catch (error) {
+      console.error("Failed to get token for shortcut reset:", error);
+    }
   },
 
   loadShortcuts: async () => {
+    const { user } = get();
+    if (!user) return;
+
     try {
-      const response = await fetch(`${BASE_URL}/api/shortcuts`);
+      const token = await user.getIdToken();
+      const apiUrl = BASE_URL === window.location.origin ? "" : BASE_URL;
+      const response = await fetch(`${apiUrl}/api/shortcuts`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
       const data = await response.json();
       if (data && Array.isArray(data)) {
         const existingActions = new Set(data.map((shortcut: KeyboardShortcut) => shortcut.action));
@@ -508,23 +678,43 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
-  updateStreamDeckButton: (index: number, button: StreamDeckButton) => {
+  updateStreamDeckButton: async (index: number, button: StreamDeckButton) => {
+    const { user } = get();
+    if (!user) return;
+
     const config = { ...get().streamDeckConfig };
     config.buttons = [...config.buttons];
     config.buttons[index] = button;
     set({ streamDeckConfig: config });
 
-    // Save to server
-    fetch(`${BASE_URL}/api/streamdeck`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(config),
-    }).catch((error) => console.error("Failed to save Stream Deck config:", error));
+    try {
+      const token = await user.getIdToken();
+      const apiUrl = BASE_URL === window.location.origin ? "" : BASE_URL;
+
+      // Save to server
+      fetch(`${apiUrl}/api/streamdeck`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(config),
+      }).catch((error) => console.error("Failed to save Stream Deck config:", error));
+    } catch (error) {
+      console.error("Failed to get token for Stream Deck update:", error);
+    }
   },
 
   loadStreamDeckConfig: async () => {
+    const { user } = get();
+    if (!user) return;
+
     try {
-      const response = await fetch(`${BASE_URL}/api/streamdeck`);
+      const token = await user.getIdToken();
+      const apiUrl = BASE_URL === window.location.origin ? "" : BASE_URL;
+      const response = await fetch(`${apiUrl}/api/streamdeck`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
       const data = await response.json();
       if (data && data.buttons) {
         set({ streamDeckConfig: data });

@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Download, SlidersHorizontal } from "lucide-react";
-import { GameEvent, GameState, TeamState, TeamPlayer } from "../../store";
+import { GameEvent, GameState, TeamState, TeamPlayer, useStore } from "../../store";
 import { buildGamesheetPdfBytes, exportGamesheetPdf, GamesheetPdfLayout, getDefaultGamesheetPdfLayout } from "../../utils/gamesheetPdf";
 import { toSkaterLabel } from "../../utils/roster";
 import { PenaltyReasonInput, SearchDropdownInput } from "./DropdownInputs";
@@ -219,6 +219,7 @@ export default function EventLogPanel({
   awayPlayers,
   updateState,
 }: EventLogPanelProps) {
+  const { user } = useStore();
   const [showPdfLayout, setShowPdfLayout] = useState(false);
   const [pdfLayout, setPdfLayout] = useState<GamesheetPdfLayout>(() => loadPdfLayout());
   const [fileLayoutStatus, setFileLayoutStatus] = useState<"idle" | "loading" | "saving" | "loaded" | "saved" | "error">("idle");
@@ -246,18 +247,22 @@ export default function EventLogPanel({
     savePdfLayout(pdfLayout);
   }
 
-  if (!hasLoadedLayoutRef.current) {
+  if (!hasLoadedLayoutRef.current && user) {
     hasLoadedLayoutRef.current = true;
     setFileLayoutStatus("loading");
-    fetch("/api/pdf-layout")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((data) => {
-        setPdfLayout(loadPdfLayoutFromUnknown(data));
-        setFileLayoutStatus("loaded");
+    user.getIdToken().then((token) => {
+      fetch("/api/pdf-layout", {
+        headers: { "Authorization": `Bearer ${token}` }
       })
-      .catch(() => {
-        setFileLayoutStatus("idle");
-      });
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+        .then((data) => {
+          setPdfLayout(loadPdfLayoutFromUnknown(data));
+          setFileLayoutStatus("loaded");
+        })
+        .catch(() => {
+          setFileLayoutStatus("idle");
+        });
+    });
   }
 
   const previewDeps = {
@@ -479,9 +484,13 @@ export default function EventLogPanel({
                 onClick={async () => {
                   try {
                     setFileLayoutStatus("saving");
+                    const token = await user?.getIdToken();
                     const res = await fetch("/api/pdf-layout", {
                       method: "POST",
-                      headers: { "Content-Type": "application/json" },
+                      headers: { 
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
+                      },
                       body: JSON.stringify(pdfLayout),
                     });
                     if (!res.ok) {
@@ -505,7 +514,10 @@ export default function EventLogPanel({
                 onClick={async () => {
                   try {
                     setFileLayoutStatus("loading");
-                    const res = await fetch("/api/pdf-layout");
+                    const token = await user?.getIdToken();
+                    const res = await fetch("/api/pdf-layout", {
+                      headers: { "Authorization": `Bearer ${token}` }
+                    });
                     if (!res.ok) {
                       setFileLayoutStatus("error");
                       setTimeout(() => setFileLayoutStatus("idle"), 2000);

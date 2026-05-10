@@ -7,12 +7,34 @@ const socketMock = {
     listeners.set(event, handler);
   }),
   emit: vi.fn(),
+  disconnect: vi.fn(),
 };
 const ioMock = vi.fn(() => socketMock);
 
 vi.mock("socket.io-client", () => ({
   io: ioMock,
 }));
+
+vi.mock("../lib/firebase", () => ({
+  auth: {
+    currentUser: { getIdToken: vi.fn().mockResolvedValue("test-token") },
+  },
+  googleProvider: {},
+}));
+
+vi.mock("firebase/auth", () => ({
+  getAuth: vi.fn(),
+  signInWithPopup: vi.fn(),
+  signOut: vi.fn(),
+  onAuthStateChanged: vi.fn(),
+}));
+
+const mockUser = {
+  uid: "test-user-id",
+  displayName: "Test User",
+  photoURL: "https://example.com/photo.jpg",
+  getIdToken: vi.fn().mockResolvedValue("test-token"),
+};
 
 const baseState: GameState = {
   homeTeam: {
@@ -80,7 +102,8 @@ describe("store", () => {
     const nowSpy = vi.spyOn(Date, "now").mockReturnValue(1000);
     const { useStore } = await import("../store");
 
-    useStore.getState().connect();
+    useStore.setState({ user: mockUser as any });
+    await useStore.getState().connect();
     expect(ioMock).toHaveBeenCalledTimes(1);
     expect(socketMock.on).toHaveBeenCalled();
 
@@ -96,7 +119,8 @@ describe("store", () => {
   it("tracks socket connection state", async () => {
     const { useStore } = await import("../store");
 
-    useStore.getState().connect();
+    useStore.setState({ user: mockUser as any });
+    await useStore.getState().connect();
 
     listeners.get("connect")?.(undefined);
     expect(useStore.getState().isConnected).toBe(true);
@@ -104,7 +128,7 @@ describe("store", () => {
     listeners.get("disconnect")?.(undefined);
     expect(useStore.getState().isConnected).toBe(false);
 
-    listeners.get("connect_error")?.(undefined);
+    listeners.get("connect_error")?.(new Error("err"));
     expect(useStore.getState().isConnected).toBe(false);
   });
 
@@ -138,6 +162,7 @@ describe("store", () => {
     vi.stubGlobal("fetch", fetchMock);
     const { useStore } = await import("../store");
 
+    useStore.setState({ user: mockUser as any });
     useStore.getState().ensureInitialized();
 
     expect(useStore.getState().gameState?.period).toBe("cached");
@@ -148,8 +173,9 @@ describe("store", () => {
     vi.stubGlobal("fetch", fetchMock);
     const { useStore } = await import("../store");
 
+    useStore.setState({ user: mockUser as any });
     const shortcut: KeyboardShortcut = { key: "A", action: "toggleClock", description: "Toggle Clock" };
-    useStore.getState().updateShortcut(0, shortcut);
+    await useStore.getState().updateShortcut(0, shortcut);
     expect(fetchMock).toHaveBeenCalled();
   });
 
@@ -161,6 +187,7 @@ describe("store", () => {
     vi.stubGlobal("fetch", fetchMock);
     const { useStore } = await import("../store");
 
+    useStore.setState({ user: mockUser as any });
     await useStore.getState().loadShortcuts();
     const shortcuts = useStore.getState().keyboardShortcuts;
     expect(shortcuts.length).toBeGreaterThan(1);

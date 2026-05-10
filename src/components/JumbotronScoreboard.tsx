@@ -22,11 +22,11 @@ function formatTeamLabel(name: string | undefined | null, abbreviation: string |
 }
 
 export default function JumbotronScoreboard() {
-  const { gameState, connect, serverTimeOffsetMs, updateState } = useStore();
+  const { gameState, ensureInitialized, serverTimeOffsetMs, updateState } = useStore();
 
   useEffect(() => {
-    connect();
-  }, [connect]);
+    ensureInitialized();
+  }, [ensureInitialized]);
 
   const displayTime = useClockDisplay(gameState?.clock ?? null, serverTimeOffsetMs, "20:00");
 
