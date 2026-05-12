@@ -116,7 +116,10 @@ export default function Overlay({ skipConnect = false }: { skipConnect?: boolean
   const hideCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showOpenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showPenaltiesTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const previousOverlayVisibleRef = useRef<boolean>(true);
+
+  const overlayVisible = gameState?.overlayVisible ?? true;
+  const previousOverlayVisibleRef = useRef<boolean>(overlayVisible);
+
   const stingStateRef = useRef<{ active: boolean; team: GoalTeam | null }>({ active: false, team: null });
   const goalQueueRef = useRef<GoalEvent[]>([]);
   const shotsPanelRef = useRef<HTMLDivElement | null>(null);
@@ -216,7 +219,6 @@ export default function Overlay({ skipConnect = false }: { skipConnect?: boolean
     };
   }, []);
 
-  const overlayVisible = gameState?.overlayVisible ?? true;
   const penaltyAnimationMs = PENALTY_ANIMATION_MS;
   const mainHidePenaltyLiftMs = MAIN_HIDE_PENALTY_LIFT_MS;
   const mainHideScoreboardCloseMs = MAIN_HIDE_SCOREBOARD_CLOSE_MS;

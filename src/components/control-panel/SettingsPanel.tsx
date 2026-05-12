@@ -546,6 +546,8 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                     </select>
                     <button
                       type="button"
+                      aria-label="Remove player"
+                      title="Remove player"
                       onClick={() => removeTeamPlayer("home", player.id)}
                       className="px-2 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs font-medium"
                     >
@@ -761,6 +763,8 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                     </select>
                     <button
                       type="button"
+                      aria-label="Remove player"
+                      title="Remove player"
                       onClick={() => removeTeamPlayer("away", player.id)}
                       className="px-2 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs font-medium"
                     >

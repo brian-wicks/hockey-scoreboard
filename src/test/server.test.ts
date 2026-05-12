@@ -210,4 +210,96 @@ describe("server API", () => {
     expect(latest.eventLog.some((event: { type: string; team: string }) => event.type === "goal" && event.team === "home")).toBe(true);
     client.close();
   });
+
+  it("handles clock control via socket", async () => {
+    const baseUrl = `http://localhost:${port}`;
+    const client = createClient(baseUrl, { 
+      transports: ["websocket"], 
+      forceNew: true,
+      auth: { token: "test-token" }
+    });
+
+    await new Promise<void>((resolve) => {
+      client.on("gameState", (state) => {
+        if (!state.clock.isRunning) {
+          client.emit("startClock");
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    // Wait a bit for clock to tick
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        client.off("gameState", checkState);
+        reject(new Error("Timeout waiting for clock to stop"));
+      }, 2000);
+
+      const checkState = (state: any) => {
+        if (!state.clock.isRunning) {
+          clearTimeout(timeout);
+          client.off("gameState", checkState);
+          expect(state.clock.timeRemaining).toBeLessThan(20 * 60 * 1000);
+          resolve();
+        }
+      };
+
+      client.on("gameState", checkState);
+      client.emit("stopClock");
+    });
+
+    client.close();
+  });
+
+  it("manages public shares", async () => {
+    const baseUrl = `http://localhost:${port}`;
+    
+    // Generate share
+    const resCreate = await fetch(`${baseUrl}/api/share`, {
+      method: "POST",
+      headers: { "Authorization": "Bearer test-token" }
+    });
+    const { shareId } = await resCreate.json();
+    expect(shareId).toBeDefined();
+
+    // Read share ID
+    const resRead = await fetch(`${baseUrl}/api/share`, {
+      headers: { "Authorization": "Bearer test-token" }
+    });
+    expect((await resRead.json()).shareId).toBe(shareId);
+
+    // Read state via share ID (unauthenticated)
+    const resState = await fetch(`${baseUrl}/api/share/${shareId}/state`);
+    expect(resState.ok).toBe(true);
+    const state = await resState.json();
+    expect(state.homeTeam).toBeDefined();
+
+    // Connect via socket as viewer
+    const client = createClient(baseUrl, { 
+      transports: ["websocket"], 
+      forceNew: true,
+      auth: { shareId }
+    });
+
+    await new Promise<void>((resolve) => {
+      client.on("gameState", (state) => {
+        expect(state.homeTeam).toBeDefined();
+        resolve();
+      });
+    });
+
+    // Attempt unauthorized update
+    client.emit("updateGameState", { homeTeam: { score: 99 } } as any);
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // Verify update was ignored
+    const resFinal = await fetch(`${baseUrl}/api/share/${shareId}/state`);
+    const finalState = await resFinal.json();
+    expect(finalState.homeTeam.score).not.toBe(99);
+
+    client.close();
+  });
 });

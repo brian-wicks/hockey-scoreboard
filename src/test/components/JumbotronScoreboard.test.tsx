@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 const connect = vi.fn();
+const ensureInitialized = vi.fn();
 const updateState = vi.fn();
 
 const baseState = {
@@ -45,6 +46,7 @@ vi.mock("../../store", () => ({
   useStore: () => ({
     gameState: baseState,
     connect,
+    ensureInitialized,
     serverTimeOffsetMs: 0,
     updateState,
   }),
