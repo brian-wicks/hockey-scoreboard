@@ -48,7 +48,7 @@ function AppRoutes() {
     location.pathname !== '/jumbotron' &&
     location.pathname !== '/results';
 
-  if (authError) {
+  if (authError && !gameState) {
     const err = authError.toLowerCase();
     const isNotFound = err.includes("not found") || err.includes("invalid") || err.includes("expired") || err.includes("no shareid");
     
