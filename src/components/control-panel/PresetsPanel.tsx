@@ -34,12 +34,6 @@ function pickTeamIdentity(team: TeamState): TeamIdentity {
   };
 }
 
-function pickPresetTeam(team: TeamState): TeamPresetTeam {
-  return {
-    ...pickTeamIdentity(team),
-    players: (team.players ?? []).map((player) => ({ ...player })),
-  };
-}
 function applyPresetTeam(team: TeamState, identity: TeamPresetTeam): TeamState {
   return {
     ...team,
@@ -55,7 +49,6 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
   const { user } = useStore();
   const [presets, setPresets] = useState<TeamPreset[]>([]);
   const [loading, setLoading] = useState(true);
-  const [savingDefaults, setSavingDefaults] = useState(false);
   const [error, setError] = useState("");
   const [expandedRosters, setExpandedRosters] = useState<string[]>([]);
   const [presetPendingDelete, setPresetPendingDelete] = useState<TeamPreset | null>(null);
@@ -118,31 +111,6 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
     }
   };
 
-  const saveDefaultsNow = async () => {
-    if (!user) return;
-    setSavingDefaults(true);
-    setError("");
-    try {
-      const token = await user.getIdToken();
-      await fetch(`${baseUrl}/api/team-defaults`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          homeTeam: pickPresetTeam(gameState.homeTeam),
-          awayTeam: pickPresetTeam(gameState.awayTeam),
-        }),
-      });
-    } catch (defaultsError) {
-      console.error(defaultsError);
-      setError("Failed to save defaults");
-    } finally {
-      setSavingDefaults(false);
-    }
-  };
-
   const toggleRoster = (name: string) => {
     setExpandedRosters((current) => {
       const exists = current.some((entry) => entry.toLowerCase() === name.toLowerCase());
@@ -172,13 +140,6 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
           <h2 className="text-xl font-bold text-zinc-100">Team Presets</h2>
           <p className="text-sm text-zinc-400 mt-1">Load saved teams into Home or Away, including roster.</p>
         </div>
-        <button
-          onClick={saveDefaultsNow}
-          disabled={savingDefaults}
-          className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 rounded-lg text-sm font-medium"
-        >
-          {savingDefaults ? "Saving..." : "Save Current as Defaults"}
-        </button>
       </div>
 
       {error && <div className="mt-5 text-sm text-red-400">{error}</div>}
