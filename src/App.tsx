@@ -24,6 +24,7 @@ function AppRoutes() {
   const isViewer = useStore((state) => state.isViewer);
   const authLoading = useStore((state) => state.authLoading);
   const authError = useStore((state) => state.authError);
+  const gameState = useStore((state) => state.gameState);
   const setUser = useStore((state) => state.setUser);
   const setAuthLoading = useStore((state) => state.setAuthLoading);
   const ensureInitialized = useStore((state) => state.ensureInitialized);
@@ -81,7 +82,7 @@ function AppRoutes() {
     );
   }
 
-  if (authLoading) {
+  if (authLoading && !gameState) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">
         <div className="flex flex-col items-center gap-4">

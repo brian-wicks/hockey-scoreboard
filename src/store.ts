@@ -421,6 +421,7 @@ export const useStore = create<StoreState>((set, get) => ({
         socket.disconnect();
       }
       await signOut(auth);
+      hasInitialized = false;
       set({ user: null, gameState: null, socket: null, isViewer: false, shareId: null, authError: null });
     } catch (error) {
       console.error("Logout failed:", error);
@@ -497,7 +498,7 @@ export const useStore = create<StoreState>((set, get) => ({
     if (!user) return;
 
     try {
-      set({ authError: null, authLoading: true });
+      set({ authError: null });
       const token = await user.getIdToken();
       
       // Disconnect existing socket if any
@@ -540,6 +541,7 @@ export const useStore = create<StoreState>((set, get) => ({
       set({ socket, isConnected: socket.connected });
     } catch (error) {
       console.error("Failed to connect to socket:", error);
+      set({ authLoading: false, authError: "Failed to connect to server" });
     }
   },
 
