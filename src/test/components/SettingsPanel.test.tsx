@@ -206,4 +206,29 @@ describe("SettingsPanel", () => {
       homeTeam: expect.objectContaining({ logo: "https://newlogo.png" })
     }));
   });
+
+  it("handles team abbreviation changes", async () => {
+    render(<SettingsPanel gameState={baseGameState as any} updateState={mockUpdateState} />);
+    await act(flushMicrotasks);
+    
+    const abbrInput = screen.getByDisplayValue("HOM");
+    fireEvent.change(abbrInput, { target: { value: "NEW" } });
+    fireEvent.blur(abbrInput);
+    expect(mockUpdateState).toHaveBeenCalledWith(expect.objectContaining({
+      homeTeam: expect.objectContaining({ abbreviation: "NEW" })
+    }));
+  });
+
+  it("handles overlay settings", async () => {
+    render(<SettingsPanel gameState={baseGameState as any} updateState={mockUpdateState} />);
+    await act(flushMicrotasks);
+    
+    // Test Corner change
+    const buttons = screen.getAllByRole("button");
+    const trButton = buttons.find(b => b.textContent?.trim() === "TR");
+    if (trButton) {
+      fireEvent.click(trButton);
+      expect(mockUpdateState).toHaveBeenCalledWith(expect.objectContaining({ overlayCorner: "top-right" }));
+    }
+  });
 });

@@ -193,4 +193,81 @@ describe("store", () => {
     expect(shortcuts.length).toBeGreaterThan(1);
     expect(shortcuts.some((shortcut) => shortcut.action === "clockIncrease")).toBe(true);
   });
+
+  it("connects as viewer and handles errors", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ ...baseState, serverTime: 2000 }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { useStore } = await import("../store");
+
+    await useStore.getState().connectViewer("test-share");
+    expect(useStore.getState().isViewer).toBe(true);
+    expect(useStore.getState().shareId).toBe("test-share");
+
+    const handler = listeners.get("gameState");
+    handler?.({ ...baseState, serverTime: 3000 });
+    expect(useStore.getState().gameState).toBeDefined();
+
+    // Test error case
+    fetchMock.mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ error: "Share not found" }),
+    });
+    await useStore.getState().connectViewer("bad-share");
+    expect(useStore.getState().authError).toBe("Share not found");
+  });
+
+  it("handles clock operations", async () => {
+    const { useStore } = await import("../store");
+    useStore.setState({ socket: socketMock as any, gameState: baseState });
+
+    const state = useStore.getState();
+    state.startClock();
+    expect(socketMock.emit).toHaveBeenCalledWith("startClock");
+
+    state.stopClock();
+    expect(socketMock.emit).toHaveBeenCalledWith("stopClock");
+
+    state.setClock(5000);
+    expect(socketMock.emit).toHaveBeenCalledWith("setClock", 5000);
+
+    state.clockIncrease();
+    expect(socketMock.emit).toHaveBeenCalledWith("clockIncrease");
+
+    state.clockDecrease();
+    expect(socketMock.emit).toHaveBeenCalledWith("clockDecrease");
+  });
+
+  it("updates streamdeck buttons", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+    const { useStore } = await import("../store");
+    useStore.setState({ user: mockUser as any });
+
+    const button = { id: "btn-0", label: "NEW", action: "homeScoreUp" as ShortcutAction, backgroundColor: "#000", textColor: "#fff" };
+    await useStore.getState().updateStreamDeckButton(0, button);
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/streamdeck"), expect.objectContaining({ method: "POST" }));
+  });
+
+  it("resets shortcuts", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+    const { useStore } = await import("../store");
+    useStore.setState({ user: mockUser as any });
+
+    await useStore.getState().resetShortcuts();
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/shortcuts"), expect.objectContaining({ method: "POST" }));
+  });
+
+  it("performs full cleanup on logout", async () => {
+    const { useStore } = await import("../store");
+    useStore.setState({ socket: socketMock as any, user: mockUser as any });
+
+    await useStore.getState().logout();
+    expect(socketMock.disconnect).toHaveBeenCalled();
+    expect(useStore.getState().user).toBeNull();
+    expect(useStore.getState().gameState).toBeNull();
+  });
 });

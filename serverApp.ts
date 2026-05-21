@@ -470,11 +470,11 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     };
   }
 
-  function getPenaltyDiff(previous: Penalty[], next: Penalty[]) {
-    const prevById = new Map(previous.map((penalty) => [penalty.id, penalty]));
-    const nextById = new Map(next.map((penalty) => [penalty.id, penalty]));
-    const added = next.filter((penalty) => !prevById.has(penalty.id));
-    const removed = previous.filter((penalty) => !nextById.has(penalty.id));
+  function getPenaltyDiff(previous: Penalty[] = [], next: Penalty[] = []) {
+    const prevById = new Map((previous || []).map((penalty) => [penalty.id, penalty]));
+    const nextById = new Map((next || []).map((penalty) => [penalty.id, penalty]));
+    const added = (next || []).filter((penalty) => !prevById.has(penalty.id));
+    const removed = (previous || []).filter((penalty) => !nextById.has(penalty.id));
     return { added, removed };
   }
 
@@ -535,10 +535,10 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
 
   function syncActivePenaltyEventDetails(state: GameState) {
     const activePenalties = new Map<string, Penalty>();
-    state.homeTeam.penalties.forEach((penalty) => activePenalties.set(`home:${penalty.id}`, penalty));
-    state.awayTeam.penalties.forEach((penalty) => activePenalties.set(`away:${penalty.id}`, penalty));
+    (state.homeTeam.penalties || []).forEach((penalty) => activePenalties.set(`home:${penalty.id}`, penalty));
+    (state.awayTeam.penalties || []).forEach((penalty) => activePenalties.set(`away:${penalty.id}`, penalty));
 
-    state.eventLog = state.eventLog.map((event) => {
+    state.eventLog = (state.eventLog || []).map((event) => {
       if (event.type !== "penalty_added" || !event.penaltyId) {
         return event;
       }
@@ -563,22 +563,26 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
           .map((event) => [event.penaltyId as string, event]),
       );
 
-      const nextPenalties = state[teamKey].penalties.map((penalty) => {
-        const sourceEvent = activeEventsByPenaltyId.get(penalty.id);
-        if (!sourceEvent) return penalty;
+      const existingById = new Map<string, Penalty>();
+      (state[teamKey].penalties || []).forEach((penalty) => existingById.set(penalty.id, penalty));
 
-        const nextPlayerNumber = (sourceEvent.playerNumber ?? penalty.playerNumber).replace(/\D/g, "").slice(0, 2);
-        const nextInfraction = sourceEvent.infraction ?? penalty.infraction;
+      // When the client supplies a full eventLog update, treat it as authoritative for
+      // which penalties are currently active (penalty_added without endClockTime).
+      const nextPenalties: Penalty[] = [];
+      activeEventsByPenaltyId.forEach((sourceEvent, penaltyId) => {
+        const existing = existingById.get(penaltyId);
+        const duration = sourceEvent.penaltyDurationMs ?? existing?.duration ?? 120000;
+        const playerNumber = (sourceEvent.playerNumber ?? existing?.playerNumber ?? "").replace(/\D/g, "").slice(0, 2);
+        const infraction = sourceEvent.infraction ?? existing?.infraction ?? "";
+        const timeRemaining = existing?.timeRemaining ?? duration;
 
-        if (nextPlayerNumber === penalty.playerNumber && nextInfraction === penalty.infraction) {
-          return penalty;
-        }
-
-        return {
-          ...penalty,
-          playerNumber: nextPlayerNumber,
-          infraction: nextInfraction,
-        };
+        nextPenalties.push({
+          id: penaltyId,
+          duration,
+          timeRemaining,
+          playerNumber,
+          infraction,
+        });
       });
 
       return {
