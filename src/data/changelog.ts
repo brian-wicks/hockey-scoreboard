@@ -11,6 +11,24 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.8.0',
+    date: '2026-05-21',
+    sections: {
+      added: [
+        'Add Google login support for authenticated scoreboard management.',
+        'Add ability to generate and share view-only scoreboard links.',
+        'Add significant unit tests to improve code coverage',
+      ],
+      fixed: [
+        'Improved app performance by utilizing cached game state during initial connection.',
+        'Ensure Stream Deck controls always display a 3x15 grid, even on mobile',
+      ],
+      removed: [
+        'Removed "Save Current as Defaults" button from team presets for a cleaner interface.',
+      ],
+    },
+  },
+  {
     version: '1.7.0',
     date: '2026-04-27',
     sections: {
@@ -19,7 +37,7 @@ export const changelogEntries: ChangelogEntry[] = [
         'Add keyboard shortcuts for Next and Previous Period.',
       ],
       fixed:[
-          'Fixed mobile layout.'
+        'Fixed mobile layout.'
       ],
       removed: [
         'Removed some unnecessary text across the app.',
