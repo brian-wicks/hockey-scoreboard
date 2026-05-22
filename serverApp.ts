@@ -188,7 +188,8 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       methods: ["GET", "POST"],
       credentials: true
     },
-    allowEIO3: true
+    allowEIO3: true,
+    transports: ["polling", "websocket"]
   });
 
   // Per-user contexts

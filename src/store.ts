@@ -440,7 +440,7 @@ export const useStore = create<StoreState>((set, get) => ({
       const socketUrl = BASE_URL === window.location.origin ? undefined : BASE_URL;
       const socket = io(socketUrl, {
         auth: { shareId },
-        transports: ["websocket", "polling"],
+        transports: ["polling", "websocket"],
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
@@ -511,7 +511,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
       const socket = io(socketUrl, {
         auth: { token },
-        transports: ["websocket", "polling"],
+        transports: ["polling", "websocket"],
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { GameState, KeyboardShortcut } from "../store";
+import type { GameState, KeyboardShortcut, ShortcutAction } from "../store";
 
 const listeners = new Map<string, (payload: any) => void>();
 const socketMock = {

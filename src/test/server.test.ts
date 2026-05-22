@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { afterAll, describe, expect, it, hide, beforeAll, vi } from "vitest";
+import { afterAll, describe, expect, it, beforeAll, vi } from "vitest";
 import { mkdir, rm, writeFile } from "fs/promises";
 import path from "path";
 import { io as createClient } from "socket.io-client";
