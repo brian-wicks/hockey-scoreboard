@@ -13,7 +13,11 @@ import {
   saveGameState,
   getShareUserId,
   getUserIdShare,
-  setUserIdShare
+  setUserIdShare,
+  getSavedGames,
+  getSavedGame,
+  createSavedGame,
+  deleteSavedGame
 } from "./src/db/database.ts";
 
 // Initialize Firebase Admin
@@ -199,17 +203,19 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   }
   const userContexts = new Map<string, UserContext>();
 
-  function getInitialGameState(userId: string): GameState {
-    const savedState = getGameState(userId);
-    if (savedState) {
-      try {
-        return JSON.parse(savedState);
-      } catch (e) {
-        console.error(`Error parsing saved game state for user ${userId}:`, e);
+  function getInitialGameState(userId: string, ignoreSavedState = false): GameState {
+    if (!ignoreSavedState) {
+      const savedState = getGameState(userId);
+      if (savedState) {
+        try {
+          return JSON.parse(savedState);
+        } catch (e) {
+          console.error(`Error parsing saved game state for user ${userId}:`, e);
+        }
       }
     }
 
-    const persistedDefaults = readTeamDefaults(userId);
+    const persistedDefaults = ignoreSavedState ? null : readTeamDefaults(userId);
     return {
       homeTeam: persistedDefaults ? { ...baseHomeTeam, ...persistedDefaults.homeTeam } : baseHomeTeam,
       awayTeam: persistedDefaults ? { ...baseAwayTeam, ...persistedDefaults.awayTeam } : baseAwayTeam,
@@ -241,8 +247,8 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   }
 
   const baseHomeTeam: TeamState = {
-    name: "Home Team",
-    abbreviation: "HOM",
+    name: "Team A",
+    abbreviation: "TMA",
     score: 0,
     shots: 0,
     timeouts: 1,
@@ -253,8 +259,8 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   };
 
   const baseAwayTeam: TeamState = {
-    name: "Away Team",
-    abbreviation: "AWY",
+    name: "Team B",
+    abbreviation: "TMB",
     score: 0,
     shots: 0,
     timeouts: 1,
@@ -834,6 +840,18 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       emitGameState(userId);
     });
 
+    socket.on("resetGame", () => {
+      if (isViewer) return;
+      console.log(`User ${userId} requested hard reset to factory defaults`);
+      const context = getUserContext(userId);
+      if (context.clockInterval) {
+        clearInterval(context.clockInterval);
+        context.clockInterval = null;
+      }
+      context.gameState = getInitialGameState(userId, true);
+      emitGameState(userId);
+    });
+
     socket.on("disconnect", () => {
       console.log(`User ${userId} disconnected from socket ${socket.id}`);
     });
@@ -1102,6 +1120,42 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
     const { gameState } = getUserContext(userId);
     res.json(buildGameStatePayload(gameState));
+  });
+
+  app.get("/api/games", authenticateExpress, (req, res) => {
+    const userId = (req as any).user.uid;
+    const games = getSavedGames(userId);
+    res.json(games.map(g => ({
+      id: g.id,
+      name: g.name,
+      createdAt: g.createdAt
+    })));
+  });
+
+  app.post("/api/games", authenticateExpress, (req, res) => {
+    const userId = (req as any).user.uid;
+    const { name } = req.body;
+    if (!name || typeof name !== "string") {
+      return res.status(400).json({ error: "Game name is required" });
+    }
+    const { gameState } = getUserContext(userId);
+    const id = createSavedGame(userId, name, JSON.stringify(gameState));
+    res.json({ id, name });
+  });
+
+  app.get("/api/games/:id", authenticateExpress, (req, res) => {
+    const userId = (req as any).user.uid;
+    const game = getSavedGame(req.params.id, userId);
+    if (!game) {
+      return res.status(404).json({ error: "Game not found" });
+    }
+    res.json(game);
+  });
+
+  app.delete("/api/games/:id", authenticateExpress, (req, res) => {
+    const userId = (req as any).user.uid;
+    deleteSavedGame(req.params.id, userId);
+    res.json({ success: true });
   });
 
   app.use(express.static(join(__dirname, "dist")));

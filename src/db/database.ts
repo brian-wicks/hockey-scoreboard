@@ -34,12 +34,28 @@ db.exec(`
     shareId TEXT PRIMARY KEY,
     userId TEXT UNIQUE
   );
+
+  CREATE TABLE IF NOT EXISTS saved_games (
+    id TEXT PRIMARY KEY,
+    userId TEXT,
+    name TEXT,
+    state TEXT,
+    createdAt INTEGER
+  );
 `);
 
 export interface DBConfig {
   userId: string;
   key: string;
   value: string;
+}
+
+export interface SavedGame {
+  id: string;
+  userId: string;
+  name: string;
+  state: string;
+  createdAt: number;
 }
 
 export const getUserConfig = (userId: string, key: string): string | null => {
@@ -70,6 +86,31 @@ export const saveGameState = (userId: string, state: string): void => {
     ON CONFLICT(userId) DO UPDATE SET state = excluded.state
   `);
   stmt.run(userId, state);
+};
+
+export const getSavedGames = (userId: string): SavedGame[] => {
+  const stmt = db.prepare("SELECT * FROM saved_games WHERE userId = ? ORDER BY createdAt DESC");
+  return stmt.all(userId) as SavedGame[];
+};
+
+export const getSavedGame = (id: string, userId: string): SavedGame | null => {
+  const stmt = db.prepare("SELECT * FROM saved_games WHERE id = ? AND userId = ?");
+  return stmt.get(id, userId) as SavedGame | undefined ?? null;
+};
+
+export const createSavedGame = (userId: string, name: string, state: string): string => {
+  const id = Math.random().toString(36).slice(2, 11);
+  const stmt = db.prepare(`
+    INSERT INTO saved_games (id, userId, name, state, createdAt)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  stmt.run(id, userId, name, state, Date.now());
+  return id;
+};
+
+export const deleteSavedGame = (id: string, userId: string): void => {
+  const stmt = db.prepare("DELETE FROM saved_games WHERE id = ? AND userId = ?");
+  stmt.run(id, userId);
 };
 
 export const getShareUserId = (shareId: string): string | null => {

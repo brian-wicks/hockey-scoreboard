@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bookmark, House, LayoutGrid, Settings } from "lucide-react";
+import { Bookmark, House, LayoutGrid, Settings, Database } from "lucide-react";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useStore } from "../store";
 import ClockControl from "./control-panel/ClockControl";
@@ -12,8 +12,9 @@ import SettingsPanel from "./control-panel/SettingsPanel";
 import TeamControls from "./control-panel/TeamControls";
 import StreamDeckPanel from "./StreamDeckPanel";
 import ShareModal from "./control-panel/ShareModal";
+import SavedGamesPanel from "./control-panel/SavedGamesPanel";
 
-type ActiveTab = "controls" | "settings" | "presets" | "streamdeck";
+type ActiveTab = "controls" | "settings" | "presets" | "streamdeck" | "games";
 
 export default function ControlPanel() {
   const {
@@ -50,7 +51,7 @@ export default function ControlPanel() {
     eventLog,
     lowerThird,
   } = gameState;
-  const tabs: ActiveTab[] = ["controls", "settings", "presets", "streamdeck"];
+  const tabs: ActiveTab[] = ["controls", "settings", "presets", "streamdeck", "games"];
   const activeTabIndex = tabs.indexOf(activeTab);
 
   return (
@@ -70,10 +71,10 @@ export default function ControlPanel() {
 
       <main className="flex-1 p-3 sm:p-6 max-w-7xl mx-auto w-full">
         {!isViewer && (
-          <div className="relative mb-3 sm:mb-6 border border-zinc-800 bg-zinc-900/80 rounded-2xl p-2 grid grid-cols-4 gap-1 sm:gap-2 w-full overflow-hidden">
+          <div className="relative mb-3 sm:mb-6 border border-zinc-800 bg-zinc-900/80 rounded-2xl p-2 grid grid-cols-5 gap-1 sm:gap-2 w-full overflow-hidden">
             <div
               aria-hidden="true"
-              className="absolute top-2 bottom-2 left-2 w-[calc((100%-2.5rem)/4)] rounded-xl bg-indigo-600 shadow-[0_0_30px_rgba(79,70,229,0.35)] transition-transform duration-300 ease-out"
+              className="absolute top-2 bottom-2 left-2 w-[calc((100%-3rem)/5)] rounded-xl bg-indigo-600 shadow-[0_0_30px_rgba(79,70,229,0.35)] transition-transform duration-300 ease-out"
               style={{ transform: `translateX(calc(${activeTabIndex} * (100% + 0.5rem)))` }}
             />
             <button
@@ -115,6 +116,16 @@ export default function ControlPanel() {
             >
               <LayoutGrid size={15} />
               <span className="hidden xs:inline">Stream Deck</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("games")}
+              className={`relative z-10 flex w-full items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-2 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-medium transition-colors ${
+                activeTab === "games" ? "text-white" : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+              }`}
+            >
+              <Database size={15} />
+              <span className="hidden xs:inline">Games</span>
             </button>
           </div>
         )}
@@ -161,6 +172,8 @@ export default function ControlPanel() {
           <PresetsPanel gameState={gameState} updateState={updateState} />
         ) : activeTab === "streamdeck" ? (
           <StreamDeckPanel />
+        ) : activeTab === "games" ? (
+          <SavedGamesPanel />
         ) : null}
       </main>
 

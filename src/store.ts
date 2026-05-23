@@ -157,6 +157,7 @@ interface StoreState {
   authError: string | null;
   shareId: string | null;
   isViewer: boolean;
+  savedGames: { id: string; name: string; createdAt: number }[];
 
   connect: () => void;
   connectViewer: (shareId: string) => void;
@@ -174,6 +175,13 @@ interface StoreState {
   loadShortcuts: () => Promise<void>;
   updateStreamDeckButton: (index: number, button: StreamDeckButton) => void;
   loadStreamDeckConfig: () => Promise<void>;
+
+  // Game Management Actions
+  loadSavedGames: () => Promise<void>;
+  saveGame: (name: string) => Promise<void>;
+  loadGame: (id: string) => Promise<void>;
+  deleteGame: (id: string) => Promise<void>;
+  resetGame: () => void;
 
   // Auth Actions
   setUser: (user: User | null) => void;
@@ -396,6 +404,7 @@ export const useStore = create<StoreState>((set, get) => ({
   authError: null,
   shareId: null,
   isViewer: false,
+  savedGames: [],
 
   setUser: (user) => set((state) => ({ 
     user, 
@@ -422,9 +431,123 @@ export const useStore = create<StoreState>((set, get) => ({
       }
       await signOut(auth);
       hasInitialized = false;
-      set({ user: null, gameState: null, socket: null, isViewer: false, shareId: null, authError: null });
+      set({ user: null, gameState: null, socket: null, isViewer: false, shareId: null, authError: null, savedGames: [] });
     } catch (error) {
       console.error("Logout failed:", error);
+    }
+  },
+
+  loadSavedGames: async () => {
+    const { user } = get();
+    if (!user) {
+      console.warn("loadSavedGames called but no user is logged in");
+      return;
+    }
+    try {
+      const token = await user.getIdToken();
+      const apiUrl = BASE_URL === window.location.origin ? "" : BASE_URL;
+      console.log(`Loading saved games from ${apiUrl}/api/games`);
+      const response = await fetch(`${apiUrl}/api/games`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Failed to load saved games: ${response.status} ${response.statusText}`, errorText);
+        return;
+      }
+      const data = await response.json();
+      console.log(`Loaded ${Array.isArray(data) ? data.length : 0} saved games`);
+      if (Array.isArray(data)) {
+        set({ savedGames: data });
+      } else {
+        console.error("Received non-array response for saved games:", data);
+      }
+    } catch (error) {
+      console.error("Failed to load saved games:", error);
+    }
+  },
+
+  saveGame: async (name: string) => {
+    const { user } = get();
+    if (!user) return;
+    try {
+      const token = await user.getIdToken();
+      const apiUrl = BASE_URL === window.location.origin ? "" : BASE_URL;
+      console.log(`Saving game "${name}" to ${apiUrl}/api/games`);
+      const response = await fetch(`${apiUrl}/api/games`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ name }),
+      });
+      if (response.ok) {
+        console.log("Game saved successfully");
+        await get().loadSavedGames();
+      } else {
+        const errorText = await response.text();
+        console.error(`Failed to save game: ${response.status} ${response.statusText}`, errorText);
+      }
+    } catch (error) {
+      console.error("Failed to save game:", error);
+    }
+  },
+
+  loadGame: async (id: string) => {
+    const { user, socket } = get();
+    if (!user || !socket) return;
+    try {
+      const token = await user.getIdToken();
+      const apiUrl = BASE_URL === window.location.origin ? "" : BASE_URL;
+      console.log(`Loading game ${id} from ${apiUrl}/api/games/${id}`);
+      const response = await fetch(`${apiUrl}/api/games/${id}`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const game = await response.json();
+        const gameState = JSON.parse(game.state);
+        set({ gameState });
+        saveCachedState(gameState);
+        socket.emit("updateGameState", gameState);
+        console.log("Game loaded and socket updated");
+      } else {
+        const errorText = await response.text();
+        console.error(`Failed to load game: ${response.status} ${response.statusText}`, errorText);
+      }
+    } catch (error) {
+      console.error("Failed to load game:", error);
+    }
+  },
+
+  deleteGame: async (id: string) => {
+    const { user } = get();
+    if (!user) return;
+    try {
+      const token = await user.getIdToken();
+      const apiUrl = BASE_URL === window.location.origin ? "" : BASE_URL;
+      console.log(`Deleting game ${id} via ${apiUrl}/api/games/${id}`);
+      const response = await fetch(`${apiUrl}/api/games/${id}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (response.ok) {
+        console.log("Game deleted successfully");
+        await get().loadSavedGames();
+      } else {
+        const errorText = await response.text();
+        console.error(`Failed to delete game: ${response.status} ${response.statusText}`, errorText);
+      }
+    } catch (error) {
+      console.error("Failed to delete game:", error);
+    }
+  },
+
+  resetGame: () => {
+    const { socket } = get();
+    if (socket) {
+      socket.emit("resetGame");
+      set({ undoState: null });
     }
   },
 
@@ -571,6 +694,7 @@ export const useStore = create<StoreState>((set, get) => ({
     get().connect();
     void get().loadShortcuts();
     void get().loadStreamDeckConfig();
+    void get().loadSavedGames();
   },
 
   updateState: (updates: Partial<GameState>) => {
