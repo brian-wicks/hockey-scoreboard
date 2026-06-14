@@ -10,7 +10,7 @@ vi.mock("../store", () => ({
 vi.mock("firebase/auth", () => ({
   onAuthStateChanged: vi.fn(() => vi.fn()),
   getAuth: vi.fn(),
-  GoogleAuthProvider: vi.fn().mockImplementation(() => ({})),
+  GoogleAuthProvider: class {},
 }));
 
 // Mock lazy-loaded components to speed up tests and avoid complexity

@@ -6,6 +6,25 @@ import { io as createClient } from "socket.io-client";
 import { createScoreboardServer } from "../../serverApp";
 
 // Mock firebase-admin
+vi.mock("firebase-admin/app", () => ({
+  initializeApp: vi.fn(),
+  cert: vi.fn(),
+}));
+
+vi.mock("firebase-admin/auth", () => ({
+  getAuth: vi.fn(() => ({
+    verifyIdToken: vi.fn().mockImplementation(async (token: string) => {
+      if (token === "token-a") return { uid: "user-a" };
+      if (token === "token-b") return { uid: "user-b" };
+      if (token === "test-token") return { uid: "test-user" };
+      if (token === "token-shortcuts") return { uid: "user-shortcuts" };
+      if (token === "token-pdf") return { uid: "user-pdf" };
+      if (token === "token-streamdeck") return { uid: "user-streamdeck" };
+      return { uid: token };
+    }),
+  })),
+}));
+
 vi.mock("firebase-admin", () => ({
   default: {
     apps: [],

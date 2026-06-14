@@ -17,12 +17,14 @@ const { mockGet, mockRun, mockExec, mockPrepare, mockPragma } = vi.hoisted(() =>
 
 vi.mock("better-sqlite3", () => {
   return {
-    default: vi.fn().mockImplementation(() => ({
-      prepare: mockPrepare,
-      run: mockRun,
-      exec: mockExec,
-      pragma: mockPragma,
-    })),
+    default: vi.fn().mockImplementation(function() {
+      return {
+        prepare: mockPrepare,
+        run: mockRun,
+        exec: mockExec,
+        pragma: mockPragma,
+      };
+    }),
   };
 });
 

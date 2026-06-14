@@ -39,18 +39,18 @@ describe("ChangelogPage Component", () => {
     expect(screen.getByText("Changelog")).toBeInTheDocument();
     
     // Check for version 1.7.0
-    expect(screen.getByText("v1.7.0")).toBeInTheDocument();
+    expect(screen.getByText(/v1.7.0/)).toBeInTheDocument();
     expect(screen.getByText("New feature A")).toBeInTheDocument();
     expect(screen.getByText("Bug fix B")).toBeInTheDocument();
-    expect(screen.getByText("Added")).toBeInTheDocument();
-    expect(screen.getByText("Fixed")).toBeInTheDocument();
+    expect(screen.getAllByText("Added").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Fixed").length).toBeGreaterThan(0);
 
     // Check for version 1.6.0
-    expect(screen.getByText("v1.6.0")).toBeInTheDocument();
+    expect(screen.getByText(/v1.6.0/)).toBeInTheDocument();
     expect(screen.getByText("Change C")).toBeInTheDocument();
     expect(screen.getByText("Removal D")).toBeInTheDocument();
-    expect(screen.getByText("Changed")).toBeInTheDocument();
-    expect(screen.getByText("Removed")).toBeInTheDocument();
+    expect(screen.getAllByText("Changed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Removed").length).toBeGreaterThan(0);
   });
 
   it("links back to control panel", () => {

@@ -25,10 +25,27 @@ export default defineConfig(({mode}) => {
     build: {
       rollupOptions: {
         output: {
-          manualChunks: {
-            'pdf-vendor': ['pdf-lib'],
-            'ui-vendor': ['lucide-react', 'motion', 'clsx', 'tailwind-merge'],
-            'react-vendor': ['react', 'react-dom', 'react-router-dom', 'zustand', 'socket.io-client'],
+          manualChunks(id) {
+            if (id.includes('pdf-lib')) {
+              return 'pdf-vendor';
+            }
+            if (
+              id.includes('lucide-react') ||
+              id.includes('motion') ||
+              id.includes('clsx') ||
+              id.includes('tailwind-merge')
+            ) {
+              return 'ui-vendor';
+            }
+            if (
+              id.includes('react') ||
+              id.includes('react-dom') ||
+              id.includes('react-router-dom') ||
+              id.includes('zustand') ||
+              id.includes('socket.io-client')
+            ) {
+              return 'react-vendor';
+            }
           },
         },
       },

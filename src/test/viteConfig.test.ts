@@ -20,8 +20,13 @@ describe("vite config", () => {
     expect(cfg.define["process.env.GEMINI_API_KEY"]).toBe("\"test-key\"");
 
     const manualChunks = cfg.build?.rollupOptions?.output?.manualChunks;
-    expect(manualChunks["pdf-vendor"]).toContain("pdf-lib");
-    expect(manualChunks["react-vendor"]).toContain("react");
+    if (typeof manualChunks === "function") {
+      expect(manualChunks("node_modules/pdf-lib/index.js")).toBe("pdf-vendor");
+      expect(manualChunks("node_modules/react/index.js")).toBe("react-vendor");
+    } else {
+      expect(manualChunks["pdf-vendor"]).toContain("pdf-lib");
+      expect(manualChunks["react-vendor"]).toContain("react");
+    }
   });
 });
 

@@ -10,7 +10,9 @@ vi.mock("firebase/app", () => ({
 
 vi.mock("firebase/auth", () => ({
   getAuth: vi.fn(() => ({})),
-  GoogleAuthProvider: vi.fn(),
+  GoogleAuthProvider: class {
+    static credential = vi.fn();
+  },
   onAuthStateChanged: vi.fn((_auth, callback) => {
     callback(null);
     return () => {};

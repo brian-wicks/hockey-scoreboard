@@ -4,7 +4,8 @@ import { Server, Socket } from "socket.io";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { readFileSync, writeFileSync, existsSync } from "fs";
-import admin from "firebase-admin";
+import { initializeApp, cert } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
 import cors from "cors";
 import { 
   getUserConfig, 
@@ -30,8 +31,8 @@ if (serviceAccount && serviceAccount.private_key) {
 }
 
 if (serviceAccount) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
+  initializeApp({
+    credential: cert(serviceAccount)
   });
 } else {
   console.warn("FIREBASE_SERVICE_ACCOUNT not found in environment variables. Authentication will fail.");
@@ -729,7 +730,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       return next(new Error("Authentication error: Token required"));
     }
     try {
-      const decodedToken = await admin.auth().verifyIdToken(token);
+      const decodedToken = await getAuth().verifyIdToken(token);
       socket.data.userId = decodedToken.uid;
       console.log(`[Socket] Auth success: User ${decodedToken.uid} verified`);
       next();
@@ -749,7 +750,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
     const token = authHeader.split(" ")[1];
     try {
-      const decodedToken = await admin.auth().verifyIdToken(token);
+      const decodedToken = await getAuth().verifyIdToken(token);
       (req as any).user = decodedToken;
       console.log(`[Express] Auth success: User ${decodedToken.uid} verified for ${req.method} ${req.url}`);
       next();
@@ -1160,7 +1161,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
 
   app.use(express.static(join(__dirname, "dist")));
 
-  app.get("*", (req, res) => {
+  app.get("*path", (req, res) => {
     res.sendFile(join(__dirname, "dist", "index.html"));
   });
 
