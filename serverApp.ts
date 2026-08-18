@@ -1,5 +1,6 @@
 import express from "express";
 import { createServer } from "http";
+import { randomUUID } from "crypto";
 import { Server, Socket } from "socket.io";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -1143,7 +1144,10 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
 
   app.post("/api/share", authenticateExpress, (req, res) => {
     const userId = (req as any).user.uid;
-    const shareId = randomId();
+    // Unlike randomId() (used for non-sensitive event/roster ids), a share link is an
+    // unauthenticated bearer token for a user's live game state, so it needs a
+    // cryptographically secure generator rather than Math.random().
+    const shareId = randomUUID();
     setUserIdShare(userId, shareId);
     res.json({ shareId });
   });

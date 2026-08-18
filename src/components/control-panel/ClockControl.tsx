@@ -1,7 +1,8 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Play, Square } from "lucide-react";
 import { ClockState } from "../../store";
-import { formatClockDisplay, parseTimeInputMs } from "../../utils/clock";
+import { useClockDisplay } from "../../hooks/useClockDisplay";
+import { parseTimeInputMs } from "../../utils/clock";
 
 interface ClockControlProps {
   clock: ClockState;
@@ -20,60 +21,9 @@ export default function ClockControl({
   setClock,
   serverTimeOffsetMs,
 }: ClockControlProps) {
-  const [displayTime, setDisplayTime] = useState("20:00");
+  const displayTime = useClockDisplay(clock, serverTimeOffsetMs);
   const [editMode, setEditMode] = useState(false);
   const [editValue, setEditValue] = useState("20:00");
-  const frameRef = useRef<number | null>(null);
-  const lastSampleRef = useRef<{
-    isRunning: boolean;
-    timeRemaining: number;
-    lastUpdate: number;
-    offset: number;
-  } | null>(null);
-
-  const tickDisplay = () => {
-    let currentRemaining = clock.timeRemaining;
-    if (clock.isRunning) {
-      const now = Date.now() + (serverTimeOffsetMs ?? 0);
-      const elapsed = now - clock.lastUpdate;
-      currentRemaining = Math.max(0, clock.timeRemaining - elapsed);
-    }
-
-    setDisplayTime((prev) => {
-      const next = formatClockDisplay(currentRemaining);
-      return prev === next ? prev : next;
-    });
-
-    if (clock.isRunning) {
-      frameRef.current = requestAnimationFrame(tickDisplay);
-    }
-  };
-
-  const ensureClockTicking = () => {
-    const snapshot = {
-      isRunning: clock.isRunning,
-      timeRemaining: clock.timeRemaining,
-      lastUpdate: clock.lastUpdate,
-      offset: serverTimeOffsetMs ?? 0,
-    };
-    const lastSnapshot = lastSampleRef.current;
-    const hasChanged =
-      !lastSnapshot ||
-      lastSnapshot.isRunning !== snapshot.isRunning ||
-      lastSnapshot.timeRemaining !== snapshot.timeRemaining ||
-      lastSnapshot.lastUpdate !== snapshot.lastUpdate ||
-      lastSnapshot.offset !== snapshot.offset;
-    if (!hasChanged) return;
-
-    lastSampleRef.current = snapshot;
-    if (frameRef.current) {
-      cancelAnimationFrame(frameRef.current);
-      frameRef.current = null;
-    }
-    tickDisplay();
-  };
-
-  ensureClockTicking();
 
   const handleSetClock = () => {
     const timeMs = parseTimeInputMs(editValue);

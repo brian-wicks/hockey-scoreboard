@@ -113,4 +113,26 @@ describe("ClockControl Component", () => {
 
     expect(mockSet).toHaveBeenCalledWith(10 * 60 * 1000);
   });
+
+  it("cancels the pending animation frame loop on unmount", () => {
+    const cafSpy = vi.spyOn(globalThis, "cancelAnimationFrame");
+    const runningClock = { ...baseClock, isRunning: true };
+    const { unmount } = render(
+      <ClockControl
+        clock={runningClock}
+        period="1st"
+        startClock={mockStart}
+        stopClock={mockStop}
+        setClock={mockSet}
+        serverTimeOffsetMs={0}
+      />
+    );
+
+    // Operators switch tabs away from the clock while it's still running;
+    // the display-ticking loop must stop rather than leak forever.
+    unmount();
+
+    expect(cafSpy).toHaveBeenCalled();
+    cafSpy.mockRestore();
+  });
 });

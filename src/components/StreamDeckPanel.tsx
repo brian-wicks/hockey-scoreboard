@@ -316,6 +316,7 @@ export default function StreamDeckPanel() {
   const { handleAction } = useSharedActions();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [focusPenaltyId, setFocusPenaltyId] = useState<string | null>(null);
+  const prevPenaltyCountsRef = useRef({ home: 0, away: 0 });
 
   const homePlayers = gameState?.homeTeam.players ?? [];
   const awayPlayers = gameState?.awayTeam.players ?? [];
@@ -367,16 +368,24 @@ export default function StreamDeckPanel() {
     if (!gameState) return;
     const homeCount = gameState.homeTeam.penalties.length;
     const awayCount = gameState.awayTeam.penalties.length;
-    
-    // Simple heuristic: if a penalty was added, focus it
-    const lastHome = gameState.homeTeam.penalties[homeCount - 1];
-    if (lastHome && !lastHome.playerNumber && !lastHome.infraction) {
+    const prevCounts = prevPenaltyCountsRef.current;
+
+    // Simple heuristic: if a penalty was added, focus it. Only look at the team whose
+    // count actually grew — checking both unconditionally let an already-blank,
+    // untouched penalty on the other team steal focus back on any unrelated change.
+    if (homeCount > prevCounts.home) {
+      const lastHome = gameState.homeTeam.penalties[homeCount - 1];
+      if (lastHome && !lastHome.playerNumber && !lastHome.infraction) {
         setFocusPenaltyId(lastHome.id);
-    }
-    const lastAway = gameState.awayTeam.penalties[awayCount - 1];
-    if (lastAway && !lastAway.playerNumber && !lastAway.infraction) {
+      }
+    } else if (awayCount > prevCounts.away) {
+      const lastAway = gameState.awayTeam.penalties[awayCount - 1];
+      if (lastAway && !lastAway.playerNumber && !lastAway.infraction) {
         setFocusPenaltyId(lastAway.id);
+      }
     }
+
+    prevPenaltyCountsRef.current = { home: homeCount, away: awayCount };
   }, [gameState?.homeTeam.penalties.length, gameState?.awayTeam.penalties.length]);
 
   if (!gameState) return null;
