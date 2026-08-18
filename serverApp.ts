@@ -238,11 +238,32 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   function getUserContext(userId: string): UserContext {
     let context = userContexts.get(userId);
     if (!context) {
+      const gameState = getInitialGameState(userId);
       context = {
-        gameState: getInitialGameState(userId),
+        gameState,
         clockInterval: null,
       };
       userContexts.set(userId, context);
+
+      // Persisted state can have the clock left running (e.g. server restarted
+      // mid-period). Reconcile elapsed time and resume ticking so the clock and
+      // penalties don't silently freeze.
+      if (gameState.clock.isRunning) {
+        const currentTime = now();
+        const elapsed = currentTime - gameState.clock.lastUpdate;
+        gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining - elapsed);
+        gameState.clock.lastUpdate = currentTime;
+        gameState.homeTeam.penalties = tickTeamPenalties(gameState, gameState.homeTeam, "home", elapsed);
+        gameState.awayTeam.penalties = tickTeamPenalties(gameState, gameState.awayTeam, "away", elapsed);
+
+        if (gameState.clock.timeRemaining <= 0) {
+          gameState.clock.timeRemaining = 0;
+          appendEvent(gameState, createPeriodEndEvent(gameState));
+          gameState.clock.isRunning = false;
+        } else {
+          startClockInterval(userId);
+        }
+      }
     }
     return context;
   }

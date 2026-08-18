@@ -149,7 +149,7 @@ interface StoreState {
   serverTimeOffsetMs: number;
   keyboardShortcuts: KeyboardShortcut[];
   streamDeckConfig: StreamDeckConfig;
-  undoState: GameState | null;
+  undoState: Partial<GameState> | null;
 
   // Auth State
   user: User | null;
@@ -701,7 +701,10 @@ export const useStore = create<StoreState>((set, get) => ({
     const { socket, gameState } = get();
     if (socket && gameState) {
       if (shouldSnapshotForUndo(updates)) {
-        set({ undoState: gameState });
+        const snapshot: Partial<GameState> = {};
+        if (updates.homeTeam) snapshot.homeTeam = gameState.homeTeam;
+        if (updates.awayTeam) snapshot.awayTeam = gameState.awayTeam;
+        set({ undoState: snapshot });
       }
       const newState = { ...gameState, ...updates };
       set({ gameState: newState });
@@ -713,8 +716,9 @@ export const useStore = create<StoreState>((set, get) => ({
   undoLastUpdate: () => {
     const { socket, undoState, gameState } = get();
     if (!socket || !undoState || !gameState) return;
-    set({ gameState: undoState, undoState: null });
-    saveCachedState(undoState);
+    const newState = { ...gameState, ...undoState };
+    set({ gameState: newState, undoState: null });
+    saveCachedState(newState);
     socket.emit("updateGameState", undoState);
   },
 

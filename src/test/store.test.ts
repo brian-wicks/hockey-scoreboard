@@ -152,8 +152,9 @@ describe("store", () => {
     expect(useStore.getState().undoState?.homeTeam.score).toBe(baseState.homeTeam.score);
     useStore.getState().undoLastUpdate();
 
-    expect(socketMock.emit).toHaveBeenCalledWith("updateGameState", baseState);
+    expect(socketMock.emit).toHaveBeenCalledWith("updateGameState", { homeTeam: baseState.homeTeam });
     expect(useStore.getState().gameState?.homeTeam.score).toBe(baseState.homeTeam.score);
+    expect(useStore.getState().gameState?.period).toBe(baseState.period);
   });
 
   it("hydrates from cached state before socket updates arrive", async () => {
