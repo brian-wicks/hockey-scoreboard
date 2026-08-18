@@ -432,7 +432,7 @@ export const useStore = create<StoreState>((set, get) => ({
       }
       await signOut(auth);
       hasInitialized = false;
-      set({ user: null, gameState: null, socket: null, isViewer: false, shareId: null, authError: null, savedGames: [] });
+      set({ user: null, gameState: null, socket: null, isViewer: false, shareId: null, authError: null, savedGames: [], undoStack: [] });
     } catch (error) {
       console.error("Logout failed:", error);
     }
@@ -508,7 +508,7 @@ export const useStore = create<StoreState>((set, get) => ({
       if (response.ok) {
         const game = await response.json();
         const gameState = JSON.parse(game.state);
-        set({ gameState });
+        set({ gameState, undoStack: [] });
         saveCachedState(gameState);
         socket.emit("updateGameState", gameState);
         console.log("Game loaded and socket updated");

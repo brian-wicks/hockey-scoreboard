@@ -235,6 +235,30 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     };
   }
 
+  // A stored/loaded gameState can have the clock left running with a stale
+  // lastUpdate timestamp (server restarted mid-period, or a saved game/imported
+  // gamesheet was captured without stopping the clock first). Reconcile elapsed
+  // time against that stale timestamp and resume ticking so the clock and
+  // penalties don't silently freeze, or overshoot to 0 on the next natural tick.
+  function reconcileRunningClock(userId: string, gameState: GameState) {
+    if (!gameState.clock.isRunning) return;
+
+    const currentTime = now();
+    const elapsed = currentTime - gameState.clock.lastUpdate;
+    gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining - elapsed);
+    gameState.clock.lastUpdate = currentTime;
+    gameState.homeTeam.penalties = tickTeamPenalties(gameState, gameState.homeTeam, "home", elapsed);
+    gameState.awayTeam.penalties = tickTeamPenalties(gameState, gameState.awayTeam, "away", elapsed);
+
+    if (gameState.clock.timeRemaining <= 0) {
+      gameState.clock.timeRemaining = 0;
+      appendEvent(gameState, createPeriodEndEvent(gameState));
+      gameState.clock.isRunning = false;
+    } else {
+      startClockInterval(userId);
+    }
+  }
+
   function getUserContext(userId: string): UserContext {
     let context = userContexts.get(userId);
     if (!context) {
@@ -244,26 +268,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         clockInterval: null,
       };
       userContexts.set(userId, context);
-
-      // Persisted state can have the clock left running (e.g. server restarted
-      // mid-period). Reconcile elapsed time and resume ticking so the clock and
-      // penalties don't silently freeze.
-      if (gameState.clock.isRunning) {
-        const currentTime = now();
-        const elapsed = currentTime - gameState.clock.lastUpdate;
-        gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining - elapsed);
-        gameState.clock.lastUpdate = currentTime;
-        gameState.homeTeam.penalties = tickTeamPenalties(gameState, gameState.homeTeam, "home", elapsed);
-        gameState.awayTeam.penalties = tickTeamPenalties(gameState, gameState.awayTeam, "away", elapsed);
-
-        if (gameState.clock.timeRemaining <= 0) {
-          gameState.clock.timeRemaining = 0;
-          appendEvent(gameState, createPeriodEndEvent(gameState));
-          gameState.clock.isRunning = false;
-        } else {
-          startClockInterval(userId);
-        }
-      }
+      reconcileRunningClock(userId, gameState);
     }
     return context;
   }
@@ -811,6 +816,15 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         logScoreAndPenaltyChanges(userId, context.gameState, previousState, nextState);
       }
       syncActivePenaltyEventDetails(context.gameState);
+
+      // updates.clock only ever arrives here from a full-state replacement (loading a
+      // saved game, importing a gamesheet) — normal clock control goes through the
+      // dedicated startClock/stopClock/setClock handlers below. Reconcile in case the
+      // incoming clock was left running against a now-stale lastUpdate timestamp.
+      if (updates.clock) {
+        reconcileRunningClock(userId, context.gameState);
+      }
+
       emitGameState(userId);
     });
 

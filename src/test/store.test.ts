@@ -324,13 +324,40 @@ describe("store", () => {
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/shortcuts"), expect.objectContaining({ method: "POST" }));
   });
 
-  it("performs full cleanup on logout", async () => {
+  it("performs full cleanup on logout, including the undo stack", async () => {
     const { useStore } = await import("../store");
-    useStore.setState({ socket: socketMock as any, user: mockUser as any });
+    useStore.setState({ socket: socketMock as any, user: mockUser as any, undoStack: [{ homeTeam: baseState.homeTeam }] });
 
     await useStore.getState().logout();
     expect(socketMock.disconnect).toHaveBeenCalled();
     expect(useStore.getState().user).toBeNull();
     expect(useStore.getState().gameState).toBeNull();
+    // A leftover undo entry from the previous operator's session must not be able to
+    // splice their data into whichever account signs in next on the same machine.
+    expect(useStore.getState().undoStack).toEqual([]);
+  });
+
+  it("clears the undo stack when loading a saved game", async () => {
+    const savedGameState = { ...baseState, homeTeam: { ...baseState.homeTeam, score: 9 } };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ state: JSON.stringify(savedGameState) }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { useStore } = await import("../store");
+    useStore.setState({
+      socket: socketMock as any,
+      user: mockUser as any,
+      gameState: baseState,
+      // Stale undo entry from the previously loaded/edited game.
+      undoStack: [{ homeTeam: baseState.homeTeam }],
+    });
+
+    await useStore.getState().loadGame("game-1");
+
+    // The stale entry must not survive — undoing right after a load must not splice
+    // an unrelated game's team/event data back into the just-loaded game.
+    expect(useStore.getState().undoStack).toEqual([]);
+    expect(useStore.getState().gameState?.homeTeam.score).toBe(9);
   });
 });

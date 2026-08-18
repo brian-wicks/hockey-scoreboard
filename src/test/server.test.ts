@@ -248,6 +248,34 @@ describe("server API", () => {
     client.close();
   });
 
+  it("reconciles a clock left running when a saved game / gamesheet is loaded", async () => {
+    const userId = "user-load-stale-clock-test";
+    const baseUrl = `http://localhost:${port}`;
+    const shareId = await createShare(baseUrl, userId);
+    const client = createClient(baseUrl, {
+      transports: ["websocket"],
+      forceNew: true,
+      auth: { token: userId }
+    });
+
+    await new Promise(r => client.on("connect", r));
+
+    // Simulate loading a saved game (or imported gamesheet) whose clock was left
+    // running with a stale lastUpdate — e.g. saved a minute ago, only 5s remained.
+    const staleClock = { isRunning: true, timeRemaining: 5000, lastUpdate: Date.now() - 60000 };
+    client.emit("updateGameState", { clock: staleClock } as any);
+    await new Promise(r => setTimeout(r, 150));
+
+    const state = await (await fetch(`${baseUrl}/api/share/${shareId}/state`)).json();
+    // Reconciled immediately against the stale timestamp, not left frozen at
+    // isRunning:true forever, nor overshooting negative on some later natural tick.
+    expect(state.clock.isRunning).toBe(false);
+    expect(state.clock.timeRemaining).toBe(0);
+    expect(state.eventLog.some((e: any) => e.type === "period_end")).toBe(true);
+
+    client.close();
+  });
+
   it("handles clock control socket events (set, increase, decrease)", async () => {
     const userId = "user-clock-test";
     const baseUrl = `http://localhost:${port}`;
