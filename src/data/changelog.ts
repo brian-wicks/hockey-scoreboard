@@ -11,6 +11,25 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.9.0',
+    date: '2026-08-18',
+    sections: {
+      added: [
+        'Add ability to save and load named game snapshots.',
+        'Support undoing a sequence of score/shots/penalty edits, not just the most recent one.',
+      ],
+      changed: [
+        'Split the event log into separate Home and Away columns for easier scanning.',
+        'Updated dependencies.',
+      ],
+      fixed: [
+        'Fix undo overwriting the live game clock and event log instead of only the edited team.',
+        'Fix undo leaving a "revoked" entry in the event log instead of fully removing the original action.',
+        'Fix the game clock and penalty countdowns silently freezing if the server restarted mid-period.'
+      ],
+    },
+  },
+  {
     version: '1.8.0',
     date: '2026-05-21',
     sections: {
