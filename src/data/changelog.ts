@@ -11,6 +11,21 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.9.1',
+    date: '2026-08-19',
+    sections: {
+      fixed: [
+        'Fix the operator connection getting stuck after about an hour, requiring a page reload to recover.',
+        'Fix roster and team name edits being wiped while the clock is running.',
+        'Fix undo occasionally applying a different game\'s data after loading a saved game or switching accounts.',
+        'Fix the clock silently freezing or resetting after loading a saved game that was saved with the clock still running.',
+        'Fix the live clock display leaking browser resources when switching tabs during a broadcast.',
+        'Fix penalty entry occasionally losing focus to the wrong team on the Stream Deck panel.',
+        'Harden share link generation against guessing.',
+      ],
+    },
+  },
+  {
     version: '1.9.0',
     date: '2026-08-18',
     sections: {
