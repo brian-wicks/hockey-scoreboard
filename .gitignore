@@ -13,3 +13,6 @@ qodana.yaml
 src/test/.tmp
 .gemini
 .geminiignore
+data/scoreboard.db
+data/scoreboard.db-shm
+data/scoreboard.db-wal
