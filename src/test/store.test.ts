@@ -149,12 +149,42 @@ describe("store", () => {
       homeTeam: { ...baseState.homeTeam, score: baseState.homeTeam.score + 1 },
     });
 
-    expect(useStore.getState().undoState?.homeTeam.score).toBe(baseState.homeTeam.score);
+    expect(useStore.getState().undoStack.at(-1)?.homeTeam?.score).toBe(baseState.homeTeam.score);
     useStore.getState().undoLastUpdate();
 
     expect(socketMock.emit).toHaveBeenCalledWith("updateGameState", { homeTeam: baseState.homeTeam });
     expect(useStore.getState().gameState?.homeTeam.score).toBe(baseState.homeTeam.score);
     expect(useStore.getState().gameState?.period).toBe(baseState.period);
+  });
+
+  it("supports undoing multiple actions in sequence, most recent first", async () => {
+    const { useStore } = await import("../store");
+    useStore.setState({ socket: socketMock as any, gameState: baseState });
+
+    useStore.getState().updateState({
+      homeTeam: { ...baseState.homeTeam, score: 1 },
+    });
+    useStore.getState().updateState({
+      homeTeam: { ...baseState.homeTeam, score: 2 },
+    });
+    useStore.getState().updateState({
+      awayTeam: { ...baseState.awayTeam, score: 1 },
+    });
+
+    expect(useStore.getState().undoStack).toHaveLength(3);
+
+    useStore.getState().undoLastUpdate();
+    expect(useStore.getState().gameState?.awayTeam.score).toBe(baseState.awayTeam.score);
+    expect(useStore.getState().gameState?.homeTeam.score).toBe(2);
+    expect(useStore.getState().undoStack).toHaveLength(2);
+
+    useStore.getState().undoLastUpdate();
+    expect(useStore.getState().gameState?.homeTeam.score).toBe(1);
+    expect(useStore.getState().undoStack).toHaveLength(1);
+
+    useStore.getState().undoLastUpdate();
+    expect(useStore.getState().gameState?.homeTeam.score).toBe(baseState.homeTeam.score);
+    expect(useStore.getState().undoStack).toHaveLength(0);
   });
 
   it("hydrates from cached state before socket updates arrive", async () => {

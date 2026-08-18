@@ -149,7 +149,7 @@ interface StoreState {
   serverTimeOffsetMs: number;
   keyboardShortcuts: KeyboardShortcut[];
   streamDeckConfig: StreamDeckConfig;
-  undoState: Partial<GameState> | null;
+  undoStack: Partial<GameState>[];
 
   // Auth State
   user: User | null;
@@ -361,6 +361,7 @@ const defaultStreamDeckConfig: StreamDeckConfig = {
 
 let hasInitialized = false;
 const STATE_CACHE_KEY = "scoreboard:gameStateCache:v1";
+const MAX_UNDO_STEPS = 20;
 
 const shouldSnapshotForUndo = (updates: Partial<GameState>) => {
   const home = updates.homeTeam;
@@ -398,7 +399,7 @@ export const useStore = create<StoreState>((set, get) => ({
   serverTimeOffsetMs: 0,
   keyboardShortcuts: [...defaultShortcuts],
   streamDeckConfig: defaultStreamDeckConfig,
-  undoState: null,
+  undoStack: [],
   user: null,
   authLoading: true,
   authError: null,
@@ -547,7 +548,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const { socket } = get();
     if (socket) {
       socket.emit("resetGame");
-      set({ undoState: null });
+      set({ undoStack: [] });
     }
   },
 
@@ -698,13 +699,13 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   updateState: (updates: Partial<GameState>) => {
-    const { socket, gameState } = get();
+    const { socket, gameState, undoStack } = get();
     if (socket && gameState) {
       if (shouldSnapshotForUndo(updates)) {
         const snapshot: Partial<GameState> = {};
         if (updates.homeTeam) snapshot.homeTeam = gameState.homeTeam;
         if (updates.awayTeam) snapshot.awayTeam = gameState.awayTeam;
-        set({ undoState: snapshot });
+        set({ undoStack: [...undoStack, snapshot].slice(-MAX_UNDO_STEPS) });
       }
       const newState = { ...gameState, ...updates };
       set({ gameState: newState });
@@ -714,12 +715,13 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   undoLastUpdate: () => {
-    const { socket, undoState, gameState } = get();
-    if (!socket || !undoState || !gameState) return;
-    const newState = { ...gameState, ...undoState };
-    set({ gameState: newState, undoState: null });
+    const { socket, undoStack, gameState } = get();
+    if (!socket || !gameState || undoStack.length === 0) return;
+    const snapshot = undoStack[undoStack.length - 1];
+    const newState = { ...gameState, ...snapshot };
+    set({ gameState: newState, undoStack: undoStack.slice(0, -1) });
     saveCachedState(newState);
-    socket.emit("updateGameState", undoState);
+    socket.emit("updateGameState", snapshot);
   },
 
   startClock: () => {

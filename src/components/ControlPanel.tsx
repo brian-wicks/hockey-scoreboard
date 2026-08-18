@@ -27,7 +27,7 @@ export default function ControlPanel() {
     setClock,
     serverTimeOffsetMs,
     undoLastUpdate,
-    undoState,
+    undoStack = [],
     isViewer,
   } = useStore();
   const [activeTab, setActiveTab] = useState<ActiveTab>("controls");
@@ -59,7 +59,7 @@ export default function ControlPanel() {
       <ControlPanelHeader
         isConnected={isConnected}
         onUndo={undoLastUpdate}
-        canUndo={Boolean(undoState) && !isViewer}
+        canUndo={undoStack.length > 0 && !isViewer}
         onShare={() => setIsShareModalOpen(true)}
       />
 
