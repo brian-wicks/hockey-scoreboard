@@ -152,9 +152,41 @@ describe("store", () => {
     expect(useStore.getState().undoStack.at(-1)?.homeTeam?.score).toBe(baseState.homeTeam.score);
     useStore.getState().undoLastUpdate();
 
-    expect(socketMock.emit).toHaveBeenCalledWith("updateGameState", { homeTeam: baseState.homeTeam });
+    expect(socketMock.emit).toHaveBeenCalledWith("updateGameState", {
+      eventLog: baseState.eventLog,
+      homeTeam: baseState.homeTeam,
+    });
     expect(useStore.getState().gameState?.homeTeam.score).toBe(baseState.homeTeam.score);
     expect(useStore.getState().gameState?.period).toBe(baseState.period);
+  });
+
+  it("undo erases the event the action created, not just annotates it", async () => {
+    const { useStore } = await import("../store");
+    useStore.setState({ socket: socketMock as any, gameState: baseState });
+
+    // Operator scores a goal — client sends the score bump...
+    useStore.getState().updateState({
+      homeTeam: { ...baseState.homeTeam, score: baseState.homeTeam.score + 1 },
+    });
+
+    // ...and the server broadcasts back a state with the new "goal" event appended.
+    const goalEvent = { id: "evt-1", type: "goal", team: "home", period: "1st", clockTime: "20:00", createdAt: 1 } as const;
+    const stateWithGoalEvent: GameState = {
+      ...useStore.getState().gameState!,
+      eventLog: [goalEvent],
+    };
+    useStore.setState({ gameState: stateWithGoalEvent });
+    expect(useStore.getState().gameState?.eventLog).toHaveLength(1);
+
+    useStore.getState().undoLastUpdate();
+
+    // Undo must tell the server to revert to the pre-goal eventLog (event gone),
+    // not append a compensating "goal_revoked" entry.
+    expect(socketMock.emit).toHaveBeenCalledWith("updateGameState", {
+      eventLog: baseState.eventLog,
+      homeTeam: baseState.homeTeam,
+    });
+    expect(useStore.getState().gameState?.eventLog).toEqual(baseState.eventLog);
   });
 
   it("supports undoing multiple actions in sequence, most recent first", async () => {

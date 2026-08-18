@@ -213,6 +213,41 @@ describe("server API", () => {
     client.close();
   });
 
+  it("undo removes the event it created instead of logging a revocation", async () => {
+    const userId = "user-undo-erase-test";
+    const baseUrl = `http://localhost:${port}`;
+    const shareId = await createShare(baseUrl, userId);
+    const client = createClient(baseUrl, {
+      transports: ["websocket"],
+      forceNew: true,
+      auth: { token: userId }
+    });
+
+    await new Promise(r => client.on("connect", r));
+
+    client.emit("updateGameState", { homeTeam: { score: 1 } as any });
+    await new Promise(r => setTimeout(r, 100));
+
+    const afterGoal = await (await fetch(`${baseUrl}/api/share/${shareId}/state`)).json();
+    expect(afterGoal.homeTeam.score).toBe(1);
+    expect(afterGoal.eventLog).toHaveLength(1);
+    expect(afterGoal.eventLog[0].type).toBe("goal");
+    // Simulate the store's undoLastUpdate: revert the team AND the eventLog together,
+    // exactly as if the goal had never happened.
+    client.emit("updateGameState", {
+      homeTeam: { ...afterGoal.homeTeam, score: 0 },
+      eventLog: [],
+    } as any);
+    await new Promise(r => setTimeout(r, 100));
+
+    const afterUndo = await (await fetch(`${baseUrl}/api/share/${shareId}/state`)).json();
+    expect(afterUndo.homeTeam.score).toBe(0);
+    expect(afterUndo.eventLog).toHaveLength(0);
+    expect(afterUndo.eventLog.some((e: any) => e.type === "goal_revoked")).toBe(false);
+
+    client.close();
+  });
+
   it("handles clock control socket events (set, increase, decrease)", async () => {
     const userId = "user-clock-test";
     const baseUrl = `http://localhost:${port}`;

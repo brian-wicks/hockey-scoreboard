@@ -702,7 +702,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const { socket, gameState, undoStack } = get();
     if (socket && gameState) {
       if (shouldSnapshotForUndo(updates)) {
-        const snapshot: Partial<GameState> = {};
+        const snapshot: Partial<GameState> = { eventLog: gameState.eventLog };
         if (updates.homeTeam) snapshot.homeTeam = gameState.homeTeam;
         if (updates.awayTeam) snapshot.awayTeam = gameState.awayTeam;
         set({ undoStack: [...undoStack, snapshot].slice(-MAX_UNDO_STEPS) });
