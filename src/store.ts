@@ -623,8 +623,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
     try {
       set({ authError: null });
-      const token = await user.getIdToken();
-      
+
       // Disconnect existing socket if any
       if (get().socket) {
         get().socket?.disconnect();
@@ -634,7 +633,13 @@ export const useStore = create<StoreState>((set, get) => ({
       const socketUrl = BASE_URL === window.location.origin ? undefined : BASE_URL;
 
       const socket = io(socketUrl, {
-        auth: { token },
+        // A function (rather than a static token) is re-invoked on every reconnection
+        // attempt, not just the initial connect — without this, a socket that drops
+        // after the ~1hr Firebase ID token lifetime would retry forever with the same
+        // stale token and never reconnect.
+        auth: (cb) => {
+          user.getIdToken().then((token) => cb({ token })).catch(() => cb({ token: null }));
+        },
         transports: ["polling", "websocket"],
         reconnection: true,
         reconnectionAttempts: Infinity,

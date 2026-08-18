@@ -116,6 +116,27 @@ describe("store", () => {
     nowSpy.mockRestore();
   });
 
+  it("uses a token-refreshing auth callback so a reconnect doesn't reuse an expired token", async () => {
+    const { useStore } = await import("../store");
+    useStore.setState({ user: mockUser as any });
+    await useStore.getState().connect();
+
+    const options = (ioMock.mock.calls[0] as any[])[1] as { auth: unknown };
+    // A static { token } object would be resent verbatim by Socket.IO on every
+    // reconnection attempt; a function is re-invoked each time, fetching a fresh
+    // (auto-refreshed) ID token instead of the one captured at initial connect.
+    expect(typeof options.auth).toBe("function");
+
+    mockUser.getIdToken.mockClear();
+    const authCallback = vi.fn();
+    (options.auth as (cb: (data: { token: string }) => void) => void)(authCallback);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockUser.getIdToken).toHaveBeenCalled();
+    expect(authCallback).toHaveBeenCalledWith({ token: "test-token" });
+  });
+
   it("tracks socket connection state", async () => {
     const { useStore } = await import("../store");
 

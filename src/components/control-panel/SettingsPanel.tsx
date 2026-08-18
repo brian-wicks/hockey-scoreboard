@@ -28,6 +28,33 @@ interface SaveConflictState {
   preferredName: string;
 }
 
+interface TeamMeta {
+  name: string;
+  abbreviation: string;
+  logo: string;
+  color: string;
+  players: TeamPlayer[];
+}
+
+const rostersEqual = (a: TeamPlayer[], b: TeamPlayer[]) =>
+  a.length === b.length &&
+  a.every((player, i) => {
+    const other = b[i];
+    return (
+      player.id === other.id &&
+      player.jerseyNumber === other.jerseyNumber &&
+      player.name === other.name &&
+      player.position === other.position
+    );
+  });
+
+const teamMetaEqual = (a: TeamMeta, b: TeamMeta) =>
+  a.name === b.name &&
+  a.abbreviation === b.abbreviation &&
+  a.logo === b.logo &&
+  a.color === b.color &&
+  rostersEqual(a.players, b.players);
+
 const SHORTCUT_GROUPS = [
   {
     title: "Clock",
@@ -80,6 +107,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
   const homeRosterRef = useRef<HTMLDivElement | null>(null);
   const awayRosterRef = useRef<HTMLDivElement | null>(null);
   const pendingFocusRef = useRef<{ home?: string; away?: string }>({});
+  const lastSyncedTeamMetaRef = useRef<{ home: TeamMeta; away: TeamMeta } | null>(null);
 
   const baseUrl = (() => {
     // @ts-ignore
@@ -326,16 +354,37 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
   };
 
   useEffect(() => {
-    setHomeName(gameState.homeTeam.name);
-    setHomeAbbr(gameState.homeTeam.abbreviation);
-    setHomeLogo(gameState.homeTeam.logo);
-    setHomeColorText(gameState.homeTeam.color);
-    setAwayName(gameState.awayTeam.name);
-    setAwayAbbr(gameState.awayTeam.abbreviation);
-    setAwayLogo(gameState.awayTeam.logo);
-    setAwayColorText(gameState.awayTeam.color);
-    setHomeRosterDraft(gameState.homeTeam.players ?? []);
-    setAwayRosterDraft(gameState.awayTeam.players ?? []);
+    const home = gameState.homeTeam;
+    const away = gameState.awayTeam;
+    const homeMeta = { name: home.name, abbreviation: home.abbreviation, logo: home.logo, color: home.color, players: home.players ?? [] };
+    const awayMeta = { name: away.name, abbreviation: away.abbreviation, logo: away.logo, color: away.color, players: away.players ?? [] };
+    const last = lastSyncedTeamMetaRef.current;
+
+    // gameState.homeTeam/awayTeam get new object references on every broadcast —
+    // including the ~10/sec clock-tick broadcasts while the clock is running, which
+    // don't touch name/abbreviation/logo/color/roster at all. Resetting drafts on
+    // every such tick wiped out whatever the operator was mid-typing, so only reset
+    // when the actual team metadata changed (e.g. another device edited it, or a
+    // saved game was loaded).
+    const homeChanged = !last || !teamMetaEqual(last.home, homeMeta);
+    const awayChanged = !last || !teamMetaEqual(last.away, awayMeta);
+
+    if (homeChanged) {
+      setHomeName(homeMeta.name);
+      setHomeAbbr(homeMeta.abbreviation);
+      setHomeLogo(homeMeta.logo);
+      setHomeColorText(homeMeta.color);
+      setHomeRosterDraft(homeMeta.players);
+    }
+    if (awayChanged) {
+      setAwayName(awayMeta.name);
+      setAwayAbbr(awayMeta.abbreviation);
+      setAwayLogo(awayMeta.logo);
+      setAwayColorText(awayMeta.color);
+      setAwayRosterDraft(awayMeta.players);
+    }
+
+    lastSyncedTeamMetaRef.current = { home: homeMeta, away: awayMeta };
   }, [gameState.homeTeam, gameState.awayTeam]);
 
   if (!hasLoadedTeamsRef.current && user) {

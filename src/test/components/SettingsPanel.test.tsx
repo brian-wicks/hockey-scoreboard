@@ -207,6 +207,30 @@ describe("SettingsPanel", () => {
     }));
   });
 
+  it("does not wipe in-progress edits when gameState is replaced with unchanged team data", async () => {
+    // Simulates a clock-tick broadcast: server sends a brand-new gameState object
+    // every ~100ms while the clock runs, giving homeTeam/awayTeam new references
+    // even though name/abbreviation/logo/color/roster didn't actually change.
+    const { rerender } = render(<SettingsPanel gameState={baseGameState as any} updateState={mockUpdateState} />);
+    await act(flushMicrotasks);
+
+    const homeNameInput = screen.getByDisplayValue("Home Team");
+    await act(async () => {
+      fireEvent.change(homeNameInput, { target: { value: "Mid-edit Name" } });
+    });
+    // Not blurred yet — this is still local draft state, not committed to the server.
+
+    const tickedGameState = {
+      ...baseGameState,
+      homeTeam: { ...baseGameState.homeTeam },
+      awayTeam: { ...baseGameState.awayTeam },
+      clock: { ...baseGameState.clock, timeRemaining: baseGameState.clock.timeRemaining - 100 },
+    };
+    rerender(<SettingsPanel gameState={tickedGameState as any} updateState={mockUpdateState} />);
+
+    expect(screen.getByDisplayValue("Mid-edit Name")).toBeInTheDocument();
+  });
+
   it("handles team abbreviation changes", async () => {
     render(<SettingsPanel gameState={baseGameState as any} updateState={mockUpdateState} />);
     await act(flushMicrotasks);
