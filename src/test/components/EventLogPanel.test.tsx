@@ -110,15 +110,41 @@ describe("EventLogPanel Component", () => {
       />
     );
 
-    // Find first select (event type)
+    // Home column renders first: its lone event (id "1") owns the first type select.
     const typeSelects = screen.getAllByRole("combobox");
     fireEvent.change(typeSelects[0], { target: { value: "goal_revoked" } });
 
     // Should call updateState with updated type
     expect(mockUpdateState).toHaveBeenCalledWith(expect.objectContaining({
       eventLog: expect.arrayContaining([
-        expect.objectContaining({ id: "2", type: "goal_revoked" })
+        expect.objectContaining({ id: "1", type: "goal_revoked" })
       ])
     }));
+  });
+
+  it("splits events into a Home column and an Away column", () => {
+    render(
+      <EventLogPanel
+        gameState={mockGameState}
+        eventLog={mockGameState.eventLog}
+        homeTeam={mockGameState.homeTeam}
+        awayTeam={mockGameState.awayTeam}
+        homePlayers={[]}
+        awayPlayers={[]}
+        updateState={mockUpdateState}
+      />
+    );
+
+    const homeHeading = screen.getByText("Home", { selector: "div.uppercase" });
+    const awayHeading = screen.getByText("Away", { selector: "div.uppercase" });
+    expect(homeHeading).toBeInTheDocument();
+    expect(awayHeading).toBeInTheDocument();
+    // Home column (and its goal event) must precede the Away column in document order.
+    expect(homeHeading.compareDocumentPosition(awayHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    const homeColumn = homeHeading.parentElement!;
+    const awayColumn = awayHeading.parentElement!;
+    expect(homeColumn.contains(screen.getByDisplayValue("10:00"))).toBe(true); // goal event, home
+    expect(awayColumn.contains(screen.getByDisplayValue("Tripping"))).toBe(true); // penalty event, away
   });
 });
