@@ -329,7 +329,7 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
                     setTimeout(() => setFileLayoutStatus("idle"), 2000);
                   }
                 }}
-                className="px-2 py-1 text-xs rounded bg-indigo-700 hover:bg-indigo-600 text-white"
+                className="px-2 py-1 text-xs rounded bg-indigo-500/80 hover:bg-indigo-500 border border-indigo-400/40 text-white"
               >
                 Save to file
               </button>
@@ -356,14 +356,14 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
                     setTimeout(() => setFileLayoutStatus("idle"), 2000);
                   }
                 }}
-                className="px-2 py-1 text-xs rounded bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none hover:bg-white/[0.1] text-zinc-200"
+                className="px-2 py-1 text-xs rounded bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] text-zinc-200"
               >
                 Load from file
               </button>
               <button
                 type="button"
                 onClick={() => setPdfLayout(getDefaultGamesheetPdfLayout())}
-                className="px-2 py-1 text-xs rounded bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none hover:bg-white/[0.1] text-zinc-200"
+                className="px-2 py-1 text-xs rounded bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] text-zinc-200"
               >
                 Reset defaults
               </button>

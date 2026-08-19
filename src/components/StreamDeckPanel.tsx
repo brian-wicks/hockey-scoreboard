@@ -207,7 +207,7 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
                   onClick={() => setEdited({ ...edited, colorSource: source })}
                   className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all uppercase ${
                     (edited.colorSource || "custom") === source
-                      ? "bg-indigo-600 border-indigo-500 text-white"
+                      ? "bg-indigo-500/80 border-indigo-400/40 text-white shadow-[0_0_16px_rgba(99,102,241,0.3)]"
                       : "bg-white/[0.05] border-white/10 text-zinc-500 hover:border-white/20"
                   }`}
                 >
@@ -268,7 +268,7 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
                     onClick={() => setEdited({ ...edited, icon: item.name === "None" ? undefined : item.name })}
                     className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${
                       isSelected
-                        ? "bg-indigo-600/20 border-indigo-500 text-indigo-400"
+                        ? "bg-indigo-500/20 border-indigo-400/40 text-indigo-300"
                         : "bg-white/[0.05] border-white/10 text-zinc-500 hover:border-white/20 hover:text-zinc-300"
                     }`}
                   >
@@ -301,7 +301,7 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
           </button>
           <button
             onClick={() => onSave(edited)}
-            className="flex-1 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors shadow-lg shadow-indigo-600/20"
+            className="flex-1 px-4 py-2 rounded-xl bg-indigo-500/80 hover:bg-indigo-500 border border-indigo-400/40 text-white font-medium transition-colors shadow-[0_0_20px_rgba(99,102,241,0.35)]"
           >
             Save Changes
           </button>
