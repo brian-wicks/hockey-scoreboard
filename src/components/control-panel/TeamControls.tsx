@@ -6,6 +6,7 @@ import { UpdateGameState } from "./types";
 import GoalReviewPanel from "./GoalReviewPanel";
 import PenaltyItem from "./PenaltyItem";
 import { SearchDropdownInput, SearchOption } from "./DropdownInputs";
+import { GlassButton, GlassPanel, SectionLabel, glassInputClass } from "./ui/glass";
 
 interface TeamControlsProps {
   team: "home" | "away";
@@ -55,7 +56,10 @@ export default function TeamControls({ team, state, gameState, eventLog, updateS
   }, [state.penalties]);
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex flex-col gap-6 relative">
+    <GlassPanel
+      className="flex flex-col gap-6"
+      style={{ boxShadow: `0 8px 32px rgba(0,0,0,0.35), 0 0 60px -20px ${state.color}55` }}
+    >
       <GoalReviewPanel
         team={team}
         gameState={gameState}
@@ -66,9 +70,12 @@ export default function TeamControls({ team, state, gameState, eventLog, updateS
           team === "home" ? "min-[1200px]:-left-[240px]" : "min-[1200px]:-right-[240px]"
         } min-[1200px]:w-[220px]`}
       />
-      <div className="flex items-center justify-between pb-4">
+      <div className="flex items-center justify-between pb-4 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <span className="w-1.5 h-10 rounded-full" style={{ backgroundColor: state.color }} />
+          <span
+            className="w-1.5 h-10 rounded-full"
+            style={{ backgroundColor: state.color, boxShadow: `0 0 12px ${state.color}88` }}
+          />
           {state.logo && <img src={state.logo} alt={state.abbreviation} className="h-8 w-8 object-contain" />}
           <h2 className="text-2xl font-bold text-zinc-100">{state.name}</h2>
         </div>
@@ -76,28 +83,30 @@ export default function TeamControls({ team, state, gameState, eventLog, updateS
       </div>
 
       <div className="flex flex-col gap-2">
-        <span className="text-zinc-400 uppercase tracking-wider text-sm font-semibold">Score</span>
+        <SectionLabel>Score</SectionLabel>
         <div className="flex items-center justify-between">
-          <button
+          <GlassButton
             onClick={() => updateTeam({ score: Math.max(0, state.score - 1) })}
-            className="w-12 h-12 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-300"
+            variant="secondary"
+            className="w-12 h-12 p-0"
           >
             <Minus size={24} />
-          </button>
+          </GlassButton>
           <span className="text-5xl font-mono font-bold w-16 text-center">{state.score}</span>
-          <button
+          <GlassButton
             onClick={() => updateTeam({ score: state.score + 1 })}
-            className="w-12 h-12 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-300"
+            variant="secondary"
+            className="w-12 h-12 p-0"
           >
             <Plus size={24} />
-          </button>
+          </GlassButton>
         </div>
       </div>
 
       <div className="flex flex-col gap-2">
-        <span className="text-zinc-400 uppercase tracking-wider text-sm font-semibold">Shots</span>
+        <SectionLabel>Shots</SectionLabel>
         <div className="flex items-center justify-between">
-          <button
+          <GlassButton
             onClick={() => {
               const nextShots = Math.max(0, state.shots - 1);
               if (nextShots !== state.shots) {
@@ -105,47 +114,45 @@ export default function TeamControls({ team, state, gameState, eventLog, updateS
                 updateState({ [`${team}Team`]: { ...state, shots: nextShots }, eventLog: [...eventLog, event] });
               }
             }}
-            className="w-10 h-10 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-300"
+            variant="secondary"
+            className="w-10 h-10 p-0"
           >
             <Minus size={20} />
-          </button>
+          </GlassButton>
           <span className="text-3xl font-mono font-bold w-12 text-center">{state.shots}</span>
-          <button
+          <GlassButton
             onClick={() => {
               const event = buildShotEvent(gameState, team, 1);
               updateState({ [`${team}Team`]: { ...state, shots: state.shots + 1 }, eventLog: [...eventLog, event] });
             }}
-            className="w-10 h-10 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-300"
+            variant="secondary"
+            className="w-10 h-10 p-0"
           >
             <Plus size={20} />
-          </button>
+          </GlassButton>
         </div>
       </div>
 
       <div className="flex flex-col gap-2">
-        <span className="text-zinc-400 uppercase tracking-wider text-sm font-semibold">Goalie</span>
+        <SectionLabel>Goalie</SectionLabel>
         <div className="flex items-center gap-2">
           <SearchDropdownInput
             value={goalieValue}
             onChange={setGoalieValue}
-            inputClassName="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-sm w-full"
+            inputClassName={`${glassInputClass} w-full`}
             placeholder="Goalie #"
             options={goalieOptions}
           />
-          <button
-            type="button"
-            onClick={logGoalieChange}
-            className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium text-zinc-200"
-          >
+          <GlassButton type="button" onClick={logGoalieChange} variant="secondary">
             Set
-          </button>
+          </GlassButton>
         </div>
       </div>
 
-      <div className="pt-4 border-t border-zinc-800">
+      <div className="pt-4 border-t border-white/10">
         <div className="flex items-center justify-between mb-4">
-          <span className="text-zinc-400 uppercase tracking-wider text-sm font-semibold">Penalties</span>
-          <button
+          <SectionLabel>Penalties</SectionLabel>
+          <GlassButton
             onClick={() => {
               const newPenalty = {
                 id: Math.random().toString(36).slice(2, 11),
@@ -156,10 +163,11 @@ export default function TeamControls({ team, state, gameState, eventLog, updateS
               };
               updateTeam({ penalties: [...state.penalties, newPenalty] });
             }}
-            className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded text-sm font-medium flex items-center gap-1"
+            variant="secondary"
+            className="px-3 py-1.5 text-sm"
           >
             <Plus size={16} /> Add
-          </button>
+          </GlassButton>
         </div>
         <div className="flex flex-col gap-2">
           {state.penalties.map((p, i) => (
@@ -185,6 +193,6 @@ export default function TeamControls({ team, state, gameState, eventLog, updateS
           )}
         </div>
       </div>
-    </div>
+    </GlassPanel>
   );
 }

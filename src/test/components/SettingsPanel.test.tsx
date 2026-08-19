@@ -90,26 +90,6 @@ describe("SettingsPanel", () => {
     }));
   });
 
-  it("handles saving a team to the library", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve([]),
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    
-    render(<SettingsPanel gameState={baseGameState as any} updateState={mockUpdateState} />);
-    
-    const saveButtons = screen.getAllByLabelText(/Save.*preset/i);
-    fireEvent.click(saveButtons[0]);
-    
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/teams"), expect.objectContaining({
-        method: "POST",
-        body: expect.stringContaining('"name":"Home Team"')
-      }));
-    });
-  });
-
   it("allows adding players and updating details", async () => {
     const { unmount } = render(<SettingsPanel gameState={baseGameState as any} updateState={mockUpdateState} />);
     
@@ -183,12 +163,15 @@ describe("SettingsPanel", () => {
 
     render(<SettingsPanel gameState={baseGameState as any} updateState={mockUpdateState} />);
     await act(flushMicrotasks);
-    
+
+    // Keyboard shortcuts now live under their own sub-tab.
+    fireEvent.click(screen.getByText("Keyboard Shortcuts"));
+
     const resetButton = screen.getByText(/Reset to Defaults/i);
     await act(async () => {
       fireEvent.click(resetButton);
     });
-    
+
     expect(mockResetShortcuts).toHaveBeenCalled();
   });
 
@@ -246,7 +229,7 @@ describe("SettingsPanel", () => {
   it("handles overlay settings", async () => {
     render(<SettingsPanel gameState={baseGameState as any} updateState={mockUpdateState} />);
     await act(flushMicrotasks);
-    
+
     // Test Corner change
     const buttons = screen.getAllByRole("button");
     const trButton = buttons.find(b => b.textContent?.trim() === "TR");
@@ -254,5 +237,22 @@ describe("SettingsPanel", () => {
       fireEvent.click(trButton);
       expect(mockUpdateState).toHaveBeenCalledWith(expect.objectContaining({ overlayCorner: "top-right" }));
     }
+  });
+
+  it("switches between Teams, Keyboard Shortcuts, and Gamesheet PDF sub-tabs", async () => {
+    render(<SettingsPanel gameState={baseGameState as any} updateState={mockUpdateState} />);
+    await act(flushMicrotasks);
+
+    // Teams & Rosters is the default.
+    expect(screen.getByText("Home Team Settings")).toBeInTheDocument();
+    expect(screen.queryByText("PDF layout tweaks")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Gamesheet PDF"));
+    expect(screen.getByText("PDF layout tweaks")).toBeInTheDocument();
+    expect(screen.queryByText("Home Team Settings")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Teams & Rosters"));
+    expect(screen.getByText("Home Team Settings")).toBeInTheDocument();
+    expect(screen.queryByText("PDF layout tweaks")).not.toBeInTheDocument();
   });
 });

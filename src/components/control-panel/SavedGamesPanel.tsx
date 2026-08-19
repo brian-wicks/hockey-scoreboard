@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { History, Save, Trash2, Play } from "lucide-react";
 import { useStore } from "../../store";
+import { GlassButton, glassInputClass } from "./ui/glass";
 
 export default function SavedGamesPanel() {
   const { gameState, savedGames, saveGame, loadGame, deleteGame, loadSavedGames, resetGame } = useStore();
@@ -46,8 +47,8 @@ export default function SavedGamesPanel() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-zinc-800 bg-zinc-900/50 flex items-center justify-between">
+      <div className="bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
+        <div className="p-4 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
               <Save size={18} />
@@ -57,16 +58,17 @@ export default function SavedGamesPanel() {
               <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Snapshot current state</p>
             </div>
           </div>
-          <button
+          <GlassButton
             onClick={() => {
               if (confirm("Reset current game to defaults? This cannot be undone unless you save first.")) {
                 resetGame();
               }
             }}
-            className="bg-zinc-800 hover:bg-red-900/40 text-zinc-400 hover:text-red-400 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border border-zinc-700 hover:border-red-900/50"
+            variant="ghost"
+            className="border border-white/10 hover:border-red-500/40 hover:text-red-400 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest"
           >
             New Game
-          </button>
+          </GlassButton>
         </div>
         <div className="p-4">
           <form onSubmit={handleSave} className="flex gap-2">
@@ -78,23 +80,24 @@ export default function SavedGamesPanel() {
                 setIsNameTouched(true);
               }}
               placeholder="Game Name (e.g. Finals vs Stars)"
-              className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+              className={`flex-1 ${glassInputClass}`}
             />
-            <button
+            <GlassButton
               type="submit"
               disabled={isSaving || !newGameName.trim()}
-              className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-lg shadow-indigo-900/20 flex items-center gap-2 shrink-0"
+              variant="primary"
+              className="px-6 py-2.5 shrink-0"
             >
               {isSaving ? "Saving..." : "Save"}
-            </button>
+            </GlassButton>
           </form>
         </div>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-zinc-800 bg-zinc-900/50 flex items-center justify-between">
+      <div className="bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
+        <div className="p-4 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-400">
+            <div className="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/10 flex items-center justify-center text-zinc-400">
               <History size={18} />
             </div>
             <div>
@@ -110,7 +113,7 @@ export default function SavedGamesPanel() {
             Refresh List
           </button>
         </div>
-        <div className="divide-y divide-zinc-800 max-h-[500px] overflow-y-auto">
+        <div className="divide-y divide-white/10 max-h-[500px] overflow-y-auto">
           {savedGames.length === 0 ? (
             <div className="p-8 text-center">
               <History size={32} className="mx-auto mb-3 text-zinc-700" />
@@ -118,7 +121,7 @@ export default function SavedGamesPanel() {
             </div>
           ) : (
             savedGames.map((game) => (
-              <div key={game.id} className="p-4 flex items-center justify-between hover:bg-zinc-800/30 transition-colors group">
+              <div key={game.id} className="p-4 flex items-center justify-between hover:bg-white/[0.03] transition-colors group">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-sm font-medium text-white">{game.name}</span>
                   <span className="text-[10px] text-zinc-500">{formatDate(game.createdAt)}</span>
@@ -130,7 +133,7 @@ export default function SavedGamesPanel() {
                         loadGame(game.id);
                       }
                     }}
-                    className="p-2 text-zinc-400 hover:text-white hover:bg-indigo-600 rounded-lg transition-all"
+                    className="p-2 text-zinc-400 hover:text-white hover:bg-indigo-500/80 rounded-lg transition-all"
                     title="Load Game"
                   >
                     <Play size={16} fill="currentColor" />

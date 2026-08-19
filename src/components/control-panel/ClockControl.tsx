@@ -3,6 +3,7 @@ import { Play, Square } from "lucide-react";
 import { ClockState } from "../../store";
 import { useClockDisplay } from "../../hooks/useClockDisplay";
 import { parseTimeInputMs } from "../../utils/clock";
+import { GlassButton, GlassPanel } from "./ui/glass";
 
 interface ClockControlProps {
   clock: ClockState;
@@ -34,7 +35,7 @@ export default function ClockControl({
   };
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex flex-col items-center justify-center gap-6">
+    <GlassPanel className="flex flex-col items-center justify-center gap-6">
       <div className="text-zinc-400 uppercase tracking-widest text-sm font-bold">{period} PERIOD</div>
 
       {editMode ? (
@@ -43,7 +44,7 @@ export default function ClockControl({
             type="text"
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
-            className="text-6xl font-mono font-bold bg-zinc-950 text-white w-48 text-center rounded-lg border border-zinc-700 focus:border-indigo-500 focus:outline-none"
+            className="text-6xl font-mono font-bold bg-white/[0.05] text-white w-48 text-center rounded-xl border border-white/10 focus:border-indigo-400/60 focus:outline-none"
             autoFocus
             onFocus={(e) => e.target.select()}
             onKeyDown={(e) => e.key === "Enter" && handleSetClock()}
@@ -69,37 +70,29 @@ export default function ClockControl({
 
       <div className="flex gap-4 w-full">
         {clock.isRunning ? (
-          <button
-            onClick={stopClock}
-            className="flex-1 flex items-center justify-center gap-2 py-4 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-lg transition-colors"
-          >
+          <GlassButton onClick={stopClock} variant="destructive" className="flex-1 py-4 text-lg font-bold">
             <Square fill="currentColor" size={20} /> STOP
-          </button>
+          </GlassButton>
         ) : (
-          <button
+          <GlassButton
             onClick={startClock}
             disabled={clock.timeRemaining <= 0}
-            className="flex-1 flex items-center justify-center gap-2 py-4 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-900 disabled:text-emerald-200/60 text-white rounded-xl font-bold text-lg transition-colors"
+            variant="success"
+            className="flex-1 py-4 text-lg font-bold"
           >
             <Play fill="currentColor" size={20} /> START
-          </button>
+          </GlassButton>
         )}
       </div>
 
       <div className="grid grid-cols-2 gap-2 w-full">
-        <button
-          onClick={() => setClock(20 * 60 * 1000)}
-          className="py-2 bg-zinc-800 hover:bg-zinc-700 rounded text-sm font-medium"
-        >
+        <GlassButton onClick={() => setClock(20 * 60 * 1000)} variant="secondary" className="py-2">
           Reset 20:00
-        </button>
-        <button
-          onClick={() => setClock(5 * 60 * 1000)}
-          className="py-2 bg-zinc-800 hover:bg-zinc-700 rounded text-sm font-medium"
-        >
+        </GlassButton>
+        <GlassButton onClick={() => setClock(5 * 60 * 1000)} variant="secondary" className="py-2">
           Reset 5:00
-        </button>
+        </GlassButton>
       </div>
-    </div>
+    </GlassPanel>
   );
 }

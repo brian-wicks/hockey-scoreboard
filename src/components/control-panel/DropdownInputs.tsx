@@ -139,7 +139,7 @@ export function PenaltyReasonInput({ value, onChange, inputClassName }: PenaltyR
       />
       {open && (
         <div
-          className={`absolute left-0 z-20 w-56 overflow-auto rounded-md border border-zinc-800 bg-zinc-950 shadow-lg ${
+          className={`absolute left-0 z-20 w-56 overflow-auto rounded-md border border-white/10 bg-zinc-950/95 backdrop-blur-sm shadow-lg ${
             dropUp ? "bottom-full mb-1" : "top-full mt-1"
           }`}
           style={{ maxHeight: `${maxHeight}px` }}
@@ -162,8 +162,8 @@ export function PenaltyReasonInput({ value, onChange, inputClassName }: PenaltyR
                   setActiveIndex(-1);
                 }}
                 onMouseEnter={() => setActiveIndex(index)}
-                className={`w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800 ${
-                  index === normalizedActiveIndex ? "bg-zinc-800" : ""
+                className={`w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-white/[0.08] ${
+                  index === normalizedActiveIndex ? "bg-white/[0.08]" : ""
                 }`}
               >
                 <span className="font-mono">{option.code}</span>
@@ -295,7 +295,7 @@ export function SearchDropdownInput({
       />
       {open && (
         <div
-          className={`absolute left-0 z-20 w-56 overflow-auto rounded-md border border-zinc-800 bg-zinc-950 shadow-lg ${
+          className={`absolute left-0 z-20 w-56 overflow-auto rounded-md border border-white/10 bg-zinc-950/95 backdrop-blur-sm shadow-lg ${
             dropUp ? "bottom-full mb-1" : "top-full mt-1"
           }`}
           style={{ maxHeight: `${maxHeight}px` }}
@@ -318,8 +318,8 @@ export function SearchDropdownInput({
                   setActiveIndex(-1);
                 }}
                 onMouseEnter={() => setActiveIndex(index)}
-                className={`w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800 ${
-                  index === normalizedActiveIndex ? "bg-zinc-800" : ""
+                className={`w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-white/[0.08] ${
+                  index === normalizedActiveIndex ? "bg-white/[0.08]" : ""
                 }`}
               >
                 <span className="font-mono">{option.value}</span>

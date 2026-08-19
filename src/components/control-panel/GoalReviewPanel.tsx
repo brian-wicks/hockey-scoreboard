@@ -2,6 +2,7 @@ import { GameEvent, GameState, TeamPlayer } from "../../store";
 import { toSkaterLabel } from "../../utils/roster";
 import { SearchDropdownInput, SearchOption } from "./DropdownInputs";
 import { UpdateGameState } from "./types";
+import { GlassButton, GlassPanel, SectionLabel, glassInputClass, glassInsetClass } from "./ui/glass";
 
 interface GoalReviewPanelProps {
   team: "home" | "away";
@@ -60,13 +61,13 @@ export default function GoalReviewPanel({
   if (goalReviewItems.length === 0) return null;
 
   return (
-    <div className={`bg-zinc-900 border border-zinc-800 rounded-xl p-3 ${className}`}>
+    <GlassPanel className={`p-3 ${className}`}>
       <div className="flex items-center justify-between mb-3">
-        <span className="text-zinc-300 uppercase tracking-wider text-sm font-semibold">Goal Review</span>
+        <SectionLabel>Goal Review</SectionLabel>
       </div>
       <div className="flex flex-col gap-3">
         {goalReviewItems.map((event) => (
-          <div key={event.id} className="bg-zinc-950 border border-zinc-800 rounded-lg p-3">
+          <div key={event.id} className={`p-3 ${glassInsetClass}`}>
             {(() => {
               const activeHighlight = gameState.jumbotronGoalHighlight;
               const scorer = (event.scorer ?? "").trim();
@@ -89,26 +90,26 @@ export default function GoalReviewPanel({
               <SearchDropdownInput
                 value={event.scorer ?? ""}
                 onChange={(nextValue) => updateEvent(event.id, { scorer: nextValue })}
-                inputClassName="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-sm w-full"
+                inputClassName={`${glassInputClass} w-full`}
                 placeholder="Scorer"
                 options={skaterOptions}
               />
               <SearchDropdownInput
                 value={event.assist1 ?? ""}
                 onChange={(nextValue) => updateEvent(event.id, { assist1: nextValue })}
-                inputClassName="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-sm w-full"
+                inputClassName={`${glassInputClass} w-full`}
                 placeholder="Assist 1"
                 options={skaterOptions}
               />
               <SearchDropdownInput
                 value={event.assist2 ?? ""}
                 onChange={(nextValue) => updateEvent(event.id, { assist2: nextValue })}
-                inputClassName="bg-zinc-800 text-zinc-100 rounded px-2 py-1 text-sm w-full"
+                inputClassName={`${glassInputClass} w-full`}
                 placeholder="Assist 2"
                 options={skaterOptions}
               />
               {isActive ? (
-                <button
+                <GlassButton
                   type="button"
                   onClick={() =>
                     updateState({
@@ -116,12 +117,13 @@ export default function GoalReviewPanel({
                       lowerThird: { ...gameState.lowerThird, active: false },
                     })
                   }
-                  className="px-3 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-sm font-semibold text-white transition-colors"
+                  variant="secondary"
+                  className="font-semibold"
                 >
                   Hide from Jumbotron
-                </button>
+                </GlassButton>
               ) : (
-                <button
+                <GlassButton
                   type="button"
                   onClick={() => {
                     if (!scorer) return;
@@ -147,10 +149,11 @@ export default function GoalReviewPanel({
                     });
                   }}
                 disabled={!scorer}
-                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-lg text-sm font-semibold text-white transition-colors"
+                variant="success"
+                className="font-semibold"
               >
                   Show on Jumbotron (15s)
-              </button>
+              </GlassButton>
               )}
             </div>
                 </>
@@ -159,6 +162,6 @@ export default function GoalReviewPanel({
           </div>
         ))}
       </div>
-    </div>
+    </GlassPanel>
   );
 }

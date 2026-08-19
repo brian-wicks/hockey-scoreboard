@@ -1,31 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Keyboard, Save, ChevronDown } from "lucide-react";
+import { Keyboard, ChevronDown, Users, FileText } from "lucide-react";
 import { GameState, PlayerPosition, TeamPlayer, TeamState, useStore } from "../../store";
 import { UpdateGameState } from "./types";
 import ShortcutEditor from "./ShortcutEditor";
+import PdfLayoutSettings from "./PdfLayoutSettings";
 
 interface SettingsPanelProps {
   gameState: GameState;
   updateState: UpdateGameState;
-}
-
-interface TeamPresetTeam {
-  name: string;
-  abbreviation: string;
-  logo: string;
-  color: string;
-  players: TeamPlayer[];
-}
-
-interface SavedTeam {
-  name: string;
-  team: TeamPresetTeam;
-  updatedAt: number;
-}
-
-interface SaveConflictState {
-  side: "home" | "away";
-  preferredName: string;
 }
 
 interface TeamMeta {
@@ -84,7 +66,7 @@ const SHORTCUT_GROUPS = [
 ];
 
 export default function SettingsPanel({ gameState, updateState }: SettingsPanelProps) {
-  const { user, keyboardShortcuts, updateShortcut, resetShortcuts } = useStore();
+  const { keyboardShortcuts, updateShortcut, resetShortcuts } = useStore();
   const [homeName, setHomeName] = useState(gameState.homeTeam.name);
   const [homeAbbr, setHomeAbbr] = useState(gameState.homeTeam.abbreviation);
   const [homeLogo, setHomeLogo] = useState(gameState.homeTeam.logo);
@@ -95,15 +77,9 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
   const [awayColorText, setAwayColorText] = useState(gameState.awayTeam.color);
   const [homeRosterDraft, setHomeRosterDraft] = useState<TeamPlayer[]>(gameState.homeTeam.players ?? []);
   const [awayRosterDraft, setAwayRosterDraft] = useState<TeamPlayer[]>(gameState.awayTeam.players ?? []);
-  const [savedTeams, setSavedTeams] = useState<SavedTeam[]>([]);
-  const [homeSaveStatus, setHomeSaveStatus] = useState("");
-  const [awaySaveStatus, setAwaySaveStatus] = useState("");
-  const [savingHomeTeam, setSavingHomeTeam] = useState(false);
-  const [savingAwayTeam, setSavingAwayTeam] = useState(false);
-  const [saveConflict, setSaveConflict] = useState<SaveConflictState | null>(null);
   const [homeRosterExpanded, setHomeRosterExpanded] = useState(false);
   const [awayRosterExpanded, setAwayRosterExpanded] = useState(false);
-  const hasLoadedTeamsRef = useRef(false);
+  const [settingsTab, setSettingsTab] = useState<"teams" | "shortcuts" | "pdf">("teams");
   const homeRosterRef = useRef<HTMLDivElement | null>(null);
   const awayRosterRef = useRef<HTMLDivElement | null>(null);
   const pendingFocusRef = useRef<{ home?: string; away?: string }>({});
@@ -227,132 +203,6 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
     updateTeam(team, updates);
   };
 
-  const mapTeamToPreset = (team: TeamState): TeamPresetTeam => ({
-    name: team.name,
-    abbreviation: team.abbreviation,
-    logo: team.logo,
-    color: team.color,
-    players: (team.players ?? [])
-      .map((player) => ({ ...player }))
-      .sort((a, b) => {
-        const aNumber = Number.parseInt(a.jerseyNumber, 10);
-        const bNumber = Number.parseInt(b.jerseyNumber, 10);
-        const aValid = Number.isFinite(aNumber);
-        const bValid = Number.isFinite(bNumber);
-        if (aValid && bValid) return aNumber - bNumber;
-        if (aValid) return -1;
-        if (bValid) return 1;
-        return a.jerseyNumber.localeCompare(b.jerseyNumber);
-      }),
-  });
-
-  const loadSavedTeams = async () => {
-    if (!user) return;
-    try {
-      const token = await user.getIdToken();
-      const response = await fetch(`${baseUrl}/api/teams`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      const data = await response.json();
-      setSavedTeams(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const persistTeam = async (side: "home" | "away", saveName: string) => {
-    if (side === "home") {
-      setSavingHomeTeam(true);
-      setHomeSaveStatus("");
-    } else {
-      setSavingAwayTeam(true);
-      setAwaySaveStatus("");
-    }
-
-    try {
-      const teamSource =
-        side === "home"
-          ? {
-              ...gameState.homeTeam,
-              name: homeName,
-              abbreviation: homeAbbr.toUpperCase(),
-              logo: homeLogo,
-              color: normalizeHexInput(homeColorText),
-            }
-          : {
-              ...gameState.awayTeam,
-              name: awayName,
-              abbreviation: awayAbbr.toUpperCase(),
-              logo: awayLogo,
-              color: normalizeHexInput(awayColorText),
-            };
-      const token = await user.getIdToken();
-      const response = await fetch(`${baseUrl}/api/teams`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          name: saveName,
-          team: mapTeamToPreset(teamSource),
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to save team");
-      }
-
-      const data = await response.json();
-      setSavedTeams(Array.isArray(data?.teams) ? data.teams : []);
-      if (side === "home") {
-        setHomeSaveStatus(`Team saved as "${saveName}".`);
-      } else {
-        setAwaySaveStatus(`Team saved as "${saveName}".`);
-      }
-    } catch (error) {
-      console.error(error);
-      if (side === "home") {
-        setHomeSaveStatus("Failed to save team.");
-      } else {
-        setAwaySaveStatus("Failed to save team.");
-      }
-    } finally {
-      if (side === "home") {
-        setSavingHomeTeam(false);
-      } else {
-        setSavingAwayTeam(false);
-      }
-    }
-  };
-
-  const saveTeam = async (side: "home" | "away") => {
-    const preferredName = (side === "home" ? homeName : awayName).trim();
-    const statusSetter = side === "home" ? setHomeSaveStatus : setAwaySaveStatus;
-
-    if (!preferredName) {
-      statusSetter("Team name is required.");
-      return;
-    }
-
-    const existing = savedTeams.find((entry) => entry.name.toLowerCase() === preferredName.toLowerCase());
-    if (existing) {
-      setSaveConflict({
-        side,
-        preferredName,
-      });
-      return;
-    }
-
-    await persistTeam(side, preferredName);
-  };
-
-  const confirmOverwriteSave = async () => {
-    if (!saveConflict) return;
-    await persistTeam(saveConflict.side, saveConflict.preferredName);
-    setSaveConflict(null);
-  };
-
   useEffect(() => {
     const home = gameState.homeTeam;
     const away = gameState.awayTeam;
@@ -387,11 +237,6 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
     lastSyncedTeamMetaRef.current = { home: homeMeta, away: awayMeta };
   }, [gameState.homeTeam, gameState.awayTeam]);
 
-  if (!hasLoadedTeamsRef.current && user) {
-    hasLoadedTeamsRef.current = true;
-    void loadSavedTeams();
-  }
-
   const shortcutsByAction = new Map(keyboardShortcuts.map((shortcut, index) => [shortcut.action, { shortcut, index }]));
   const groupedActions = new Set(SHORTCUT_GROUPS.flatMap((group) => [...group.actions]));
   const ungroupedShortcuts = keyboardShortcuts
@@ -402,22 +247,48 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
   const awayPlayerCount = awayRosterDraft.length;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-        <div className="mb-6 border-b border-zinc-800 pb-4 flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-bold">Home Team Settings</h2>
-            {homeSaveStatus && <div className="text-xs text-zinc-500 mt-1">{homeSaveStatus}</div>}
-          </div>
-          <button
-            type="button"
-            onClick={() => saveTeam("home")}
-            disabled={savingHomeTeam}
-            className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-100"
-            aria-label="Save home team preset"
-          >
-            <Save className="w-4 h-4" />
-          </button>
+    <div className="flex flex-col gap-6">
+      <div className="inline-flex self-start rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-1 gap-1">
+        <button
+          type="button"
+          onClick={() => setSettingsTab("teams")}
+          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+            settingsTab === "teams"
+              ? "bg-indigo-500/20 border border-indigo-400/30 text-white"
+              : "border border-transparent text-zinc-400 hover:text-zinc-200"
+          }`}
+        >
+          <Users size={15} /> Teams &amp; Rosters
+        </button>
+        <button
+          type="button"
+          onClick={() => setSettingsTab("shortcuts")}
+          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+            settingsTab === "shortcuts"
+              ? "bg-indigo-500/20 border border-indigo-400/30 text-white"
+              : "border border-transparent text-zinc-400 hover:text-zinc-200"
+          }`}
+        >
+          <Keyboard size={15} /> Keyboard Shortcuts
+        </button>
+        <button
+          type="button"
+          onClick={() => setSettingsTab("pdf")}
+          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+            settingsTab === "pdf"
+              ? "bg-indigo-500/20 border border-indigo-400/30 text-white"
+              : "border border-transparent text-zinc-400 hover:text-zinc-200"
+          }`}
+        >
+          <FileText size={15} /> Gamesheet PDF
+        </button>
+      </div>
+
+      {settingsTab === "teams" && (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+        <div className="mb-6 border-b border-white/10 pb-4">
+          <h2 className="text-xl font-bold">Home Team Settings</h2>
         </div>
         <div className="flex flex-col gap-4">
           <div>
@@ -434,7 +305,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                   (e.target as HTMLInputElement).blur();
                 }
               }}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none"
+              className="w-full bg-white/[0.05] border border-white/10 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
@@ -452,7 +323,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                   (e.target as HTMLInputElement).blur();
                 }
               }}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none font-mono"
+              className="w-full bg-white/[0.05] border border-white/10 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none font-mono"
             />
           </div>
           <div>
@@ -470,7 +341,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                 }
               }}
               placeholder="https://example.com/logo.png"
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none"
+              className="w-full bg-white/[0.05] border border-white/10 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
@@ -480,7 +351,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                 type="color"
                 value={gameState.homeTeam.color}
                 onChange={(e) => updateTeam("home", { color: e.target.value })}
-                className="w-12 h-12 rounded cursor-pointer bg-zinc-950 border border-zinc-800"
+                className="w-12 h-12 rounded cursor-pointer bg-zinc-950 border border-white/10"
               />
               <input
                 type="text"
@@ -494,22 +365,22 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                     (e.target as HTMLInputElement).blur();
                   }
                 }}
-                className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none font-mono"
+                className="flex-1 bg-white/[0.05] border border-white/10 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none font-mono"
               />
             </div>
           </div>
-          <div className="pt-3 border-t border-zinc-800">
+          <div className="pt-3 border-t border-white/10">
             <div className="flex items-center justify-between mb-2">
               <label className="block text-sm font-medium text-zinc-400">
                 Roster
-                <span className="ml-2 inline-flex items-center rounded-full bg-zinc-800 px-2 py-0.5 text-[11px] font-mono text-zinc-300">
+                <span className="ml-2 inline-flex items-center rounded-full bg-white/[0.06] border border-white/10 px-2 py-0.5 text-[11px] font-mono text-zinc-300">
                   {homePlayerCount} players
                 </span>
               </label>
               <button
                 type="button"
                 onClick={() => setHomeRosterExpanded((prev) => !prev)}
-                className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200"
+                className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] text-zinc-200"
                 aria-label={homeRosterExpanded ? "Collapse home roster" : "Expand home roster"}
               >
                 <ChevronDown
@@ -551,7 +422,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                           (e.target as HTMLInputElement).blur();
                         }
                       }}
-                      className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none font-mono"
+                      className="bg-white/[0.05] border border-white/10 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none font-mono"
                       placeholder="#"
                     />
                     <input
@@ -573,7 +444,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                           (e.target as HTMLInputElement).blur();
                         }
                       }}
-                      className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                      className="bg-white/[0.05] border border-white/10 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
                       placeholder="Player name"
                     />
                     <select
@@ -586,7 +457,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                           false,
                         )
                       }
-                      className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                      className="bg-white/[0.05] border border-white/10 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
                     >
                       <option value="">-</option>
                       <option value="NM">NM</option>
@@ -598,7 +469,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                       aria-label="Remove player"
                       title="Remove player"
                       onClick={() => removeTeamPlayer("home", player.id)}
-                      className="px-2 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs font-medium"
+                      className="px-2 py-2 bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] rounded-lg text-xs font-medium"
                     >
                       Remove
                     </button>
@@ -610,7 +481,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                 <button
                   type="button"
                   onClick={() => addTeamPlayer("home")}
-                  className="mt-2 w-full px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs font-medium text-zinc-100"
+                  className="mt-2 w-full px-3 py-2 bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] rounded-lg text-xs font-medium text-zinc-100"
                 >
                   Add Player
                 </button>
@@ -620,21 +491,9 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
         </div>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-        <div className="mb-6 border-b border-zinc-800 pb-4 flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-bold">Away Team Settings</h2>
-            {awaySaveStatus && <div className="text-xs text-zinc-500 mt-1">{awaySaveStatus}</div>}
-          </div>
-          <button
-            type="button"
-            onClick={() => saveTeam("away")}
-            disabled={savingAwayTeam}
-            className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-100"
-            aria-label="Save away team preset"
-          >
-            <Save className="w-4 h-4" />
-          </button>
+      <div className="bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+        <div className="mb-6 border-b border-white/10 pb-4">
+          <h2 className="text-xl font-bold">Away Team Settings</h2>
         </div>
         <div className="flex flex-col gap-4">
           <div>
@@ -651,7 +510,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                   (e.target as HTMLInputElement).blur();
                 }
               }}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none"
+              className="w-full bg-white/[0.05] border border-white/10 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
@@ -669,7 +528,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                   (e.target as HTMLInputElement).blur();
                 }
               }}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none font-mono"
+              className="w-full bg-white/[0.05] border border-white/10 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none font-mono"
             />
           </div>
           <div>
@@ -687,7 +546,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                 }
               }}
               placeholder="https://example.com/logo.png"
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none"
+              className="w-full bg-white/[0.05] border border-white/10 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
@@ -697,7 +556,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                 type="color"
                 value={gameState.awayTeam.color}
                 onChange={(e) => updateTeam("away", { color: e.target.value })}
-                className="w-12 h-12 rounded cursor-pointer bg-zinc-950 border border-zinc-800"
+                className="w-12 h-12 rounded cursor-pointer bg-zinc-950 border border-white/10"
               />
               <input
                 type="text"
@@ -711,22 +570,22 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                     (e.target as HTMLInputElement).blur();
                   }
                 }}
-                className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none font-mono"
+                className="flex-1 bg-white/[0.05] border border-white/10 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none font-mono"
               />
             </div>
           </div>
-          <div className="pt-3 border-t border-zinc-800">
+          <div className="pt-3 border-t border-white/10">
             <div className="flex items-center justify-between mb-2">
               <label className="block text-sm font-medium text-zinc-400">
                 Roster
-                <span className="ml-2 inline-flex items-center rounded-full bg-zinc-800 px-2 py-0.5 text-[11px] font-mono text-zinc-300">
+                <span className="ml-2 inline-flex items-center rounded-full bg-white/[0.06] border border-white/10 px-2 py-0.5 text-[11px] font-mono text-zinc-300">
                   {awayPlayerCount} players
                 </span>
               </label>
               <button
                 type="button"
                 onClick={() => setAwayRosterExpanded((prev) => !prev)}
-                className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200"
+                className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] text-zinc-200"
                 aria-label={awayRosterExpanded ? "Collapse away roster" : "Expand away roster"}
               >
                 <ChevronDown
@@ -768,7 +627,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                           (e.target as HTMLInputElement).blur();
                         }
                       }}
-                      className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none font-mono"
+                      className="bg-white/[0.05] border border-white/10 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none font-mono"
                       placeholder="#"
                     />
                     <input
@@ -790,7 +649,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                           (e.target as HTMLInputElement).blur();
                         }
                       }}
-                      className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                      className="bg-white/[0.05] border border-white/10 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
                       placeholder="Player name"
                     />
                     <select
@@ -803,7 +662,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                           false,
                         )
                       }
-                      className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                      className="bg-white/[0.05] border border-white/10 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
                     >
                       <option value="">-</option>
                       <option value="NM">NM</option>
@@ -815,7 +674,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                       aria-label="Remove player"
                       title="Remove player"
                       onClick={() => removeTeamPlayer("away", player.id)}
-                      className="px-2 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs font-medium"
+                      className="px-2 py-2 bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] rounded-lg text-xs font-medium"
                     >
                       Remove
                     </button>
@@ -827,7 +686,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                 <button
                   type="button"
                   onClick={() => addTeamPlayer("away")}
-                  className="mt-2 w-full px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs font-medium text-zinc-100"
+                  className="mt-2 w-full px-3 py-2 bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] rounded-lg text-xs font-medium text-zinc-100"
                 >
                   Add Player
                 </button>
@@ -836,16 +695,19 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
           </div>
         </div>
       </div>
+      </div>
+      )}
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 md:col-span-2">
-        <div className="flex items-center justify-between mb-6 border-b border-zinc-800 pb-4">
+      {settingsTab === "shortcuts" && (
+      <div className="bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
           <h2 className="text-xl font-bold flex items-center gap-2">
             <Keyboard size={24} />
             Keyboard Shortcuts
           </h2>
           <button
             onClick={resetShortcuts}
-            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium transition-colors"
+            className="px-4 py-2 bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] rounded-lg text-sm font-medium transition-colors"
           >
             Reset to Defaults
           </button>
@@ -856,7 +718,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           {SHORTCUT_GROUPS.map((group) => (
-            <section key={group.title} className="border border-zinc-800 rounded-lg bg-zinc-950/70 p-4">
+            <section key={group.title} className="border border-white/10 rounded-lg bg-white/[0.03] p-4">
               <div className="mb-3">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-200">{group.title}</h3>
                 <p className="text-xs text-zinc-500 mt-1">{group.description}</p>
@@ -879,7 +741,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
         </div>
 
       {ungroupedShortcuts.length > 0 && (
-        <section className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 md:col-span-2">
+        <section className="bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl p-6">
           <div className="mb-3">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-200">Other</h3>
             <p className="text-xs text-zinc-500 mt-1">Shortcuts not assigned to a standard group.</p>
@@ -892,31 +754,10 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
         </section>
       )}
       </div>
-      {saveConflict && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-zinc-900 border border-zinc-700 rounded-xl p-5">
-            <h3 className="text-lg font-semibold text-zinc-100">Team Name Already Exists</h3>
-            <p className="text-sm text-zinc-400 mt-2">
-              A team named "{saveConflict.preferredName}" already exists. Overwrite it?
-            </p>
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setSaveConflict(null)}
-                className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmOverwriteSave}
-                className="px-3 py-2 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-sm font-medium"
-              >
-                Overwrite
-              </button>
-            </div>
-          </div>
-        </div>
+      )}
+
+      {settingsTab === "pdf" && (
+        <PdfLayoutSettings homeTeam={gameState.homeTeam} awayTeam={gameState.awayTeam} eventLog={gameState.eventLog} />
       )}
     </div>
   );

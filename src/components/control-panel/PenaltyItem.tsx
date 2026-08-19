@@ -3,6 +3,7 @@ import { Minus } from "lucide-react";
 import { Penalty, TeamPlayer } from "../../store";
 import { parseTimeInputMs } from "../../utils/clock";
 import { PenaltyReasonInput, useDropdownPlacement } from "./DropdownInputs";
+import { glassInsetClass } from "./ui/glass";
 
 interface PenaltyItemProps {
   penalty: Penalty;
@@ -89,7 +90,7 @@ export default function PenaltyItem({
   };
 
   return (
-    <div className="flex items-center gap-2 bg-zinc-950 p-2 rounded border border-zinc-800">
+    <div className={`flex items-center gap-2 p-2 ${glassInsetClass}`}>
       <div ref={playerDropdown.containerRef} className="relative">
         <input
           ref={(el) => {
@@ -161,12 +162,12 @@ export default function PenaltyItem({
             setPlayerOpen(false);
             setActivePlayerIndex(-1);
           }}
-          className="w-16 bg-zinc-800 text-center rounded p-1 text-sm font-mono"
+          className="w-16 bg-white/[0.05] border border-white/10 text-center rounded-md p-1 text-sm font-mono focus:border-indigo-400/60 focus:outline-none"
           placeholder="#"
         />
         {playerOpen && (
           <div
-            className={`absolute left-0 z-20 w-44 overflow-auto rounded-md border border-zinc-800 bg-zinc-950 shadow-lg ${
+            className={`absolute left-0 z-20 w-44 overflow-auto rounded-md border border-white/10 bg-zinc-950/95 backdrop-blur-sm shadow-lg ${
               playerDropdown.dropUp ? "bottom-full mb-1" : "top-full mt-1"
             }`}
             style={{ maxHeight: `${playerDropdown.maxHeight}px` }}
@@ -194,8 +195,8 @@ export default function PenaltyItem({
                       setActivePlayerIndex(-1);
                     }}
                     onMouseEnter={() => setActivePlayerIndex(index)}
-                    className={`w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800 ${
-                      index === normalizedPlayerIndex ? "bg-zinc-800" : ""
+                    className={`w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-white/[0.08] ${
+                      index === normalizedPlayerIndex ? "bg-white/[0.08]" : ""
                     }`}
                   >
                     <span className="font-mono">{player.jerseyNumber || "--"}</span>
@@ -210,7 +211,7 @@ export default function PenaltyItem({
       <PenaltyReasonInput
           value={penalty.infraction}
           onChange={(nextValue) => onChange({ ...penalty, infraction: nextValue })}
-          inputClassName="bg-zinc-800 text-zinc-200 rounded p-1 text-sm font-mono w-16"
+          inputClassName="bg-white/[0.05] border border-white/10 text-zinc-200 rounded-md p-1 text-sm font-mono w-16 focus:border-indigo-400/60 focus:outline-none"
       />
       {editMode ? (
         <div className="flex items-center gap-1 flex-1">
@@ -220,7 +221,7 @@ export default function PenaltyItem({
             onChange={(e) => setEditValue(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleTimeChange((e.target as HTMLInputElement).value)}
             onBlur={(e) => handleTimeChange(e.target.value)}
-            className="bg-zinc-800 rounded p-1 text-sm font-mono w-24 text-center"
+            className="bg-white/[0.05] border border-white/10 rounded-md p-1 text-sm font-mono w-24 text-center focus:border-indigo-400/60 focus:outline-none"
             autoFocus
             onFocus={(e) => e.currentTarget.select()}
             placeholder="M:SS"
@@ -228,7 +229,7 @@ export default function PenaltyItem({
         </div>
       ) : (
         <div
-          className="bg-zinc-800 rounded p-1 text-sm flex-1 text-center font-mono cursor-pointer hover:bg-zinc-700"
+          className="bg-white/[0.05] border border-white/10 rounded-md p-1 text-sm flex-1 text-center font-mono cursor-pointer hover:bg-white/[0.09] transition-colors"
           onClick={() => {
             setEditValue(formatPenaltyTime(penalty.timeRemaining));
             setEditMode(true);
@@ -237,7 +238,7 @@ export default function PenaltyItem({
           {formatPenaltyTime(penalty.timeRemaining)}
         </div>
       )}
-      <button onClick={onRemove} className="p-1.5 text-red-400 hover:bg-red-400/10 rounded shrink-0">
+      <button onClick={onRemove} className="p-1.5 text-red-400 hover:bg-red-400/10 rounded-md shrink-0">
         <Minus size={16} />
       </button>
     </div>

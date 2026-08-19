@@ -1,6 +1,7 @@
 import { GameState } from "../../store";
 import { buildPeriodEndEvent } from "../../utils/eventLog";
 import { UpdateGameState } from "./types";
+import { GlassPanel, SectionLabel } from "./ui/glass";
 
 interface GameActionsPanelProps {
   period: string;
@@ -38,35 +39,32 @@ export default function GameActionsPanel({ period, gameState, updateState, setCl
     }
   };
 
+  const periodButtonClass = (isActive: boolean) =>
+    `p-3 rounded-xl font-medium border transition-colors ${
+      isActive
+        ? "bg-indigo-500/80 border-indigo-400/40 text-white shadow-[0_0_20px_rgba(99,102,241,0.35)]"
+        : "bg-white/[0.06] hover:bg-white/[0.1] border-white/10 text-zinc-100"
+    }`;
+
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-      <h2 className="text-lg font-semibold mb-4 text-zinc-300 uppercase tracking-wider">Game Actions</h2>
+    <GlassPanel>
+      <SectionLabel className="mb-4 text-base text-zinc-300">
+        Game Actions
+      </SectionLabel>
       <div className="grid grid-cols-2 gap-4">
-        <button
-          onClick={() => updatePeriod("1st")}
-          className={`p-3 rounded-lg font-medium ${period === "1st" ? "bg-indigo-600" : "bg-zinc-800 hover:bg-zinc-700"}`}
-        >
+        <button onClick={() => updatePeriod("1st")} className={periodButtonClass(period === "1st")}>
           1st Period
         </button>
-        <button
-          onClick={() => updatePeriod("2nd")}
-          className={`p-3 rounded-lg font-medium ${period === "2nd" ? "bg-indigo-600" : "bg-zinc-800 hover:bg-zinc-700"}`}
-        >
+        <button onClick={() => updatePeriod("2nd")} className={periodButtonClass(period === "2nd")}>
           2nd Period
         </button>
-        <button
-          onClick={() => updatePeriod("3rd")}
-          className={`p-3 rounded-lg font-medium ${period === "3rd" ? "bg-indigo-600" : "bg-zinc-800 hover:bg-zinc-700"}`}
-        >
+        <button onClick={() => updatePeriod("3rd")} className={periodButtonClass(period === "3rd")}>
           3rd Period
         </button>
-        <button
-          onClick={() => updatePeriod("OT")}
-          className={`p-3 rounded-lg font-medium ${period === "OT" ? "bg-indigo-600" : "bg-zinc-800 hover:bg-zinc-700"}`}
-        >
+        <button onClick={() => updatePeriod("OT")} className={periodButtonClass(period === "OT")}>
           Overtime
         </button>
       </div>
-    </div>
+    </GlassPanel>
   );
 }

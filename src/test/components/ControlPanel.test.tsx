@@ -80,8 +80,10 @@ describe("ControlPanel Component", () => {
     // Initially shows Controls
     expect(screen.getByText("Clock")).toBeInTheDocument();
 
+    // AppSidebar renders both a desktop rail and a mobile bottom bar (visibility is
+    // CSS-media-query-driven, so both exist in the DOM in jsdom) — click the first match.
     // Switch to Settings
-    fireEvent.click(screen.getByRole("button", { name: /Settings/i }));
+    fireEvent.click(screen.getAllByRole("button", { name: /Settings/i })[0]);
     // The Settings component (mocked) renders <div>Settings</div>
     // The tab button has a <span>Settings</span>
     // So we check if the mocked component is there
@@ -89,11 +91,11 @@ describe("ControlPanel Component", () => {
     expect(screen.queryByText("Clock")).not.toBeInTheDocument();
 
     // Switch to Presets
-    fireEvent.click(screen.getByRole("button", { name: /Presets/i }));
+    fireEvent.click(screen.getAllByRole("button", { name: /Presets/i })[0]);
     expect(screen.getByText("Presets", { selector: 'div' })).toBeInTheDocument();
 
     // Switch to Stream Deck
-    fireEvent.click(screen.getByRole("button", { name: /Stream Deck/i }));
+    fireEvent.click(screen.getAllByRole("button", { name: /Stream Deck/i })[0]);
     expect(screen.getByText("StreamDeck")).toBeInTheDocument();
   });
 

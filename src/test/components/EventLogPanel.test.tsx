@@ -75,28 +75,6 @@ describe("EventLogPanel Component", () => {
     expect(screen.getByDisplayValue("Tripping")).toBeInTheDocument();
   });
 
-  it("toggles the PDF layout section", () => {
-    render(
-      <EventLogPanel
-        gameState={mockGameState}
-        eventLog={mockGameState.eventLog}
-        homeTeam={mockGameState.homeTeam}
-        awayTeam={mockGameState.awayTeam}
-        homePlayers={[]}
-        awayPlayers={[]}
-        updateState={mockUpdateState}
-      />
-    );
-
-    const layoutButton = screen.getByTitle("Adjust PDF layout");
-    fireEvent.click(layoutButton);
-
-    expect(screen.getByText("PDF layout tweaks")).toBeInTheDocument();
-    
-    fireEvent.click(layoutButton);
-    expect(screen.queryByText("PDF layout tweaks")).not.toBeInTheDocument();
-  });
-
   it("handles event type changes", () => {
     render(
       <EventLogPanel

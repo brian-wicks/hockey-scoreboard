@@ -964,3 +964,25 @@
     clip-path: inset(0 0 0 0);
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Control Panel (operator UI) only — glassmorphism ambient background.
+ * Namespaced under `control-panel-*` and never referenced by the Overlay,
+ * Jumbotron, or Results broadcast-facing views (those use the classes above).
+ * ------------------------------------------------------------------------- */
+
+.control-panel-ambient-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 900px 600px at 8% -5%, rgba(99, 102, 241, 0.16), transparent 60%),
+    radial-gradient(ellipse 800px 600px at 100% 0%, rgba(168, 85, 247, 0.12), transparent 55%),
+    radial-gradient(ellipse 1000px 700px at 50% 110%, rgba(56, 189, 248, 0.08), transparent 60%),
+    #09090b;
+}
+
+.control-panel-sidebar-active-indicator {
+  transition: transform 300ms cubic-bezier(0.2, 0.85, 0.2, 1);
+}

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Share2, Copy, Check, ExternalLink, X, QrCode } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useStore } from "../../store";
+import { GlassButton } from "./ui/glass";
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -80,15 +81,15 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
       />
       
       {/* Modal Content */}
-      <div className="relative w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl animate-in zoom-in-95 fade-in duration-200 overflow-hidden">
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-zinc-800 bg-zinc-900/50">
+      <div className="relative w-full max-w-2xl bg-zinc-950/90 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl animate-in zoom-in-95 fade-in duration-200 overflow-hidden">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-white/10">
           <h2 className="text-xl font-bold flex items-center gap-2 text-white">
-            <Share2 className="text-indigo-500" size={24} />
+            <Share2 className="text-indigo-400" size={24} />
             Share Scoreboard
           </h2>
-          <button 
+          <button
             onClick={onClose}
-            className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+            className="p-2 text-zinc-400 hover:text-white hover:bg-white/[0.08] rounded-lg transition-colors"
           >
             <X size={20} />
           </button>
@@ -104,10 +105,11 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
                 <p className="text-zinc-300 font-medium">No share link generated yet.</p>
                 <p className="text-sm text-zinc-500 mt-1">Generate a unique ID to share your live scoreboard with others.</p>
               </div>
-              <button
+              <GlassButton
                 onClick={handleGenerateShare}
                 disabled={isGeneratingShare}
-                className="mt-4 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 mx-auto shadow-lg shadow-indigo-500/20"
+                variant="primary"
+                className="mt-4 px-6 py-2.5 mx-auto"
               >
                 {isGeneratingShare ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -115,7 +117,7 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
                   <Share2 size={18} />
                 )}
                 Generate Public Share Link
-              </button>
+              </GlassButton>
             </div>
           ) : (
             <div className="space-y-6">
@@ -134,7 +136,7 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
                   { label: "Public Overlay", path: `/share/${shareId}/overlay`, desc: "Stream-ready graphic" },
                   { label: "Public Jumbotron", path: `/share/${shareId}/jumbotron`, desc: "Arena-style display" },
                 ].map((link) => (
-                  <div key={link.path} className="group bg-zinc-950/50 border border-zinc-800 hover:border-zinc-700 rounded-xl p-4 flex flex-col gap-3 transition-all">
+                  <div key={link.path} className="group bg-white/[0.04] border border-white/10 hover:border-white/20 rounded-xl p-4 flex flex-col gap-3 transition-all">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-bold text-zinc-100">{link.label}</span>
                       <a
@@ -161,7 +163,7 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-2 overflow-hidden">
+                    <div className="flex items-center gap-2 bg-white/[0.05] border border-white/10 rounded-lg px-2.5 py-2 overflow-hidden">
                       <code className="text-[10px] text-zinc-400 truncate flex-1 font-mono">
                         {window.location.origin}{link.path}
                       </code>
@@ -177,7 +179,7 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
                 ))}
               </div>
 
-              <div className="pt-4 flex items-center justify-between border-t border-zinc-800">
+              <div className="pt-4 flex items-center justify-between border-t border-white/10">
                 <p className="text-[11px] text-zinc-500">Share ID: <span className="font-mono text-zinc-400">{shareId}</span></p>
                 <button
                   onClick={handleGenerateShare}
