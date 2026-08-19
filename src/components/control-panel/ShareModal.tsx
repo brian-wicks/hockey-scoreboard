@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Share2, Copy, Check, ExternalLink, X, QrCode } from "lucide-react";
+import { Share2, Copy, Check, ExternalLink, X, QrCode, AlertTriangle } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useStore } from "../../store";
 import { GlassButton } from "./ui/glass";
@@ -123,7 +123,7 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
             <div className="space-y-6">
               <div className="bg-amber-900/20 border border-amber-900/30 rounded-xl p-4 flex gap-3">
                 <div className="text-amber-500 pt-0.5">
-                  <ExternalLink size={18} />
+                  <AlertTriangle size={18} />
                 </div>
                 <p className="text-sm text-amber-200/80 leading-relaxed italic">
                   Anyone with these links can view your live scoreboard and jumbotron without logging in. They <span className="text-amber-400 font-semibold underline decoration-amber-400/30">cannot</span> control the game or change settings.
@@ -163,13 +163,13 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 bg-white/[0.05] border border-white/10 rounded-lg px-2.5 py-2 overflow-hidden">
-                      <code className="text-[10px] text-zinc-400 truncate flex-1 font-mono">
+                    <div className="flex items-start gap-2 bg-white/[0.05] border border-white/10 rounded-lg px-2.5 py-2">
+                      <code className="text-[10px] text-zinc-400 break-all flex-1 font-mono leading-relaxed">
                         {window.location.origin}{link.path}
                       </code>
                       <button
                         onClick={() => handleCopyLink(link.path)}
-                        className="text-zinc-400 hover:text-white transition-colors p-1"
+                        className="text-zinc-400 hover:text-white transition-colors p-1 shrink-0"
                         title="Copy to clipboard"
                       >
                         {copiedLink === link.path ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
