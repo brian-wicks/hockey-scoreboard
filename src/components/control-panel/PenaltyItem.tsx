@@ -214,19 +214,17 @@ export default function PenaltyItem({
           inputClassName="bg-white/[0.05] border border-white/10 text-zinc-200 rounded-md p-1 text-sm font-mono w-16 focus:border-indigo-400/60 focus:outline-none"
       />
       {editMode ? (
-        <div className="flex items-center gap-1 flex-1">
-          <input
-            type="text"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleTimeChange((e.target as HTMLInputElement).value)}
-            onBlur={(e) => handleTimeChange(e.target.value)}
-            className="bg-white/[0.05] border border-white/10 rounded-md p-1 text-sm font-mono w-24 text-center focus:border-indigo-400/60 focus:outline-none"
-            autoFocus
-            onFocus={(e) => e.currentTarget.select()}
-            placeholder="M:SS"
-          />
-        </div>
+        <input
+          type="text"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleTimeChange((e.target as HTMLInputElement).value)}
+          onBlur={(e) => handleTimeChange(e.target.value)}
+          className="bg-white/[0.05] border border-white/10 rounded-md p-1 text-sm font-mono flex-1 min-w-0 text-center focus:border-indigo-400/60 focus:outline-none"
+          autoFocus
+          onFocus={(e) => e.currentTarget.select()}
+          placeholder="M:SS"
+        />
       ) : (
         <div
           className="bg-white/[0.05] border border-white/10 rounded-md p-1 text-sm flex-1 text-center font-mono cursor-pointer hover:bg-white/[0.09] transition-colors"

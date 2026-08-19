@@ -39,21 +39,19 @@ export default function ClockControl({
       <div className="text-zinc-400 uppercase tracking-widest text-sm font-bold">{period} PERIOD</div>
 
       {editMode ? (
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            className="text-6xl font-mono font-bold bg-white/[0.05] text-white w-48 text-center rounded-xl border border-white/10 focus:border-indigo-400/60 focus:outline-none"
-            autoFocus
-            onFocus={(e) => e.target.select()}
-            onKeyDown={(e) => e.key === "Enter" && handleSetClock()}
-            onBlur={handleSetClock}
-          />
-        </div>
+        <input
+          type="text"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          className="text-7xl font-mono font-bold tracking-tighter leading-none h-[72px] box-content p-0 bg-white/[0.05] text-white w-64 text-center rounded-xl border border-white/10 focus:border-indigo-400/60 focus:outline-none"
+          autoFocus
+          onFocus={(e) => e.target.select()}
+          onKeyDown={(e) => e.key === "Enter" && handleSetClock()}
+          onBlur={handleSetClock}
+        />
       ) : (
         <div
-          className="text-7xl font-mono font-bold tracking-tighter cursor-pointer hover:text-indigo-400 transition-colors"
+          className="text-7xl font-mono font-bold tracking-tighter leading-none border border-transparent cursor-pointer hover:text-indigo-400 transition-colors"
           onClick={() => {
             if (!clock.isRunning) {
               const totalSeconds = Math.ceil(clock.timeRemaining / 1000);
