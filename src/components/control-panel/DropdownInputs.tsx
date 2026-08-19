@@ -39,9 +39,14 @@ interface PenaltyReasonInputProps {
   value: string;
   onChange: (value: string) => void;
   inputClassName: string;
+  /** Class for the wrapping container div. Pass "relative flex-1 min-w-0" when this
+   * needs to grow to fill a flex row (e.g. alongside a fixed-width button) — a bare
+   * "relative" div has no intrinsic width, so an inputClassName of "w-full" alone
+   * won't actually fill the row without this. Defaults to "relative". */
+  containerClassName?: string;
 }
 
-export function PenaltyReasonInput({ value, onChange, inputClassName }: PenaltyReasonInputProps) {
+export function PenaltyReasonInput({ value, onChange, inputClassName, containerClassName = "relative" }: PenaltyReasonInputProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -68,7 +73,7 @@ export function PenaltyReasonInput({ value, onChange, inputClassName }: PenaltyR
   };
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className={containerClassName}>
       <input
         value={inputValue}
         onChange={(e) => {
@@ -188,12 +193,18 @@ export function SearchDropdownInput({
   inputClassName,
   placeholder,
   options,
+  containerClassName = "relative",
 }: {
   value: string;
   onChange: (value: string) => void;
   inputClassName: string;
   placeholder: string;
   options: SearchOption[];
+  /** Class for the wrapping container div. Pass "relative flex-1 min-w-0" when this
+   * needs to grow to fill a flex row (e.g. alongside a fixed-width button) — a bare
+   * "relative" div has no intrinsic width, so an inputClassName of "w-full" alone
+   * won't actually fill the row without this. Defaults to "relative". */
+  containerClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -223,7 +234,7 @@ export function SearchDropdownInput({
   };
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className={containerClassName}>
       <input
         value={inputValue}
         onChange={(e) => {

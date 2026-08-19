@@ -13,7 +13,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "controls", label: "Controls", icon: House },
   { id: "settings", label: "Settings", icon: Settings },
   { id: "presets", label: "Presets", icon: Bookmark },
-  { id: "streamdeck", label: "Stream Deck", icon: LayoutGrid },
+  { id: "streamdeck", label: "Deck", icon: LayoutGrid },
   { id: "games", label: "Games", icon: Database },
 ];
 

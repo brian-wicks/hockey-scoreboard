@@ -164,7 +164,7 @@ export default function EventLogPanel({
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 min-[760px]:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 @[480px]:grid-cols-4 gap-2">
               <select
                 value={event.type}
                 onChange={(e) => updateEvent(event.id, { type: e.target.value as GameEvent["type"] })}
@@ -201,7 +201,7 @@ export default function EventLogPanel({
             </div>
 
             {event.type === "goal" || event.type === "goal_revoked" ? (
-              <div className="grid grid-cols-1 min-[760px]:grid-cols-3 gap-2 mt-2">
+              <div className="grid grid-cols-1 @[380px]:grid-cols-3 gap-2 mt-2">
                 <SearchDropdownInput
                   value={event.scorer ?? ""}
                   onChange={(nextValue) => updateEvent(event.id, { scorer: nextValue })}
@@ -225,7 +225,7 @@ export default function EventLogPanel({
                 />
               </div>
             ) : event.type === "penalty_added" || event.type === "penalty_over_notice" ? (
-              <div className="grid grid-cols-1 min-[760px]:grid-cols-4 gap-2 mt-2">
+              <div className="grid grid-cols-1 @[480px]:grid-cols-4 gap-2 mt-2">
                 <SearchDropdownInput
                   value={event.playerNumber ?? ""}
                   onChange={(nextValue) => updateEvent(event.id, { playerNumber: nextValue })}
@@ -256,7 +256,7 @@ export default function EventLogPanel({
                 />
               </div>
             ) : event.type === "shot_on_goal" ? (
-              <div className="grid grid-cols-1 min-[760px]:grid-cols-3 gap-2 mt-2">
+              <div className="grid grid-cols-1 @[380px]:grid-cols-3 gap-2 mt-2">
                 <select
                   value={event.shotDelta ?? 1}
                   onChange={(e) => updateEvent(event.id, { shotDelta: Number(e.target.value) })}
@@ -268,11 +268,11 @@ export default function EventLogPanel({
                 <div className="text-xs text-zinc-500 flex items-center">Logged for {event.team} shots</div>
               </div>
             ) : event.type === "period_end" ? (
-              <div className="grid grid-cols-1 min-[760px]:grid-cols-2 gap-2 mt-2">
+              <div className="grid grid-cols-1 @[280px]:grid-cols-2 gap-2 mt-2">
                 <div className="text-xs text-zinc-500 flex items-center">End of period marker</div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 min-[760px]:grid-cols-2 gap-2 mt-2">
+              <div className="grid grid-cols-1 @[280px]:grid-cols-2 gap-2 mt-2">
                 <SearchDropdownInput
                   value={event.goalie ?? ""}
                   onChange={(nextValue) => updateEvent(event.id, { goalie: nextValue })}
@@ -355,14 +355,14 @@ export default function EventLogPanel({
         </div>
 
       <div className="grid grid-cols-1 min-[760px]:grid-cols-2 gap-4">
-        <div className="flex flex-col gap-2 min-w-0">
+        <div className="@container flex flex-col gap-2 min-w-0">
           <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Home</div>
           <div className="flex flex-col gap-3 max-h-[560px] overflow-auto pr-1">
             {homeLog.length === 0 && <div className="text-zinc-500 text-sm italic">No home events logged yet.</div>}
             {homeLog.map(renderEventCard)}
           </div>
         </div>
-        <div className="flex flex-col gap-2 min-w-0 min-[760px]:border-l min-[760px]:border-white/10 min-[760px]:pl-4">
+        <div className="@container flex flex-col gap-2 min-w-0 min-[760px]:border-l min-[760px]:border-white/10 min-[760px]:pl-4">
           <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Away</div>
           <div className="flex flex-col gap-3 max-h-[560px] overflow-auto pr-1">
             {awayLog.length === 0 && <div className="text-zinc-500 text-sm italic">No away events logged yet.</div>}

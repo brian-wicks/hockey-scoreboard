@@ -94,8 +94,8 @@ describe("ControlPanel Component", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /Presets/i })[0]);
     expect(screen.getByText("Presets", { selector: 'div' })).toBeInTheDocument();
 
-    // Switch to Stream Deck
-    fireEvent.click(screen.getAllByRole("button", { name: /Stream Deck/i })[0]);
+    // Switch to Stream Deck (sidebar label is shortened to "Deck" to stay one line)
+    fireEvent.click(screen.getAllByRole("button", { name: /^Deck$/i })[0]);
     expect(screen.getByText("StreamDeck")).toBeInTheDocument();
   });
 

@@ -140,6 +140,7 @@ export default function TeamControls({ team, state, gameState, eventLog, updateS
             value={goalieValue}
             onChange={setGoalieValue}
             inputClassName={`${glassInputClass} w-full`}
+            containerClassName="relative flex-1 min-w-0"
             placeholder="Goalie #"
             options={goalieOptions}
           />
