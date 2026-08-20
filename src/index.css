@@ -1011,3 +1011,29 @@
   background-color: #6366f1;
   color: #ffffff;
 }
+
+/* react-colorful theming — the library ships unstyled-but-functional layout via
+ * inline styles and exposes these classnames as the theming hook. Scoped under
+ * the popover wrapper so it only ever affects the Control Panel's color picker. */
+.control-panel-color-popover .react-colorful {
+  width: 200px;
+  height: 200px;
+}
+
+.control-panel-color-popover .react-colorful__saturation {
+  border-radius: 0.75rem;
+  border-bottom: none;
+  margin-bottom: 0.5rem;
+}
+
+.control-panel-color-popover .react-colorful__hue {
+  height: 16px;
+  border-radius: 999px;
+}
+
+.control-panel-color-popover .react-colorful__pointer {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}

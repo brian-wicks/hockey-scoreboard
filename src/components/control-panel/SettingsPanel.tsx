@@ -4,6 +4,7 @@ import { GameState, PlayerPosition, TeamPlayer, TeamState, useStore } from "../.
 import { UpdateGameState } from "./types";
 import ShortcutEditor from "./ShortcutEditor";
 import PdfLayoutSettings from "./PdfLayoutSettings";
+import { ColorPicker } from "./ui/ColorPicker";
 
 interface SettingsPanelProps {
   gameState: GameState;
@@ -70,11 +71,9 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
   const [homeName, setHomeName] = useState(gameState.homeTeam.name);
   const [homeAbbr, setHomeAbbr] = useState(gameState.homeTeam.abbreviation);
   const [homeLogo, setHomeLogo] = useState(gameState.homeTeam.logo);
-  const [homeColorText, setHomeColorText] = useState(gameState.homeTeam.color);
   const [awayName, setAwayName] = useState(gameState.awayTeam.name);
   const [awayAbbr, setAwayAbbr] = useState(gameState.awayTeam.abbreviation);
   const [awayLogo, setAwayLogo] = useState(gameState.awayTeam.logo);
-  const [awayColorText, setAwayColorText] = useState(gameState.awayTeam.color);
   const [homeRosterDraft, setHomeRosterDraft] = useState<TeamPlayer[]>(gameState.homeTeam.players ?? []);
   const [awayRosterDraft, setAwayRosterDraft] = useState<TeamPlayer[]>(gameState.awayTeam.players ?? []);
   const [homeRosterExpanded, setHomeRosterExpanded] = useState(false);
@@ -90,12 +89,6 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
     const envBase = import.meta.env.VITE_BASE_URL || window.location.origin;
     return envBase.replace(/\/+$/, "");
   })();
-
-  const normalizeHexInput = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return trimmed;
-    return trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
-  };
 
   const updateTeam = (team: "home" | "away", updates: Partial<TeamState>) => {
     updateState({ [`${team}Team`]: { ...gameState[`${team}Team`], ...updates } });
@@ -223,14 +216,12 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
       setHomeName(homeMeta.name);
       setHomeAbbr(homeMeta.abbreviation);
       setHomeLogo(homeMeta.logo);
-      setHomeColorText(homeMeta.color);
       setHomeRosterDraft(homeMeta.players);
     }
     if (awayChanged) {
       setAwayName(awayMeta.name);
       setAwayAbbr(awayMeta.abbreviation);
       setAwayLogo(awayMeta.logo);
-      setAwayColorText(awayMeta.color);
       setAwayRosterDraft(awayMeta.players);
     }
 
@@ -346,28 +337,11 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
           </div>
           <div>
             <label className="block text-sm font-medium text-zinc-400 mb-1">Primary Color</label>
-            <div className="flex gap-3">
-              <input
-                type="color"
-                value={gameState.homeTeam.color}
-                onChange={(e) => updateTeam("home", { color: e.target.value })}
-                className="w-12 h-12 rounded cursor-pointer bg-zinc-950 border border-white/10"
-              />
-              <input
-                type="text"
-                value={homeColorText}
-                onChange={(e) => setHomeColorText(e.target.value)}
-                onBlur={() => commitTeamField("home", { color: normalizeHexInput(homeColorText) })}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    commitTeamField("home", { color: normalizeHexInput(homeColorText) });
-                    (e.target as HTMLInputElement).blur();
-                  }
-                }}
-                className="flex-1 bg-white/[0.05] border border-white/10 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none font-mono"
-              />
-            </div>
+            <ColorPicker
+              value={gameState.homeTeam.color}
+              onChange={(hex) => updateTeam("home", { color: hex })}
+              label="Home team color"
+            />
           </div>
           <div className="pt-3 border-t border-white/10">
             <div className="flex items-center justify-between mb-2">
@@ -551,28 +525,11 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
           </div>
           <div>
             <label className="block text-sm font-medium text-zinc-400 mb-1">Primary Color</label>
-            <div className="flex gap-3">
-              <input
-                type="color"
-                value={gameState.awayTeam.color}
-                onChange={(e) => updateTeam("away", { color: e.target.value })}
-                className="w-12 h-12 rounded cursor-pointer bg-zinc-950 border border-white/10"
-              />
-              <input
-                type="text"
-                value={awayColorText}
-                onChange={(e) => setAwayColorText(e.target.value)}
-                onBlur={() => commitTeamField("away", { color: normalizeHexInput(awayColorText) })}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    commitTeamField("away", { color: normalizeHexInput(awayColorText) });
-                    (e.target as HTMLInputElement).blur();
-                  }
-                }}
-                className="flex-1 bg-white/[0.05] border border-white/10 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none font-mono"
-              />
-            </div>
+            <ColorPicker
+              value={gameState.awayTeam.color}
+              onChange={(hex) => updateTeam("away", { color: hex })}
+              label="Away team color"
+            />
           </div>
           <div className="pt-3 border-t border-white/10">
             <div className="flex items-center justify-between mb-2">

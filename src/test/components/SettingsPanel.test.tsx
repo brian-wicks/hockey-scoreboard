@@ -80,9 +80,9 @@ describe("SettingsPanel", () => {
     render(<SettingsPanel gameState={baseGameState as any} updateState={mockUpdateState} />);
     await act(flushMicrotasks);
     
-    const colorInputs = document.querySelectorAll('input[type="color"]');
+    const homeColorInput = screen.getByLabelText("Home team color");
     await act(async () => {
-      fireEvent.change(colorInputs[0], { target: { value: "#ff0000" } });
+      fireEvent.change(homeColorInput, { target: { value: "#ff0000" } });
     });
     
     expect(mockUpdateState).toHaveBeenCalledWith(expect.objectContaining({
