@@ -986,3 +986,28 @@
 .control-panel-sidebar-active-indicator {
   transition: transform 300ms cubic-bezier(0.2, 0.85, 0.2, 1);
 }
+
+/* Native <select> dropdown popups otherwise render with the OS's light-mode
+ * listbox (white background) while inheriting our light option text color,
+ * making the open dropdown unreadable. color-scheme opts the native popup
+ * into a dark UA theme; the option colors reinforce it where support is
+ * partial. Giving every option the same colors erases the browser's default
+ * "currently selected" highlight, so :checked gets its own accent to keep
+ * the selected option distinguishable. Firefox largely ignores background-
+ * color/color set on <option> and instead paints the popup using the
+ * <select>'s own background, so the select needs a solid (non-transparent)
+ * color here rather than the translucent glass fill used everywhere else. */
+.control-panel-select {
+  color-scheme: dark;
+  background-color: #18181b;
+}
+
+.control-panel-select option {
+  background-color: #18181b;
+  color: #f4f4f5;
+}
+
+.control-panel-select option:checked {
+  background-color: #6366f1;
+  color: #ffffff;
+}

@@ -188,7 +188,7 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
             <select
               value={edited.action}
               onChange={(e) => setEdited({ ...edited, action: e.target.value as ShortcutAction | "none" })}
-              className="w-full bg-white/[0.05] border border-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              className="control-panel-select w-full bg-white/[0.05] border border-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
             >
               {ACTION_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>

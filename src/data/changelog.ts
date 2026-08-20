@@ -11,6 +11,23 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.10.0',
+    date: '2026-08-20',
+    sections: {
+      changed: [
+        'Redesigned the Control Panel with a new glass-panel visual style and sidebar navigation.',
+      ],
+      fixed: [
+        'Fix the Goalie input not filling its row next to the Set button.',
+        'Fix Event Log fields collapsing illegibly at narrower widths.',
+        'Fix the clock display shifting position when clicking to edit the time.',
+        'Fix penalty countdown fields shifting width when clicking to edit the time.',
+        'Fix share links being truncated to the point of being unreadable in the Share dialog.',
+        'Fix dropdown menus being unreadable when opened, including in Firefox.',
+      ],
+    },
+  },
+  {
     version: '1.9.1',
     date: '2026-08-19',
     sections: {

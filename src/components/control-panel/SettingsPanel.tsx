@@ -457,7 +457,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                           false,
                         )
                       }
-                      className="bg-white/[0.05] border border-white/10 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                      className="control-panel-select bg-white/[0.05] border border-white/10 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
                     >
                       <option value="">-</option>
                       <option value="NM">NM</option>
@@ -662,7 +662,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
                           false,
                         )
                       }
-                      className="bg-white/[0.05] border border-white/10 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                      className="control-panel-select bg-white/[0.05] border border-white/10 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
                     >
                       <option value="">-</option>
                       <option value="NM">NM</option>

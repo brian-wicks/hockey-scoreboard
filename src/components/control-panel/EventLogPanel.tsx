@@ -168,7 +168,7 @@ export default function EventLogPanel({
               <select
                 value={event.type}
                 onChange={(e) => updateEvent(event.id, { type: e.target.value as GameEvent["type"] })}
-                className="bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-sm"
+                className="control-panel-select bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-sm"
               >
                 <option value="goal">Goal</option>
                 <option value="goal_revoked">Goal Revoked</option>
@@ -181,7 +181,7 @@ export default function EventLogPanel({
               <select
                 value={event.team}
                 onChange={(e) => updateEvent(event.id, { team: e.target.value as GameEvent["team"] })}
-                className="bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-sm"
+                className="control-panel-select bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-sm"
               >
                 <option value="home">Home</option>
                 <option value="away">Away</option>
@@ -260,7 +260,7 @@ export default function EventLogPanel({
                 <select
                   value={event.shotDelta ?? 1}
                   onChange={(e) => updateEvent(event.id, { shotDelta: Number(e.target.value) })}
-                  className="bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-sm"
+                  className="control-panel-select bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-sm"
                 >
                   <option value={1}>+1 Shot</option>
                   <option value={-1}>-1 Shot</option>

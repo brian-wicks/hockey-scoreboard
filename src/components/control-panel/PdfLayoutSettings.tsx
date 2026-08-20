@@ -16,7 +16,7 @@ function AlignSelect({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value as "left" | "center" | "right")}
-      className="bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-xs"
+      className="control-panel-select bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-xs"
     >
       <option value="left">Left</option>
       <option value="center">Center</option>
