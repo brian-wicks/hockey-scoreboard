@@ -182,7 +182,7 @@ export interface ScoreboardServerOptions {
 export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   const dataDir = options.dataDir ?? __dirname;
   const now = options.now ?? Date.now;
-  const randomId = options.randomId ?? (() => Math.random().toString(36).slice(2, 11));
+  const randomId = options.randomId ?? (() => randomUUID());
 
   const SHORTCUTS_FILE = join(dataDir, "shortcuts.json");
   const STREAMDECK_FILE = join(dataDir, "streamdeck.json");
@@ -199,11 +199,44 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   // Structured request logger (method/url/status/response time as JSON per request).
   app.use(pinoHttp({ logger }));
 
+  // signInWithPopup's cross-window relay (separate from the popup window itself) loads
+  // Google's gapi client script and an invisible iframe hosted at the Firebase project's
+  // authDomain — both need explicit CSP allowances or the whole flow fails before the
+  // popup ever opens, reported back as a generic auth/internal-error. authDomain is
+  // read from the env at startup rather than hardcoded so this isn't tied to one project.
+  const firebaseAuthDomain = process.env.VITE_FIREBASE_AUTH_DOMAIN;
+
   app.use(helmet({
-    // The SPA is served from this same origin with no external script sources; a
-    // proper CSP needs to allowlist Firebase's auth/API domains before it can be
-    // turned on without breaking sign-in, so it's left off for now.
-    contentSecurityPolicy: false,
+    // The SPA has no external script sources of its own, so script-src stays locked to
+    // 'self' plus apis.google.com for Firebase's gapi-based popup relay (see above).
+    // style-src needs 'unsafe-inline' for React's inline style={{...}} (used for
+    // dynamic team colors) plus fonts.googleapis.com for the Google Fonts stylesheet
+    // import in index.css; font-src needs fonts.gstatic.com for the actual font
+    // files it references. img-src is broad (https:/data:) because team logos and
+    // Google profile photos are arbitrary user-supplied URLs, not a fixed allowlist.
+    // connect-src covers the Firebase Auth endpoints the SDK calls directly from the
+    // page; frame-src covers the authDomain iframe above (the popup window itself runs
+    // in its own origin/CSP context, so it isn't governed by this page's CSP at all).
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "https://apis.google.com"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: [
+          "'self'",
+          "https://identitytoolkit.googleapis.com",
+          "https://securetoken.googleapis.com",
+          "https://apis.google.com",
+        ],
+        frameSrc: firebaseAuthDomain ? ["'self'", `https://${firebaseAuthDomain}`] : ["'self'", "https://*.firebaseapp.com"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'self'"],
+      },
+    },
     // Helmet's default COOP (same-origin) cuts off the opener's connection to the
     // signInWithPopup auth window — Google sign-in still succeeds, but the app never
     // hears about it and reports auth/popup-closed-by-user. same-origin-allow-popups
@@ -292,7 +325,8 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       const savedState = getGameState(userId);
       if (savedState) {
         try {
-          return JSON.parse(savedState);
+          const parsed = JSON.parse(savedState) as GameState;
+          return { ...parsed, ...sanitizeGameStateUpdate(parsed) };
         } catch (e) {
           logError("Error parsing saved game state", e, { userId });
         }
@@ -411,6 +445,70 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       ...extractTeamIdentity(team),
       players: normalizeTeamPlayers(team.players),
     };
+  }
+
+  function normalizePenalties(penalties: unknown): Penalty[] {
+    if (!Array.isArray(penalties)) return [];
+    return penalties
+      .filter((penalty): penalty is Record<string, unknown> => penalty !== null && typeof penalty === "object")
+      .map((raw) => ({
+        id: String(raw.id ?? randomId()),
+        playerNumber: String(raw.playerNumber ?? ""),
+        timeRemaining: typeof raw.timeRemaining === "number" && Number.isFinite(raw.timeRemaining) ? raw.timeRemaining : 0,
+        duration: typeof raw.duration === "number" && Number.isFinite(raw.duration) ? raw.duration : 0,
+        infraction: String(raw.infraction ?? ""),
+      }));
+  }
+
+  function sanitizeTeamPatch(patch: unknown): Partial<TeamState> | undefined {
+    if (!patch || typeof patch !== "object" || Array.isArray(patch)) return undefined;
+    const raw = patch as Record<string, unknown>;
+    const result: Record<string, unknown> = { ...raw };
+    if ("players" in raw) result.players = normalizeTeamPlayers(raw.players);
+    if ("penalties" in raw) result.penalties = normalizePenalties(raw.penalties);
+    return result as Partial<TeamState>;
+  }
+
+  /**
+   * Socket payloads (and, defensively, whatever was last persisted to the DB) are
+   * untrusted — downstream code assumes homeTeam/awayTeam.penalties, .players, and
+   * eventLog are always arrays and indexes into them without checking. A malformed
+   * shape used to throw synchronously with nothing catching it, which took the whole
+   * process down (killing every connected user's session, not just the sender's).
+   * This coerces those fields to safe values instead of letting garbage in.
+   */
+  function sanitizeGameStateUpdate<T extends Partial<GameState>>(updates: T): T {
+    const sanitized: T = { ...updates };
+
+    if ("homeTeam" in updates) {
+      const patch = sanitizeTeamPatch(updates.homeTeam);
+      if (patch) {
+        sanitized.homeTeam = patch as T["homeTeam"];
+      } else {
+        delete sanitized.homeTeam;
+      }
+    }
+
+    if ("awayTeam" in updates) {
+      const patch = sanitizeTeamPatch(updates.awayTeam);
+      if (patch) {
+        sanitized.awayTeam = patch as T["awayTeam"];
+      } else {
+        delete sanitized.awayTeam;
+      }
+    }
+
+    if ("eventLog" in updates) {
+      if (Array.isArray(updates.eventLog)) {
+        sanitized.eventLog = updates.eventLog.filter(
+          (event): event is GameEvent => event !== null && typeof event === "object",
+        ) as T["eventLog"];
+      } else {
+        delete sanitized.eventLog;
+      }
+    }
+
+    return sanitized;
   }
 
   function normalizePresetTeam(data: unknown): TeamPresetTeam {
@@ -792,27 +890,39 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
 
     context.clockInterval = setInterval(() => {
-      const { gameState } = context;
-      if (gameState.clock.isRunning) {
-        const currentTime = now();
-        const elapsed = currentTime - gameState.clock.lastUpdate;
-        gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining - elapsed);
-        gameState.clock.lastUpdate = currentTime;
+      try {
+        const { gameState } = context;
+        if (gameState.clock.isRunning) {
+          const currentTime = now();
+          const elapsed = currentTime - gameState.clock.lastUpdate;
+          gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining - elapsed);
+          gameState.clock.lastUpdate = currentTime;
 
-        gameState.homeTeam.penalties = tickTeamPenalties(gameState, gameState.homeTeam, "home", elapsed);
-        gameState.awayTeam.penalties = tickTeamPenalties(gameState, gameState.awayTeam, "away", elapsed);
+          gameState.homeTeam.penalties = tickTeamPenalties(gameState, gameState.homeTeam, "home", elapsed);
+          gameState.awayTeam.penalties = tickTeamPenalties(gameState, gameState.awayTeam, "away", elapsed);
 
-        if (gameState.clock.timeRemaining <= 0) {
-          gameState.clock.timeRemaining = 0;
-          appendEvent(gameState, createPeriodEndEvent(gameState));
-          gameState.clock.isRunning = false;
-          if (context.clockInterval) {
-            clearInterval(context.clockInterval);
-            context.clockInterval = null;
+          if (gameState.clock.timeRemaining <= 0) {
+            gameState.clock.timeRemaining = 0;
+            appendEvent(gameState, createPeriodEndEvent(gameState));
+            gameState.clock.isRunning = false;
+            if (context.clockInterval) {
+              clearInterval(context.clockInterval);
+              context.clockInterval = null;
+            }
           }
-        }
 
-        emitGameState(userId);
+          emitGameState(userId);
+        }
+      } catch (error) {
+        // This runs unattended every 100ms outside any request/socket-event context —
+        // an uncaught throw here has nothing to catch it and takes the whole process
+        // down for every connected user, not just this one. Stop ticking for this user
+        // rather than crash the server.
+        logError("[Clock] Unhandled error in tick interval, stopping clock for this user", error, { userId });
+        if (context.clockInterval) {
+          clearInterval(context.clockInterval);
+          context.clockInterval = null;
+        }
       }
     }, 100);
   }
@@ -868,6 +978,45 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   };
 
+  // Every mutating socket event goes through this: it (a) drops events past a generous
+  // per-socket rate so one client spamming events can't peg the event loop, and (b)
+  // catches anything the handler throws so a bad/malformed payload can only fail that
+  // one event instead of taking down the whole process for every connected user.
+  const SOCKET_EVENT_RATE_WINDOW_MS = 10_000;
+  const SOCKET_EVENT_RATE_LIMIT = 200;
+
+  function isSocketEventRateLimited(socket: Socket): boolean {
+    const nowMs = now();
+    const state = socket.data.rateLimit as { windowStart: number; count: number } | undefined;
+    if (!state || nowMs - state.windowStart > SOCKET_EVENT_RATE_WINDOW_MS) {
+      socket.data.rateLimit = { windowStart: nowMs, count: 1 };
+      return false;
+    }
+    state.count += 1;
+    return state.count > SOCKET_EVENT_RATE_LIMIT;
+  }
+
+  function onSocketEvent<Args extends unknown[]>(
+    socket: Socket,
+    event: string,
+    handler: (...args: Args) => void,
+  ) {
+    socket.on(event, (...args: Args) => {
+      if (isSocketEventRateLimited(socket)) {
+        logger.warn({ userId: socket.data.userId, socketId: socket.id, event }, "[Socket] Rate limit exceeded, dropping event");
+        return;
+      }
+      try {
+        handler(...args);
+      } catch (error) {
+        logError(`[Socket] Unhandled error in "${event}" handler`, error, {
+          userId: socket.data.userId,
+          socketId: socket.id,
+        });
+      }
+    });
+  }
+
   io.on("connection", (socket) => {
     const userId = socket.data.userId;
     const isViewer = socket.data.isViewer === true;
@@ -879,15 +1028,16 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     const { gameState } = getUserContext(userId);
     emitGameStateTo(socket, gameState);
 
-    socket.on("updateGameState", (updates: Partial<GameState>) => {
+    onSocketEvent(socket, "updateGameState", (updates: Partial<GameState>) => {
       if (isViewer) {
         logger.warn({ userId, socketId: socket.id }, "[Socket] Unauthorized update attempt from viewer");
         return;
       }
       const context = getUserContext(userId);
+      const sanitizedUpdates = sanitizeGameStateUpdate(updates);
       const previousState = { ...context.gameState };
-      let nextState: GameState = { ...context.gameState, ...updates };
-      const hasEventLogUpdate = Array.isArray(updates.eventLog);
+      let nextState: GameState = { ...context.gameState, ...sanitizedUpdates };
+      const hasEventLogUpdate = Array.isArray(sanitizedUpdates.eventLog);
 
       if (hasEventLogUpdate) {
         nextState = syncActivePenaltyStateFromEventLog(nextState);
@@ -910,7 +1060,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       emitGameState(userId);
     });
 
-    socket.on("startClock", () => {
+    onSocketEvent(socket, "startClock", () => {
       const context = getUserContext(userId);
       const { gameState } = context;
       if (!gameState.clock.isRunning && gameState.clock.timeRemaining > 0) {
@@ -921,7 +1071,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       }
     });
 
-    socket.on("stopClock", () => {
+    onSocketEvent(socket, "stopClock", () => {
       const context = getUserContext(userId);
       const { gameState } = context;
       if (gameState.clock.isRunning) {
@@ -936,7 +1086,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       }
     });
 
-    socket.on("setClock", (timeMs: number) => {
+    onSocketEvent(socket, "setClock", (timeMs: number) => {
       const context = getUserContext(userId);
       const { gameState } = context;
       gameState.clock.timeRemaining = timeMs;
@@ -944,21 +1094,21 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       emitGameState(userId);
     });
 
-    socket.on("clockIncrease", () => {
+    onSocketEvent(socket, "clockIncrease", () => {
       const context = getUserContext(userId);
       const { gameState } = context;
       gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining + 1000);
       emitGameState(userId);
     });
 
-    socket.on("clockDecrease", () => {
+    onSocketEvent(socket, "clockDecrease", () => {
       const context = getUserContext(userId);
       const { gameState } = context;
       gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining - 1000);
       emitGameState(userId);
     });
 
-    socket.on("resetGame", () => {
+    onSocketEvent(socket, "resetGame", () => {
       if (isViewer) return;
       logger.info({ userId }, "User requested hard reset to factory defaults");
       const context = getUserContext(userId);
@@ -998,6 +1148,10 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
 
   app.post("/api/shortcuts", authenticateExpress, (req, res) => {
     const userId = (req as any).user.uid;
+    if (!Array.isArray(req.body)) {
+      res.status(400).json({ success: false, error: "Invalid shortcuts payload" });
+      return;
+    }
     try {
       setUserConfig(userId, "shortcuts", JSON.stringify(req.body));
       res.json({ success: true });
@@ -1030,6 +1184,10 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
 
   app.post("/api/streamdeck", authenticateExpress, (req, res) => {
     const userId = (req as any).user.uid;
+    if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
+      res.status(400).json({ success: false, error: "Invalid Stream Deck config" });
+      return;
+    }
     try {
       setUserConfig(userId, "streamdeck", JSON.stringify(req.body));
       res.json({ success: true });

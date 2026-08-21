@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { existsSync, mkdirSync } from "fs";
+import { randomUUID } from "crypto";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -99,7 +100,7 @@ export const getSavedGame = (id: string, userId: string): SavedGame | null => {
 };
 
 export const createSavedGame = (userId: string, name: string, state: string): string => {
-  const id = Math.random().toString(36).slice(2, 11);
+  const id = randomUUID();
   const stmt = db.prepare(`
     INSERT INTO saved_games (id, userId, name, state, createdAt)
     VALUES (?, ?, ?, ?, ?)

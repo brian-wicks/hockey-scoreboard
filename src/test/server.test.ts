@@ -412,6 +412,51 @@ describe("server API", () => {
     client.close();
   });
 
+  it("survives a malformed updateGameState payload without crashing or affecting other users", async () => {
+    // homeTeam.penalties as a non-array (or an array containing null) used to crash
+    // the whole process synchronously — every connected user, not just this socket —
+    // because nothing caught the throw from code that assumes penalties is always an
+    // array of objects (e.g. `penalty.id`, `.forEach`, `.map`). Socket.IO dispatches
+    // event listeners synchronously from within its own internal event handling, so
+    // a throw there becomes a process-level uncaughtException, not something await-ing
+    // the emit() call would ever see — listen for it directly rather than relying on
+    // requests-after-the-fact to notice the process died.
+    const uncaught: unknown[] = [];
+    const onUncaught = (error: unknown) => uncaught.push(error);
+    process.on("uncaughtException", onUncaught);
+
+    try {
+      const baseUrl = `http://localhost:${port}`;
+      const attackerId = "user-malformed-payload-test";
+      const victimId = "user-unaffected-bystander-test";
+
+      const attacker = createClient(baseUrl, { transports: ["websocket"], forceNew: true, auth: { token: attackerId } });
+      const victim = createClient(baseUrl, { transports: ["websocket"], forceNew: true, auth: { token: victimId } });
+      await Promise.all([new Promise((r) => attacker.on("connect", r)), new Promise((r) => victim.on("connect", r))]);
+
+      attacker.emit("updateGameState", { homeTeam: { penalties: "not-an-array" } } as any);
+      attacker.emit("updateGameState", { homeTeam: { penalties: [null] } } as any);
+      victim.emit("updateGameState", { homeTeam: { score: 1 } } as any);
+      await new Promise((r) => setTimeout(r, 200));
+
+      expect(uncaught).toEqual([]);
+
+      // The server process (and this victim's own session) must still be alive and
+      // responsive — a crash would make every request below hang/fail.
+      const health = await fetch(`${baseUrl}/api/health`);
+      expect(health.ok).toBe(true);
+
+      const victimShareId = await createShare(baseUrl, victimId);
+      const victimState = await (await fetch(`${baseUrl}/api/share/${victimShareId}/state`)).json();
+      expect(victimState.homeTeam.score).toBe(1);
+
+      attacker.close();
+      victim.close();
+    } finally {
+      process.off("uncaughtException", onUncaught);
+    }
+  });
+
   it("persists and reads streamdeck config", async () => {
     const baseUrl = `http://localhost:${port}`;
     const config = { buttons: [{ id: "1", action: "test" }] };
