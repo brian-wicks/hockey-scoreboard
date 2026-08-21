@@ -134,4 +134,9 @@ export const setUserIdShare = (userId: string, shareId: string): void => {
   stmt.run(shareId, userId);
 };
 
+export const pingDatabase = (): boolean => {
+  const row = db.prepare("SELECT 1 AS ok").get() as { ok: number } | undefined;
+  return row?.ok === 1;
+};
+
 export default db;

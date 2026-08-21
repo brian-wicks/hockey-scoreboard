@@ -10,6 +10,8 @@ import { getAuth } from "firebase-admin/auth";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import pino from "pino";
+import pinoHttp from "pino-http";
 import {
   getUserConfig, 
   setUserConfig, 
@@ -21,12 +23,21 @@ import {
   getSavedGames,
   getSavedGame,
   createSavedGame,
-  deleteSavedGame
+  deleteSavedGame,
+  pingDatabase
 } from "./src/db/database.ts";
 
+// Structured JSON logs — PM2 already captures stdout to file, so this makes
+// those files greppable/parseable instead of loose printf-style lines. Silenced
+// by default under the test runner so the (very verbose) per-request logs don't
+// bury real test failures in the output.
+const logger = pino({
+  level: process.env.LOG_LEVEL ?? (process.env.NODE_ENV === "test" ? "silent" : "info"),
+});
+
 // Initialize Firebase Admin
-let serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT 
-  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT) 
+let serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
+  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
   : null;
 
 if (serviceAccount && serviceAccount.private_key) {
@@ -38,7 +49,7 @@ if (serviceAccount) {
     credential: cert(serviceAccount)
   });
 } else {
-  console.warn("FIREBASE_SERVICE_ACCOUNT not found in environment variables. Authentication will fail.");
+  logger.warn("FIREBASE_SERVICE_ACCOUNT not found in environment variables. Authentication will fail.");
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -177,11 +188,8 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   // Trust the first hop (reverse proxy) so req.ip / rate limiting see the real client IP.
   app.set("trust proxy", 1);
 
-  // Simple request logger
-  app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-    next();
-  });
+  // Structured request logger (method/url/status/response time as JSON per request).
+  app.use(pinoHttp({ logger }));
 
   app.use(helmet({
     // The SPA is served from this same origin with no external script sources; a
@@ -218,6 +226,17 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     next(err);
   });
   app.use(express.json());
+
+  // Unauthenticated and outside the rate limiter below so uptime monitors can poll
+  // it freely without eating into the API's abuse-protection budget.
+  app.get("/api/health", (req, res) => {
+    const dbOk = pingDatabase();
+    res.status(dbOk ? 200 : 503).json({
+      status: dbOk ? "ok" : "error",
+      uptimeSeconds: Math.round(process.uptime()),
+      db: dbOk ? "ok" : "unreachable",
+    });
+  });
 
   // Broad safety net against scripted abuse of the REST API.
   const apiLimiter = rateLimit({
@@ -261,7 +280,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         try {
           return JSON.parse(savedState);
         } catch (e) {
-          console.error(`Error parsing saved game state for user ${userId}:`, e);
+          logger.error({ err: e, userId }, "Error parsing saved game state");
         }
       }
     }
@@ -411,7 +430,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         awayTeam: normalizePresetTeam(data.awayTeam),
       } as TeamDefaults;
     } catch (error) {
-      console.error("Error reading team defaults:", error);
+      logger.error({ err: error, userId }, "Error reading team defaults");
       return null;
     }
   }
@@ -430,7 +449,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       }
       return null;
     } catch (error) {
-      console.error("Error reading PDF layout:", error);
+      logger.error({ err: error, userId }, "Error reading PDF layout");
       return null;
     }
   }
@@ -464,7 +483,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         })
         .filter((preset): preset is TeamPreset => Boolean(preset));
     } catch (error) {
-      console.error("Error reading team presets:", error);
+      logger.error({ err: error, userId }, "Error reading team presets");
       return [];
     }
   }
@@ -496,7 +515,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         })
         .filter((entry): entry is SavedTeam => Boolean(entry));
     } catch (error) {
-      console.error("Error reading team library:", error);
+      logger.error({ err: error, userId }, "Error reading team library");
       return [];
     }
   }
@@ -794,24 +813,24 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       if (userId) {
         socket.data.userId = userId;
         socket.data.isViewer = true;
-        console.log(`[Socket] Auth success: Viewer connected for share ${shareId} (User ${userId})`);
+        logger.info({ shareId, userId, socketId: socket.id }, "[Socket] Auth success: viewer connected via share link");
         return next();
       }
-      console.warn(`[Socket] Auth failed: Invalid shareId ${shareId}`);
+      logger.warn({ shareId, socketId: socket.id }, "[Socket] Auth failed: invalid shareId");
       return next(new Error("Authentication error: Invalid share link"));
     }
 
     if (!token) {
-      console.warn(`[Socket] Auth failed: No token provided for socket ${socket.id}`);
+      logger.warn({ socketId: socket.id }, "[Socket] Auth failed: no token provided");
       return next(new Error("Authentication error: Token required"));
     }
     try {
       const decodedToken = await getAuth().verifyIdToken(token);
       socket.data.userId = decodedToken.uid;
-      console.log(`[Socket] Auth success: User ${decodedToken.uid} verified`);
+      logger.info({ userId: decodedToken.uid, socketId: socket.id }, "[Socket] Auth success");
       next();
     } catch (error) {
-      console.error(`[Socket] Auth Error for socket ${socket.id}:`, error);
+      logger.error({ err: error, socketId: socket.id }, "[Socket] Auth error");
       next(new Error("Authentication error: Invalid token"));
     }
   });
@@ -820,7 +839,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   const authenticateExpress = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith("Bearer ")) {
-      console.warn(`[Express] Auth failed: Missing or invalid Authorization header for ${req.method} ${req.url}`);
+      logger.warn({ method: req.method, url: req.url }, "[Express] Auth failed: missing or invalid Authorization header");
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
@@ -828,10 +847,9 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     try {
       const decodedToken = await getAuth().verifyIdToken(token);
       (req as any).user = decodedToken;
-      console.log(`[Express] Auth success: User ${decodedToken.uid} verified for ${req.method} ${req.url}`);
       next();
     } catch (error) {
-      console.error(`[Express] Auth Error for ${req.method} ${req.url}:`, error);
+      logger.error({ err: error, method: req.method, url: req.url }, "[Express] Auth error");
       res.status(401).json({ error: "Unauthorized" });
     }
   };
@@ -839,8 +857,8 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   io.on("connection", (socket) => {
     const userId = socket.data.userId;
     const isViewer = socket.data.isViewer === true;
-    console.log(`User ${userId} connected via socket ${socket.id} (Viewer: ${isViewer})`);
-    
+    logger.info({ userId, socketId: socket.id, isViewer }, "User connected via socket");
+
     // Join a room for this user to enable per-user broadcasts
     socket.join(userId);
 
@@ -849,7 +867,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
 
     socket.on("updateGameState", (updates: Partial<GameState>) => {
       if (isViewer) {
-        console.warn(`[Socket] Unauthorized update attempt from viewer for user ${userId}`);
+        logger.warn({ userId, socketId: socket.id }, "[Socket] Unauthorized update attempt from viewer");
         return;
       }
       const context = getUserContext(userId);
@@ -928,7 +946,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
 
     socket.on("resetGame", () => {
       if (isViewer) return;
-      console.log(`User ${userId} requested hard reset to factory defaults`);
+      logger.info({ userId }, "User requested hard reset to factory defaults");
       const context = getUserContext(userId);
       if (context.clockInterval) {
         clearInterval(context.clockInterval);
@@ -939,7 +957,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     });
 
     socket.on("disconnect", () => {
-      console.log(`User ${userId} disconnected from socket ${socket.id}`);
+      logger.info({ userId, socketId: socket.id }, "User disconnected from socket");
     });
   });
 
@@ -959,7 +977,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         }
       }
     } catch (error) {
-      console.error("Error reading shortcuts:", error);
+      logger.error({ err: error, userId }, "Error reading shortcuts");
       res.json(null);
     }
   });
@@ -970,7 +988,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       setUserConfig(userId, "shortcuts", JSON.stringify(req.body));
       res.json({ success: true });
     } catch (error) {
-      console.error("Error saving shortcuts:", error);
+      logger.error({ err: error, userId }, "Error saving shortcuts");
       res.status(500).json({ success: false, error: "Failed to save shortcuts" });
     }
   });
@@ -991,7 +1009,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         }
       }
     } catch (error) {
-      console.error("Error reading Stream Deck config:", error);
+      logger.error({ err: error, userId }, "Error reading Stream Deck config");
       res.json(null);
     }
   });
@@ -1002,7 +1020,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       setUserConfig(userId, "streamdeck", JSON.stringify(req.body));
       res.json({ success: true });
     } catch (error) {
-      console.error("Error saving Stream Deck config:", error);
+      logger.error({ err: error, userId }, "Error saving Stream Deck config");
       res.status(500).json({ success: false, error: "Failed to save Stream Deck config" });
     }
   });
@@ -1028,7 +1046,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       writePdfLayout(userId, layout);
       res.json({ success: true });
     } catch (error) {
-      console.error("Error saving PDF layout:", error);
+      logger.error({ err: error, userId }, "Error saving PDF layout");
       res.status(500).json({ success: false, error: "Failed to save PDF layout" });
     }
   });
@@ -1073,7 +1091,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       emitGameState(userId);
       res.json({ success: true });
     } catch (error) {
-      console.error("Error saving team defaults:", error);
+      logger.error({ err: error, userId }, "Error saving team defaults");
       res.status(500).json({ success: false, error: "Failed to save team defaults" });
     }
   });
@@ -1114,7 +1132,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       writeTeamPresets(userId, presets);
       res.json({ success: true, presets });
     } catch (error) {
-      console.error("Error saving team preset:", error);
+      logger.error({ err: error, userId }, "Error saving team preset");
       res.status(500).json({ success: false, error: "Failed to save team preset" });
     }
   });
@@ -1128,7 +1146,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       writeTeamPresets(userId, filtered);
       res.json({ success: true, presets: filtered });
     } catch (error) {
-      console.error("Error deleting team preset:", error);
+      logger.error({ err: error, userId }, "Error deleting team preset");
       res.status(500).json({ success: false, error: "Failed to delete team preset" });
     }
   });
@@ -1166,7 +1184,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       writeTeamLibrary(userId, teams);
       res.json({ success: true, teams });
     } catch (error) {
-      console.error("Error saving team entry:", error);
+      logger.error({ err: error, userId }, "Error saving team entry");
       res.status(500).json({ success: false, error: "Failed to save team entry" });
     }
   });
@@ -1180,7 +1198,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       writeTeamLibrary(userId, filtered);
       res.json({ success: true, teams: filtered });
     } catch (error) {
-      console.error("Error deleting team entry:", error);
+      logger.error({ err: error, userId }, "Error deleting team entry");
       res.status(500).json({ success: false, error: "Failed to delete team entry" });
     }
   });
@@ -1258,7 +1276,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       httpServer.listen(port, "0.0.0.0", () => {
         const address = httpServer.address();
         const selectedPort = typeof address === "object" && address ? address.port : port;
-        console.log(`[Server] Listening on 0.0.0.0:${selectedPort}`);
+        logger.info({ port: selectedPort }, "[Server] Listening");
         resolve(selectedPort);
       });
     });
