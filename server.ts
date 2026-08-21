@@ -1,4 +1,5 @@
 import "dotenv/config";
+import "./instrument.ts";
 import { createScoreboardServer } from "./serverApp.ts";
 
 const PORT = process.env.PORT || 3696;

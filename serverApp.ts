@@ -12,6 +12,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import pino from "pino";
 import pinoHttp from "pino-http";
+import * as Sentry from "@sentry/node";
 import {
   getUserConfig, 
   setUserConfig, 
@@ -34,6 +35,13 @@ import {
 const logger = pino({
   level: process.env.LOG_LEVEL ?? (process.env.NODE_ENV === "test" ? "silent" : "info"),
 });
+
+// Pairs a local structured log with a Sentry event for errors worth alerting on
+// (storage/parsing failures, not expected-in-normal-operation auth rejections).
+function logError(msg: string, error: unknown, context?: Record<string, unknown>) {
+  logger.error({ err: error, ...context }, msg);
+  Sentry.captureException(error, context ? { extra: context } : undefined);
+}
 
 // Initialize Firebase Admin
 let serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
@@ -280,7 +288,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         try {
           return JSON.parse(savedState);
         } catch (e) {
-          logger.error({ err: e, userId }, "Error parsing saved game state");
+          logError("Error parsing saved game state", e, { userId });
         }
       }
     }
@@ -430,7 +438,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         awayTeam: normalizePresetTeam(data.awayTeam),
       } as TeamDefaults;
     } catch (error) {
-      logger.error({ err: error, userId }, "Error reading team defaults");
+      logError("Error reading team defaults", error, { userId });
       return null;
     }
   }
@@ -449,7 +457,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       }
       return null;
     } catch (error) {
-      logger.error({ err: error, userId }, "Error reading PDF layout");
+      logError("Error reading PDF layout", error, { userId });
       return null;
     }
   }
@@ -483,7 +491,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         })
         .filter((preset): preset is TeamPreset => Boolean(preset));
     } catch (error) {
-      logger.error({ err: error, userId }, "Error reading team presets");
+      logError("Error reading team presets", error, { userId });
       return [];
     }
   }
@@ -515,7 +523,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         })
         .filter((entry): entry is SavedTeam => Boolean(entry));
     } catch (error) {
-      logger.error({ err: error, userId }, "Error reading team library");
+      logError("Error reading team library", error, { userId });
       return [];
     }
   }
@@ -977,7 +985,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         }
       }
     } catch (error) {
-      logger.error({ err: error, userId }, "Error reading shortcuts");
+      logError("Error reading shortcuts", error, { userId });
       res.json(null);
     }
   });
@@ -988,7 +996,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       setUserConfig(userId, "shortcuts", JSON.stringify(req.body));
       res.json({ success: true });
     } catch (error) {
-      logger.error({ err: error, userId }, "Error saving shortcuts");
+      logError("Error saving shortcuts", error, { userId });
       res.status(500).json({ success: false, error: "Failed to save shortcuts" });
     }
   });
@@ -1009,7 +1017,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         }
       }
     } catch (error) {
-      logger.error({ err: error, userId }, "Error reading Stream Deck config");
+      logError("Error reading Stream Deck config", error, { userId });
       res.json(null);
     }
   });
@@ -1020,7 +1028,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       setUserConfig(userId, "streamdeck", JSON.stringify(req.body));
       res.json({ success: true });
     } catch (error) {
-      logger.error({ err: error, userId }, "Error saving Stream Deck config");
+      logError("Error saving Stream Deck config", error, { userId });
       res.status(500).json({ success: false, error: "Failed to save Stream Deck config" });
     }
   });
@@ -1046,7 +1054,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       writePdfLayout(userId, layout);
       res.json({ success: true });
     } catch (error) {
-      logger.error({ err: error, userId }, "Error saving PDF layout");
+      logError("Error saving PDF layout", error, { userId });
       res.status(500).json({ success: false, error: "Failed to save PDF layout" });
     }
   });
@@ -1091,7 +1099,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       emitGameState(userId);
       res.json({ success: true });
     } catch (error) {
-      logger.error({ err: error, userId }, "Error saving team defaults");
+      logError("Error saving team defaults", error, { userId });
       res.status(500).json({ success: false, error: "Failed to save team defaults" });
     }
   });
@@ -1132,7 +1140,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       writeTeamPresets(userId, presets);
       res.json({ success: true, presets });
     } catch (error) {
-      logger.error({ err: error, userId }, "Error saving team preset");
+      logError("Error saving team preset", error, { userId });
       res.status(500).json({ success: false, error: "Failed to save team preset" });
     }
   });
@@ -1146,7 +1154,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       writeTeamPresets(userId, filtered);
       res.json({ success: true, presets: filtered });
     } catch (error) {
-      logger.error({ err: error, userId }, "Error deleting team preset");
+      logError("Error deleting team preset", error, { userId });
       res.status(500).json({ success: false, error: "Failed to delete team preset" });
     }
   });
@@ -1184,7 +1192,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       writeTeamLibrary(userId, teams);
       res.json({ success: true, teams });
     } catch (error) {
-      logger.error({ err: error, userId }, "Error saving team entry");
+      logError("Error saving team entry", error, { userId });
       res.status(500).json({ success: false, error: "Failed to save team entry" });
     }
   });
@@ -1198,7 +1206,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       writeTeamLibrary(userId, filtered);
       res.json({ success: true, teams: filtered });
     } catch (error) {
-      logger.error({ err: error, userId }, "Error deleting team entry");
+      logError("Error deleting team entry", error, { userId });
       res.status(500).json({ success: false, error: "Failed to delete team entry" });
     }
   });
@@ -1264,6 +1272,11 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     deleteSavedGame(req.params.id, userId);
     res.json({ success: true });
   });
+
+  // Catches anything thrown by a route/middleware above that wasn't already
+  // handled in a try/catch (those report via logError instead) and reports it
+  // to Sentry before falling through to Express's default error response.
+  Sentry.setupExpressErrorHandler(app);
 
   app.use(express.static(join(__dirname, "dist")));
 
