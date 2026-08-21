@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import ControlPanelHeader from "../../components/control-panel/ControlPanelHeader";
 import { useStore } from "../../store";
 
@@ -24,7 +25,9 @@ describe("ControlPanelHeader", () => {
 
   it("calls undo and respects canUndo", () => {
     const onUndo = vi.fn();
-    const { rerender } = render(<ControlPanelHeader isConnected={true} onUndo={onUndo} canUndo={false} />);
+    const { rerender } = render(<ControlPanelHeader isConnected={true} onUndo={onUndo} canUndo={false} />, {
+      wrapper: MemoryRouter,
+    });
     fireEvent.click(screen.getByTitle(/undo last/i));
     expect(onUndo).not.toHaveBeenCalled();
 
@@ -35,7 +38,9 @@ describe("ControlPanelHeader", () => {
 
   it("opens the mobile menu, triggers share, and closes the menu", () => {
     const onShare = vi.fn();
-    render(<ControlPanelHeader isConnected={true} onUndo={() => {}} canUndo={true} onShare={onShare} />);
+    render(<ControlPanelHeader isConnected={true} onUndo={() => {}} canUndo={true} onShare={onShare} />, {
+      wrapper: MemoryRouter,
+    });
 
     const toggle = screen.getByLabelText("Toggle menu");
     fireEvent.click(toggle);
@@ -49,7 +54,7 @@ describe("ControlPanelHeader", () => {
   });
 
   it("logs out from the mobile menu and closes it", () => {
-    render(<ControlPanelHeader isConnected={false} onUndo={() => {}} canUndo={true} />);
+    render(<ControlPanelHeader isConnected={false} onUndo={() => {}} canUndo={true} />, { wrapper: MemoryRouter });
 
     fireEvent.click(screen.getByLabelText("Toggle menu"));
     fireEvent.click(screen.getByText("Sign Out"));

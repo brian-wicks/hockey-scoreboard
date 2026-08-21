@@ -1,7 +1,10 @@
 import { render, screen, fireEvent } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import ControlPanel from "../../components/ControlPanel";
 import { useStore } from "../../store";
+
+const renderControlPanel = () => render(<ControlPanel />, { wrapper: MemoryRouter });
 
 const baseGameState = {
   homeTeam: { name: "Home", abbreviation: "HOM", score: 0, shots: 0, timeouts: 1, logo: "", color: "#000000", penalties: [], players: [] },
@@ -44,7 +47,7 @@ describe("ControlPanel Component", () => {
       ensureInitialized: vi.fn(),
     } as any);
 
-    render(<ControlPanel />);
+    renderControlPanel();
 
     expect(screen.getByText("Header")).toBeInTheDocument();
     expect(screen.getByText("Clock")).toBeInTheDocument();
@@ -61,7 +64,7 @@ describe("ControlPanel Component", () => {
       ensureInitialized: vi.fn(),
     } as any);
 
-    render(<ControlPanel />);
+    renderControlPanel();
 
     expect(screen.getByText(/Viewer Mode/i)).toBeInTheDocument();
   });
@@ -75,7 +78,7 @@ describe("ControlPanel Component", () => {
       ensureInitialized: vi.fn(),
     } as any);
 
-    render(<ControlPanel />);
+    renderControlPanel();
 
     // Initially shows Controls
     expect(screen.getByText("Clock")).toBeInTheDocument();
@@ -105,7 +108,7 @@ describe("ControlPanel Component", () => {
       ensureInitialized: vi.fn(),
     } as any);
 
-    render(<ControlPanel />);
+    renderControlPanel();
 
     expect(screen.getByText("Connecting...")).toBeInTheDocument();
   });

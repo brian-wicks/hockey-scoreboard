@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Share2, AlertCircle, LayoutPanelTop, LogOut, PresentationIcon, RotateCcw, Trophy, User as UserIcon, Menu, X } from "lucide-react";
 import { useStore } from "../../store";
 import { GlassButton } from "./ui/glass";
@@ -40,7 +41,13 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, onSha
                 <AlertCircle size={14} />
               </span>
             )}
-            <span className="truncate max-w-[120px] sm:max-w-none">Hockey Scoreboard</span>
+            {isViewer ? (
+              <span className="truncate max-w-[120px] sm:max-w-none">Hockey Scoreboard</span>
+            ) : (
+              <Link to="/" className="truncate max-w-[120px] sm:max-w-none hover:text-zinc-300 transition-colors" title="Back to Dashboard">
+                Hockey Scoreboard
+              </Link>
+            )}
           </h1>
           <GlassButton
             onClick={onUndo}

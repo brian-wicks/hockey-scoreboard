@@ -74,6 +74,23 @@ export interface ClockState {
   lastUpdate: number;
 }
 
+export interface TeamIdentity {
+  name: string;
+  abbreviation: string;
+  logo: string;
+  color: string;
+}
+
+export interface TeamPresetTeam extends TeamIdentity {
+  players: TeamPlayer[];
+}
+
+export interface SavedTeam {
+  name: string;
+  team: TeamPresetTeam;
+  updatedAt: number;
+}
+
 export interface GameState {
   homeTeam: TeamState;
   awayTeam: TeamState;
@@ -158,6 +175,7 @@ interface StoreState {
   shareId: string | null;
   isViewer: boolean;
   savedGames: { id: string; name: string; createdAt: number }[];
+  teamLibrary: SavedTeam[];
 
   connect: () => void;
   connectViewer: (shareId: string) => void;
@@ -182,6 +200,12 @@ interface StoreState {
   loadGame: (id: string) => Promise<void>;
   deleteGame: (id: string) => Promise<void>;
   resetGame: () => void;
+  startNewGame: (homeTeam: TeamState, awayTeam: TeamState) => void;
+
+  // Team Library Actions
+  loadTeamLibrary: () => Promise<void>;
+  saveTeamToLibrary: (name: string, team: TeamPresetTeam) => Promise<void>;
+  deleteTeamFromLibrary: (name: string) => Promise<void>;
 
   // Auth Actions
   setUser: (user: User | null) => void;
@@ -406,6 +430,7 @@ export const useStore = create<StoreState>((set, get) => ({
   shareId: null,
   isViewer: false,
   savedGames: [],
+  teamLibrary: [],
 
   setUser: (user) => set((state) => ({ 
     user, 
@@ -432,7 +457,7 @@ export const useStore = create<StoreState>((set, get) => ({
       }
       await signOut(auth);
       hasInitialized = false;
-      set({ user: null, gameState: null, socket: null, isViewer: false, shareId: null, authError: null, savedGames: [], undoStack: [] });
+      set({ user: null, gameState: null, socket: null, isViewer: false, shareId: null, authError: null, savedGames: [], teamLibrary: [], undoStack: [] });
     } catch (error) {
       console.error("Logout failed:", error);
     }
@@ -549,6 +574,91 @@ export const useStore = create<StoreState>((set, get) => ({
     if (socket) {
       socket.emit("resetGame");
       set({ undoStack: [] });
+    }
+  },
+
+  startNewGame: (homeTeam: TeamState, awayTeam: TeamState) => {
+    const { socket } = get();
+    if (!socket) return;
+    // Fires once the server's post-reset broadcast has landed and been applied by
+    // the "gameState" listener in connect(), so this merges onto the fresh factory
+    // state rather than racing whatever was live before New Game was clicked.
+    socket.once("gameState", () => {
+      get().updateState({ homeTeam, awayTeam });
+    });
+    socket.emit("resetGame");
+    set({ undoStack: [] });
+  },
+
+  loadTeamLibrary: async () => {
+    const { user } = get();
+    if (!user) return;
+    try {
+      const token = await user.getIdToken();
+      const apiUrl = BASE_URL === window.location.origin ? "" : BASE_URL;
+      const response = await fetch(`${apiUrl}/api/teams`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!response.ok) {
+        console.error(`Failed to load team library: ${response.status} ${response.statusText}`);
+        return;
+      }
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        set({ teamLibrary: data });
+      }
+    } catch (error) {
+      console.error("Failed to load team library:", error);
+    }
+  },
+
+  saveTeamToLibrary: async (name: string, team: TeamPresetTeam) => {
+    const { user } = get();
+    if (!user) return;
+    try {
+      const token = await user.getIdToken();
+      const apiUrl = BASE_URL === window.location.origin ? "" : BASE_URL;
+      const response = await fetch(`${apiUrl}/api/teams`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ name, team }),
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to save team: ${response.status} ${response.statusText}`);
+      }
+      const data = await response.json();
+      if (Array.isArray(data?.teams)) {
+        set({ teamLibrary: data.teams });
+      }
+    } catch (error) {
+      console.error("Failed to save team to library:", error);
+      throw error;
+    }
+  },
+
+  deleteTeamFromLibrary: async (name: string) => {
+    const { user } = get();
+    if (!user) return;
+    try {
+      const token = await user.getIdToken();
+      const apiUrl = BASE_URL === window.location.origin ? "" : BASE_URL;
+      const response = await fetch(`${apiUrl}/api/teams/${encodeURIComponent(name)}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to delete team: ${response.status} ${response.statusText}`);
+      }
+      const data = await response.json();
+      if (Array.isArray(data?.teams)) {
+        set({ teamLibrary: data.teams });
+      }
+    } catch (error) {
+      console.error("Failed to delete team from library:", error);
+      throw error;
     }
   },
 
@@ -701,6 +811,7 @@ export const useStore = create<StoreState>((set, get) => ({
     void get().loadShortcuts();
     void get().loadStreamDeckConfig();
     void get().loadSavedGames();
+    void get().loadTeamLibrary();
   },
 
   updateState: (updates: Partial<GameState>) => {

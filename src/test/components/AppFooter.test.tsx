@@ -18,4 +18,21 @@ describe("AppFooter Component", () => {
     expect(versionLink).toBeInTheDocument();
     expect(versionLink.closest("a")).toHaveAttribute("href", "/changelog");
   });
+
+  it("dodges the mobile bottom nav bar only on /game", () => {
+    const { container: rootContainer } = render(
+      <MemoryRouter initialEntries={["/"]}>
+        <AppFooter />
+      </MemoryRouter>,
+    );
+    expect(rootContainer.querySelector("footer")).toHaveClass("bottom-3");
+    expect(rootContainer.querySelector("footer")).not.toHaveClass("bottom-16");
+
+    const { container: gameContainer } = render(
+      <MemoryRouter initialEntries={["/game"]}>
+        <AppFooter />
+      </MemoryRouter>,
+    );
+    expect(gameContainer.querySelector("footer")).toHaveClass("bottom-16");
+  });
 });

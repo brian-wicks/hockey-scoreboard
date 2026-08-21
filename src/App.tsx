@@ -12,6 +12,8 @@ import { auth } from './lib/firebase';
 import { useStore } from './store';
 import { Login } from './components/Login';
 
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const TeamManagerPage = lazy(() => import('./components/team/TeamManagerPage'));
 const ControlPanel = lazy(() => import('./components/ControlPanel'));
 const Overlay = lazy(() => import('./components/Overlay'));
 const JumbotronScoreboard = lazy(() => import('./components/JumbotronScoreboard'));
@@ -101,7 +103,9 @@ function AppRoutes() {
     <>
       <Suspense fallback={<div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">Loading...</div>}>
         <Routes>
-          <Route path="/" element={<ControlPanel />} />
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/game" element={<ControlPanel />} />
+          <Route path="/teams" element={<TeamManagerPage />} />
           <Route path="/overlay" element={<Overlay />} />
           <Route path="/jumbotron" element={<JumbotronScoreboard />} />
           <Route path="/results" element={<ResultsPage />} />

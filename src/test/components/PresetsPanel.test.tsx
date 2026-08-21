@@ -23,40 +23,24 @@ describe("PresetsPanel Component", () => {
   };
 
   const mockPresets = [
-    { id: "1", name: "Game 1", team: { name: "Home Team", abbreviation: "HOM", logo: "" } },
-    { id: "2", name: "Game 2", team: { name: "Away Team", abbreviation: "AWY", logo: "" } },
+    { name: "Game 1", team: { name: "Home Team", abbreviation: "HOM", logo: "", color: "#000", players: [] }, updatedAt: 1 },
+    { name: "Game 2", team: { name: "Away Team", abbreviation: "AWY", logo: "", color: "#fff", players: [] }, updatedAt: 2 },
   ];
 
   it("renders the presets and handles deletion", async () => {
-    const mockUser = {
-      getIdToken: vi.fn().mockResolvedValue("test-token"),
-    };
-
+    const deleteTeamFromLibrary = vi.fn().mockResolvedValue(undefined);
     vi.mocked(useStore).mockReturnValue({
-      user: mockUser,
+      user: { getIdToken: vi.fn().mockResolvedValue("test-token") },
+      teamLibrary: mockPresets,
+      loadTeamLibrary: vi.fn().mockResolvedValue(undefined),
+      saveTeamToLibrary: vi.fn().mockResolvedValue(undefined),
+      deleteTeamFromLibrary,
     } as any);
-
-    // Mock fetch
-    global.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
-      if (url.includes("/api/teams") && init?.method === "DELETE") {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ teams: [mockPresets[1]] }),
-        });
-      }
-      if (url.includes("/api/teams")) {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(mockPresets),
-        });
-      }
-      return Promise.reject(new Error("Unknown URL"));
-    });
 
     render(<PresetsPanel gameState={baseGameState as any} updateState={vi.fn()} />);
     await act(flushMicrotasks);
 
-    // Wait for presets to render (cards show the team's display name, not the preset name).
+    // Cards show the team's display name, not the preset name.
     expect(await screen.findByText("Home Team")).toBeInTheDocument();
     expect(screen.getByText("Away Team")).toBeInTheDocument();
 
@@ -65,43 +49,25 @@ describe("PresetsPanel Component", () => {
       fireEvent.click(deleteButton);
     });
 
-    // Confirm deletion in modal
     const confirmDelete = screen.getByRole("button", { name: /^Delete$/ });
     await act(async () => {
       fireEvent.click(confirmDelete);
     });
 
-    // Should call fetch with DELETE
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining("/api/teams/Game%201"),
-        expect.objectContaining({ method: "DELETE" })
-      );
+      expect(deleteTeamFromLibrary).toHaveBeenCalledWith("Game 1");
     });
   });
 
   it("saves the current home team to the library (moved from Settings)", async () => {
-    const mockUser = {
-      getIdToken: vi.fn().mockResolvedValue("test-token"),
-    };
-
+    const saveTeamToLibrary = vi.fn().mockResolvedValue(undefined);
     vi.mocked(useStore).mockReturnValue({
-      user: mockUser,
+      user: { getIdToken: vi.fn().mockResolvedValue("test-token") },
+      teamLibrary: [],
+      loadTeamLibrary: vi.fn().mockResolvedValue(undefined),
+      saveTeamToLibrary,
+      deleteTeamFromLibrary: vi.fn().mockResolvedValue(undefined),
     } as any);
-
-    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
-      if (url.includes("/api/teams") && init?.method === "POST") {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ teams: mockPresets }),
-        });
-      }
-      if (url.includes("/api/teams")) {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
-      }
-      return Promise.reject(new Error("Unknown URL"));
-    });
-    vi.stubGlobal("fetch", fetchMock);
 
     render(<PresetsPanel gameState={baseGameState as any} updateState={vi.fn()} />);
     await act(flushMicrotasks);
@@ -109,34 +75,26 @@ describe("PresetsPanel Component", () => {
     fireEvent.click(screen.getByText("Save Home"));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/teams"), expect.objectContaining({
-        method: "POST",
-        body: expect.stringContaining('"name":"Current Home"'),
-      }));
+      expect(saveTeamToLibrary).toHaveBeenCalledWith(
+        "Current Home",
+        expect.objectContaining({ name: "Current Home" }),
+      );
     });
   });
 
   it("asks to confirm before overwriting an existing preset name", async () => {
-    const mockUser = {
-      getIdToken: vi.fn().mockResolvedValue("test-token"),
-    };
-
+    const existingPreset = { name: "Current Home", team: { name: "Current Home", abbreviation: "HOM", logo: "", color: "#000", players: [] }, updatedAt: 1 };
+    const saveTeamToLibrary = vi.fn().mockResolvedValue(undefined);
     vi.mocked(useStore).mockReturnValue({
-      user: mockUser,
+      user: { getIdToken: vi.fn().mockResolvedValue("test-token") },
+      teamLibrary: [existingPreset],
+      loadTeamLibrary: vi.fn().mockResolvedValue(undefined),
+      saveTeamToLibrary,
+      deleteTeamFromLibrary: vi.fn().mockResolvedValue(undefined),
     } as any);
-
-    const existingPreset = { name: "Current Home", team: { name: "Current Home", abbreviation: "HOM", logo: "" } };
-    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
-      if (url.includes("/api/teams") && init?.method === "POST") {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({ teams: [existingPreset] }) });
-      }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve([existingPreset]) });
-    });
-    vi.stubGlobal("fetch", fetchMock);
 
     render(<PresetsPanel gameState={baseGameState as any} updateState={vi.fn()} />);
     await act(flushMicrotasks);
-    // Wait for the existing "Current Home" preset to load so the name-conflict check has data.
     await screen.findAllByText("Current Home");
 
     fireEvent.click(screen.getByText("Save Home"));
@@ -145,9 +103,10 @@ describe("PresetsPanel Component", () => {
 
     fireEvent.click(screen.getByText("Overwrite"));
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/teams"), expect.objectContaining({
-        method: "POST",
-      }));
+      expect(saveTeamToLibrary).toHaveBeenCalledWith(
+        "Current Home",
+        expect.objectContaining({ name: "Current Home" }),
+      );
     });
   });
 });

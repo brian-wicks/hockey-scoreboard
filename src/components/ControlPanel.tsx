@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useStore } from "../store";
 import AppSidebar, { ActiveTab } from "./control-panel/AppSidebar";
@@ -28,7 +29,11 @@ export default function ControlPanel() {
     undoStack = [],
     isViewer,
   } = useStore();
-  const [activeTab, setActiveTab] = useState<ActiveTab>("controls");
+  const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const validTabs: ActiveTab[] = ["controls", "settings", "presets", "streamdeck", "games"];
+  const initialTab = validTabs.includes(requestedTab as ActiveTab) ? (requestedTab as ActiveTab) : "controls";
+  const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   useKeyboardShortcuts((activeTab === "controls" || activeTab === "streamdeck") && !isViewer);

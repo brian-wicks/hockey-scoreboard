@@ -14,6 +14,7 @@ vi.mock("firebase/auth", () => ({
 }));
 
 // Mock lazy-loaded components to speed up tests and avoid complexity
+vi.mock("../components/Dashboard", () => ({ default: () => <div>Dashboard</div> }));
 vi.mock("../components/ControlPanel", () => ({ default: () => <div>Control Panel</div> }));
 vi.mock("../components/Overlay", () => ({ default: () => <div>Overlay</div> }));
 vi.mock("../components/JumbotronScoreboard", () => ({ default: () => <div>Jumbotron</div> }));
@@ -104,7 +105,27 @@ describe("App Component", () => {
     expect(screen.getByText(/Share Link Not Found/i)).toBeInTheDocument();
   });
 
-  it("renders main routes when authenticated", async () => {
+  it("renders the Dashboard at the root route when authenticated", async () => {
+    vi.mocked(useStore).mockImplementation((selector: any) => {
+      const state = {
+        user: { uid: "123" },
+        isViewer: false,
+        authLoading: false,
+        authError: null,
+        setUser: vi.fn(),
+        setAuthLoading: vi.fn(),
+        ensureInitialized: vi.fn(),
+      };
+      return selector(state);
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText("Dashboard")).toBeInTheDocument();
+  });
+
+  it("renders ControlPanel at /game", async () => {
+    window.history.pushState({}, "Game", "/game");
     vi.mocked(useStore).mockImplementation((selector: any) => {
       const state = {
         user: { uid: "123" },
