@@ -204,6 +204,12 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     // proper CSP needs to allowlist Firebase's auth/API domains before it can be
     // turned on without breaking sign-in, so it's left off for now.
     contentSecurityPolicy: false,
+    // Helmet's default COOP (same-origin) cuts off the opener's connection to the
+    // signInWithPopup auth window — Google sign-in still succeeds, but the app never
+    // hears about it and reports auth/popup-closed-by-user. same-origin-allow-popups
+    // keeps COOP's cross-origin isolation while still letting window.opener talk to
+    // popups this page opens.
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
   }));
 
   // Only the app's own origin (and, outside production, the Vite dev server) may
