@@ -3,6 +3,15 @@ const appScript = isWindows ? "cmd.exe" : "./node_modules/.bin/tsx";
 const appArgs = isWindows ? "/c .\\node_modules\\.bin\\tsx.cmd server.ts" : "server.ts";
 const name = `hockey-scoreboard-${process.env.NODE_ENV || "development"}`;
 
+// Deploy target (SSH user/host and filesystem path) comes from the environment
+// rather than being hardcoded here, since this file is committed — set these in
+// your shell before running `npm run deploy:stage`/`deploy:prod` (or export them
+// from a local, gitignored file you source first).
+const deployUser = process.env.DEPLOY_USER || "CHANGEME_deploy_user";
+const deployHost = process.env.DEPLOY_HOST || "CHANGEME_deploy_host";
+const deployBasePath = process.env.DEPLOY_BASE_PATH || `/home/${deployUser}/hockey-scoreboard`;
+const deployRepo = process.env.DEPLOY_REPO || "https://github.com/CHANGEME/hockey-scoreboard.git";
+
 module.exports = {
   apps: [
     {
@@ -35,12 +44,12 @@ module.exports = {
 
   deploy: {
     staging: {
-      user: "brianw",
-      host: "54.38.215.21",
+      user: deployUser,
+      host: deployHost,
       key: "id_rsa",
       ref: "origin/main",
-      repo: "https://github.com/brian-wicks/hockey-scoreboard.git",
-      path: "/home/brianw/hockey-scoreboard/stage",
+      repo: deployRepo,
+      path: `${deployBasePath}/stage`,
       env: {
         NODE_ENV: "staging",
         PORT: 3697,
@@ -50,11 +59,11 @@ module.exports = {
         "npm ci && npm run build && pm2 startOrReload ecosystem.config.cjs --env staging",
     },
     production: {
-      user: "brianw",
-      host: ["54.38.215.21"],
+      user: deployUser,
+      host: [deployHost],
       ref: "origin/main",
-      repo: "https://github.com/brian-wicks/hockey-scoreboard.git",
-      path: "/home/brianw/hockey-scoreboard/prod",
+      repo: deployRepo,
+      path: `${deployBasePath}/prod`,
       env: {
         NODE_ENV: "production",
         PORT: 3696,
