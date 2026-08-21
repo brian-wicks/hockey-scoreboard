@@ -8,7 +8,9 @@ import { readFileSync, writeFileSync, existsSync } from "fs";
 import { initializeApp, cert } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import cors from "cors";
-import { 
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import {
   getUserConfig, 
   setUserConfig, 
   getGameState, 
@@ -171,28 +173,75 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   const PDF_LAYOUT_FILE = join(dataDir, "gamesheet-layout.json");
 
   const app = express();
-  
+
+  // Trust the first hop (reverse proxy) so req.ip / rate limiting see the real client IP.
+  app.set("trust proxy", 1);
+
   // Simple request logger
   app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
     next();
   });
 
-  app.use(cors({
-    origin: (origin, callback) => {
-      // Allow all origins in development for debugging
-      callback(null, true);
-    },
-    credentials: true
+  app.use(helmet({
+    // The SPA is served from this same origin with no external script sources; a
+    // proper CSP needs to allowlist Firebase's auth/API domains before it can be
+    // turned on without breaking sign-in, so it's left off for now.
+    contentSecurityPolicy: false,
   }));
+
+  // Only the app's own origin (and, outside production, the Vite dev server) may
+  // call the API or open a socket. The client never uses cookies (Bearer tokens /
+  // handshake auth tokens instead), so credentials: true isn't needed.
+  const allowedOrigins = new Set(
+    [
+      process.env.VITE_BASE_URL,
+      process.env.NODE_ENV !== "production" ? "http://localhost:5173" : null,
+      process.env.NODE_ENV !== "production" ? "http://127.0.0.1:5173" : null,
+    ].filter((value): value is string => Boolean(value))
+  );
+  const corsOriginCheck: cors.CorsOptions["origin"] = (origin, callback) => {
+    // No Origin header means a same-origin request or a non-browser client (curl, server-to-server).
+    if (!origin || allowedOrigins.has(origin)) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error("Not allowed by CORS"));
+  };
+
+  app.use(cors({ origin: corsOriginCheck }));
+  app.use((err: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (err instanceof Error && err.message === "Not allowed by CORS") {
+      res.status(403).json({ error: "Not allowed by CORS" });
+      return;
+    }
+    next(err);
+  });
   app.use(express.json());
+
+  // Broad safety net against scripted abuse of the REST API.
+  const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 600,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  app.use("/api", apiLimiter);
+
+  // Share links are unauthenticated by design, so creating one is limited more
+  // tightly than general API traffic.
+  const shareCreationLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
 
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
     cors: {
-      origin: true,
+      origin: corsOriginCheck,
       methods: ["GET", "POST"],
-      credentials: true
     },
     allowEIO3: true,
     transports: ["polling", "websocket"]
@@ -1142,7 +1191,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     res.json({ shareId });
   });
 
-  app.post("/api/share", authenticateExpress, (req, res) => {
+  app.post("/api/share", shareCreationLimiter, authenticateExpress, (req, res) => {
     const userId = (req as any).user.uid;
     // Unlike randomId() (used for non-sensitive event/roster ids), a share link is an
     // unauthenticated bearer token for a user's live game state, so it needs a
