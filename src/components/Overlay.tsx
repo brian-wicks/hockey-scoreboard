@@ -231,13 +231,14 @@ export default function Overlay({ skipConnect = false }: { skipConnect?: boolean
   }, [gameState]);
 
   const jumbotronGoalHighlight = gameState?.jumbotronGoalHighlight;
+  const goalHighlightLowerThird = gameState?.lowerThird;
   useEffect(() => {
     if (!jumbotronGoalHighlight) return;
     const remainingMs = jumbotronGoalHighlight.expiresAt - (Date.now() + serverTimeOffsetMs);
     const hide = () => {
       updateState({
         jumbotronGoalHighlight: null,
-        lowerThird: { ...(gameState?.lowerThird ?? { active: false, title: "", subtitle: "" }), active: false },
+        lowerThird: { ...(goalHighlightLowerThird ?? { active: false, title: "", subtitle: "" }), active: false },
       });
     };
     if (remainingMs <= 0) {
@@ -246,7 +247,7 @@ export default function Overlay({ skipConnect = false }: { skipConnect?: boolean
     }
     const timer = window.setTimeout(hide, remainingMs + 50);
     return () => window.clearTimeout(timer);
-  }, [jumbotronGoalHighlight?.expiresAt, serverTimeOffsetMs]);
+  }, [jumbotronGoalHighlight?.expiresAt, serverTimeOffsetMs, updateState, goalHighlightLowerThird]);
 
   useEffect(() => {
     if (!gameState) return;

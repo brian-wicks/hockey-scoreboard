@@ -672,7 +672,6 @@ function formatGivenFromTimes(startClockTime?: string, endClockTime?: string): s
 function formatPimMinutesFromDuration(durationMs: number | undefined): string {
   if (typeof durationMs !== "number" || !Number.isFinite(durationMs) || durationMs <= 0) return "";
   const mins = Math.round(durationMs / 60000);
-  if (![2, 5, 10].includes(mins)) return `${mins}`;
   return `${mins}`;
 }
 type PeriodTotals = { "1": number; "2": number; "3": number; "OT": number; total: number };

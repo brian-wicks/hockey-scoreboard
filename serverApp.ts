@@ -321,6 +321,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   interface UserContext {
     gameState: GameState;
     clockInterval: NodeJS.Timeout | null;
+    lastPersistedAt: number;
   }
   const userContexts = new Map<string, UserContext>();
 
@@ -387,6 +388,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       context = {
         gameState,
         clockInterval: null,
+        lastPersistedAt: 0,
       };
       userContexts.set(userId, context);
       reconcileRunningClock(userId, gameState);
@@ -870,10 +872,22 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     return { ...gameState, serverTime: now() };
   }
 
-  function emitGameState(userId: string) {
+  // The clock tick interval calls this 10x/second while a clock is running; a
+  // synchronous better-sqlite3 write on every tick would block the event loop for
+  // every connected user. Ticks pass throttlePersist so the DB write happens at
+  // most once per PERSIST_THROTTLE_MS — reconcileRunningClock() already recovers
+  // the exact elapsed time from a stale persisted lastUpdate on reload/restart, so
+  // the bounded staleness this introduces is safe.
+  const PERSIST_THROTTLE_MS = 1000;
+
+  function emitGameState(userId: string, options: { throttlePersist?: boolean } = {}) {
     const context = getUserContext(userId);
     io.to(userId).emit("gameState", buildGameStatePayload(context.gameState));
-    saveGameState(userId, JSON.stringify(context.gameState));
+    const currentTime = now();
+    if (!options.throttlePersist || currentTime - context.lastPersistedAt >= PERSIST_THROTTLE_MS) {
+      saveGameState(userId, JSON.stringify(context.gameState));
+      context.lastPersistedAt = currentTime;
+    }
   }
 
   function emitGameStateTo(socket: Socket, gameState: GameState) {
@@ -905,17 +919,19 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
           gameState.homeTeam.penalties = tickTeamPenalties(gameState, gameState.homeTeam, "home", elapsed);
           gameState.awayTeam.penalties = tickTeamPenalties(gameState, gameState.awayTeam, "away", elapsed);
 
+          let periodEnded = false;
           if (gameState.clock.timeRemaining <= 0) {
             gameState.clock.timeRemaining = 0;
             appendEvent(gameState, createPeriodEndEvent(gameState));
             gameState.clock.isRunning = false;
+            periodEnded = true;
             if (context.clockInterval) {
               clearInterval(context.clockInterval);
               context.clockInterval = null;
             }
           }
 
-          emitGameState(userId);
+          emitGameState(userId, { throttlePersist: !periodEnded });
         }
       } catch (error) {
         // This runs unattended every 100ms outside any request/socket-event context —
@@ -1065,6 +1081,10 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     });
 
     onSocketEvent(socket, "startClock", () => {
+      if (isViewer) {
+        logger.warn({ userId, socketId: socket.id }, "[Socket] Unauthorized startClock attempt from viewer");
+        return;
+      }
       const context = getUserContext(userId);
       const { gameState } = context;
       if (!gameState.clock.isRunning && gameState.clock.timeRemaining > 0) {
@@ -1076,6 +1096,10 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     });
 
     onSocketEvent(socket, "stopClock", () => {
+      if (isViewer) {
+        logger.warn({ userId, socketId: socket.id }, "[Socket] Unauthorized stopClock attempt from viewer");
+        return;
+      }
       const context = getUserContext(userId);
       const { gameState } = context;
       if (gameState.clock.isRunning) {
@@ -1091,14 +1115,23 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     });
 
     onSocketEvent(socket, "setClock", (timeMs: number) => {
+      if (isViewer) {
+        logger.warn({ userId, socketId: socket.id }, "[Socket] Unauthorized setClock attempt from viewer");
+        return;
+      }
+      if (!Number.isFinite(timeMs)) return;
       const context = getUserContext(userId);
       const { gameState } = context;
-      gameState.clock.timeRemaining = timeMs;
+      gameState.clock.timeRemaining = Math.max(0, timeMs);
       gameState.clock.lastUpdate = now();
       emitGameState(userId);
     });
 
     onSocketEvent(socket, "clockIncrease", () => {
+      if (isViewer) {
+        logger.warn({ userId, socketId: socket.id }, "[Socket] Unauthorized clockIncrease attempt from viewer");
+        return;
+      }
       const context = getUserContext(userId);
       const { gameState } = context;
       gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining + 1000);
@@ -1106,13 +1139,17 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     });
 
     onSocketEvent(socket, "clockDecrease", () => {
+      if (isViewer) {
+        logger.warn({ userId, socketId: socket.id }, "[Socket] Unauthorized clockDecrease attempt from viewer");
+        return;
+      }
       const context = getUserContext(userId);
       const { gameState } = context;
       gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining - 1000);
       emitGameState(userId);
     });
 
-    onSocketEvent(socket, "resetGame", () => {
+    onSocketEvent(socket, "resetGame", (callback?: () => void) => {
       if (isViewer) return;
       logger.info({ userId }, "User requested hard reset to factory defaults");
       const context = getUserContext(userId);
@@ -1122,6 +1159,11 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       }
       context.gameState = getInitialGameState(userId, true);
       emitGameState(userId);
+      // Acknowledge directly to the requesting client once the reset broadcast has
+      // gone out, rather than having the client listen for the next arbitrary
+      // "gameState" event — a clock still ticking from the pre-reset state can emit
+      // its own broadcast in between, and a generic listener would race it.
+      if (typeof callback === "function") callback();
     });
 
     socket.on("disconnect", () => {

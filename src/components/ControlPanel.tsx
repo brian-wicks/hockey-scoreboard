@@ -63,6 +63,7 @@ export default function ControlPanel() {
           isConnected={isConnected}
           onUndo={undoLastUpdate}
           canUndo={undoStack.length > 0 && !isViewer}
+          undoCount={undoStack.length}
           onShare={() => setIsShareModalOpen(true)}
         />
 

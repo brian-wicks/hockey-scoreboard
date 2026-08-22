@@ -385,14 +385,18 @@ const defaultStreamDeckConfig: StreamDeckConfig = {
 
 let hasInitialized = false;
 const STATE_CACHE_KEY = "scoreboard:gameStateCache:v1";
-const MAX_UNDO_STEPS = 20;
+export const MAX_UNDO_STEPS = 20;
 
 const shouldSnapshotForUndo = (updates: Partial<GameState>) => {
   const home = updates.homeTeam;
   const away = updates.awayTeam;
   return (
     (home && (typeof home.score === "number" || typeof home.shots === "number" || Array.isArray(home.penalties))) ||
-    (away && (typeof away.score === "number" || typeof away.shots === "number" || Array.isArray(away.penalties)))
+    (away && (typeof away.score === "number" || typeof away.shots === "number" || Array.isArray(away.penalties))) ||
+    // Goal Review / Event Log edits (scorer, assists, infraction, etc.) only touch
+    // eventLog — without this, such an edit is never itself snapshotted, so a later
+    // undo of an unrelated action silently reverts it via a stale eventLog snapshot.
+    Array.isArray(updates.eventLog)
   );
 };
 
@@ -580,13 +584,14 @@ export const useStore = create<StoreState>((set, get) => ({
   startNewGame: (homeTeam: TeamState, awayTeam: TeamState) => {
     const { socket } = get();
     if (!socket) return;
-    // Fires once the server's post-reset broadcast has landed and been applied by
-    // the "gameState" listener in connect(), so this merges onto the fresh factory
-    // state rather than racing whatever was live before New Game was clicked.
-    socket.once("gameState", () => {
+    // Wait for the server's ack — which fires only after *this* reset has been
+    // applied and broadcast — rather than listening for the next arbitrary
+    // "gameState" event. A clock still ticking from the pre-reset state can emit
+    // its own broadcast in between, and a generic `socket.once` listener would
+    // race it, merging the new team names onto stale pre-reset state.
+    socket.emit("resetGame", () => {
       get().updateState({ homeTeam, awayTeam });
     });
-    socket.emit("resetGame");
     set({ undoStack: [] });
   },
 
@@ -889,16 +894,19 @@ export const useStore = create<StoreState>((set, get) => ({
       const apiUrl = BASE_URL === window.location.origin ? "" : BASE_URL;
 
       // Save to server
-      fetch(`${apiUrl}/api/shortcuts`, {
+      const response = await fetch(`${apiUrl}/api/shortcuts`, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify(shortcuts),
-      }).catch((error) => console.error("Failed to save shortcuts:", error));
+      });
+      if (!response.ok) {
+        console.error(`Failed to save shortcuts: ${response.status} ${response.statusText}`);
+      }
     } catch (error) {
-      console.error("Failed to get token for shortcut update:", error);
+      console.error("Failed to save shortcuts:", error);
     }
   },
 
@@ -913,16 +921,19 @@ export const useStore = create<StoreState>((set, get) => ({
       const apiUrl = BASE_URL === window.location.origin ? "" : BASE_URL;
 
       // Save to server
-      fetch(`${apiUrl}/api/shortcuts`, {
+      const response = await fetch(`${apiUrl}/api/shortcuts`, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify(defaultShortcuts),
-      }).catch((error) => console.error("Failed to save shortcuts:", error));
+      });
+      if (!response.ok) {
+        console.error(`Failed to reset shortcuts: ${response.status} ${response.statusText}`);
+      }
     } catch (error) {
-      console.error("Failed to get token for shortcut reset:", error);
+      console.error("Failed to reset shortcuts:", error);
     }
   },
 
@@ -961,16 +972,19 @@ export const useStore = create<StoreState>((set, get) => ({
       const apiUrl = BASE_URL === window.location.origin ? "" : BASE_URL;
 
       // Save to server
-      fetch(`${apiUrl}/api/streamdeck`, {
+      const response = await fetch(`${apiUrl}/api/streamdeck`, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify(config),
-      }).catch((error) => console.error("Failed to save Stream Deck config:", error));
+      });
+      if (!response.ok) {
+        console.error(`Failed to save Stream Deck config: ${response.status} ${response.statusText}`);
+      }
     } catch (error) {
-      console.error("Failed to get token for Stream Deck update:", error);
+      console.error("Failed to save Stream Deck config:", error);
     }
   },
 

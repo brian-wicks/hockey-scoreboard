@@ -87,7 +87,7 @@ export default function NewGameWizard({ isOpen, onClose, onStarted }: NewGameWiz
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" />
 
       <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-zinc-950/90 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl animate-in zoom-in-95 fade-in duration-200">
-        <div className="sticky top-0 flex items-center justify-between p-4 sm:p-6 border-b border-white/10 bg-zinc-950/90 backdrop-blur-2xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between p-4 sm:p-6 border-b border-white/10 bg-zinc-950 backdrop-blur-2xl">
           <h2 className="text-xl font-bold flex items-center gap-2 text-white">
             <PlayCircle className="text-indigo-400" size={24} />
             New Game

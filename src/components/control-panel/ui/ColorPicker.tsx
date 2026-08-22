@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { HexColorInput, HexColorPicker } from "react-colorful";
 import { cn } from "../../../utils/cn";
 import { useDropdownPlacement } from "../DropdownInputs";
@@ -15,14 +16,16 @@ interface ColorPickerProps {
  * OS-native <input type="color"> picker everywhere a team/button color is edited. */
 export function ColorPicker({ value, onChange, className, label = "Color" }: ColorPickerProps) {
   const [open, setOpen] = useState(false);
-  const { containerRef, dropUp } = useDropdownPlacement(open);
+  const { containerRef, dropUp, coords } = useDropdownPlacement(open);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
     const handlePointerDown = (e: PointerEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const target = e.target as Node;
+      if (containerRef.current?.contains(target)) return;
+      if (popoverRef.current?.contains(target)) return;
+      setOpen(false);
     };
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
@@ -52,17 +55,21 @@ export function ColorPicker({ value, onChange, className, label = "Color" }: Col
         aria-label={label}
         className="flex-1 bg-white/[0.05] border border-white/10 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none font-mono uppercase"
       />
-      {open && (
-        <div
-          className={cn(
-            "control-panel-color-popover absolute left-0 z-20 p-3 rounded-2xl border border-white/10",
-            "bg-zinc-950/95 backdrop-blur-xl shadow-2xl",
-            dropUp ? "bottom-full mb-2" : "top-full mt-2",
-          )}
-        >
-          <HexColorPicker color={value} onChange={onChange} />
-        </div>
-      )}
+      {open &&
+        coords &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            className="control-panel-color-popover fixed z-50 p-3 rounded-2xl border border-white/10 bg-zinc-950/95 backdrop-blur-xl shadow-2xl"
+            style={{
+              left: coords.left,
+              ...(dropUp ? { bottom: coords.bottom } : { top: coords.top }),
+            }}
+          >
+            <HexColorPicker color={value} onChange={onChange} />
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

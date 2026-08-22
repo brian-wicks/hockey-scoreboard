@@ -1,17 +1,20 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Share2, AlertCircle, LayoutPanelTop, LogOut, PresentationIcon, RotateCcw, Trophy, User as UserIcon, Menu, X } from "lucide-react";
-import { useStore } from "../../store";
+import { MAX_UNDO_STEPS, useStore } from "../../store";
 import { GlassButton } from "./ui/glass";
 
 interface ControlPanelHeaderProps {
   isConnected: boolean;
   onUndo: () => void;
   canUndo: boolean;
+  /** Current undo history length, used to warn once it's about to hit the cap —
+   * without this, history past MAX_UNDO_STEPS silently drops the oldest entries. */
+  undoCount?: number;
   onShare?: () => void;
 }
 
-export default function ControlPanelHeader({ isConnected, onUndo, canUndo, onShare }: ControlPanelHeaderProps) {
+export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoCount = 0, onShare }: ControlPanelHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const user = useStore((state) => state.user);
   const logout = useStore((state) => state.logout);
@@ -54,7 +57,11 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, onSha
             disabled={!canUndo}
             variant="secondary"
             className="px-2.5 sm:px-4"
-            title="Undo last score/shots/penalty change"
+            title={
+              undoCount >= MAX_UNDO_STEPS
+                ? `Undo last score/shots/penalty change (history limit of ${MAX_UNDO_STEPS} reached — oldest changes are no longer undoable)`
+                : "Undo last score/shots/penalty change"
+            }
           >
             <RotateCcw size={16} />
             <span className="hidden sm:inline">Undo</span>

@@ -6,6 +6,7 @@ import { useStore } from "../../store";
 
 vi.mock("../../store", () => ({
   useStore: vi.fn(),
+  MAX_UNDO_STEPS: 20,
 }));
 
 describe("ControlPanelHeader", () => {

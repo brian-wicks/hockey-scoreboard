@@ -85,7 +85,10 @@ export default function PenaltyItem({
   const handleTimeChange = (value: string) => {
     const timeMs = parseTimeInputMs(value);
     if (timeMs !== null) {
-      onChange({ ...penalty, timeRemaining: timeMs, duration: timeMs });
+      // Only the remaining time is being corrected here — `duration` is the
+      // penalty's original recorded length (used for gamesheet PIM), which this
+      // editor shouldn't silently rewrite.
+      onChange({ ...penalty, timeRemaining: timeMs });
     }
     setEditMode(false);
   };
