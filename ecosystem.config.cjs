@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const isWindows = process.platform === "win32";
 const appScript = isWindows ? "cmd.exe" : "./node_modules/.bin/tsx";
 const appArgs = isWindows ? "/c .\\node_modules\\.bin\\tsx.cmd server.ts" : "server.ts";
@@ -5,8 +7,8 @@ const name = `hockey-scoreboard-${process.env.NODE_ENV || "development"}`;
 
 // Deploy target (SSH user/host and filesystem path) comes from the environment
 // rather than being hardcoded here, since this file is committed — set these in
-// your shell before running `npm run deploy:stage`/`deploy:prod` (or export them
-// from a local, gitignored file you source first).
+// your local, gitignored .env (loaded above) before running
+// `npm run deploy:stage`/`deploy:prod`.
 const deployUser = process.env.DEPLOY_USER || "CHANGEME_deploy_user";
 const deployHost = process.env.DEPLOY_HOST || "CHANGEME_deploy_host";
 const deployBasePath = process.env.DEPLOY_BASE_PATH || `/home/${deployUser}/hockey-scoreboard`;
