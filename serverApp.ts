@@ -216,7 +216,9 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     // Google profile photos are arbitrary user-supplied URLs, not a fixed allowlist.
     // connect-src covers the Firebase Auth endpoints the SDK calls directly from the
     // page; frame-src covers the authDomain iframe above (the popup window itself runs
-    // in its own origin/CSP context, so it isn't governed by this page's CSP at all).
+    // in its own origin/CSP context, so it isn't governed by this page's CSP at all) —
+    // plus blob:, which the gamesheet PDF layout editor needs for its live preview
+    // (it renders a generated PDF via URL.createObjectURL into an <iframe>).
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
@@ -230,7 +232,9 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
           "https://securetoken.googleapis.com",
           "https://apis.google.com",
         ],
-        frameSrc: firebaseAuthDomain ? ["'self'", `https://${firebaseAuthDomain}`] : ["'self'", "https://*.firebaseapp.com"],
+        frameSrc: firebaseAuthDomain
+          ? ["'self'", "blob:", `https://${firebaseAuthDomain}`]
+          : ["'self'", "blob:", "https://*.firebaseapp.com"],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
         formAction: ["'self'"],

@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Minus } from "lucide-react";
 import { Penalty, TeamPlayer } from "../../store";
 import { parseTimeInputMs } from "../../utils/clock";
@@ -165,48 +166,52 @@ export default function PenaltyItem({
           className="w-16 bg-white/[0.05] border border-white/10 text-center rounded-md p-1 text-sm font-mono focus:border-indigo-400/60 focus:outline-none"
           placeholder="#"
         />
-        {playerOpen && (
-          <div
-            className={`absolute left-0 z-20 w-44 overflow-auto rounded-md border border-white/10 bg-zinc-950/95 backdrop-blur-sm shadow-lg ${
-              playerDropdown.dropUp ? "bottom-full mb-1" : "top-full mt-1"
-            }`}
-            style={{ maxHeight: `${playerDropdown.maxHeight}px` }}
-          >
-            {playerOptions.length === 0 ? (
-              <div className="px-2 py-1 text-xs text-zinc-500">No matches</div>
-            ) : (
-              playerOptions.map((player, index) => {
-                const labelParts = [
-                  player.name.trim(),
-                  player.position ? `(${player.position})` : "",
-                ].filter(Boolean);
-                return (
-                  <button
-                    key={player.id}
-                    type="button"
-                    ref={(el) => {
-                      playerOptionRefs.current[index] = el;
-                    }}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      const committed = commitPlayerNumber(player.jerseyNumber);
-                      setPlayerDraft(committed);
-                      setPlayerOpen(false);
-                      setActivePlayerIndex(-1);
-                    }}
-                    onMouseEnter={() => setActivePlayerIndex(index)}
-                    className={`w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-white/[0.08] ${
-                      index === normalizedPlayerIndex ? "bg-white/[0.08]" : ""
-                    }`}
-                  >
-                    <span className="font-mono">{player.jerseyNumber || "--"}</span>
-                    {labelParts.length > 0 && <span className="text-zinc-400"> - {labelParts.join(" ")}</span>}
-                  </button>
-                );
-              })
-            )}
-          </div>
-        )}
+        {playerOpen && playerDropdown.coords &&
+          createPortal(
+            <div
+              className="fixed z-50 w-44 overflow-auto rounded-md border border-white/10 bg-zinc-950/95 backdrop-blur-sm shadow-lg"
+              style={{
+                left: playerDropdown.coords.left,
+                maxHeight: `${playerDropdown.maxHeight}px`,
+                ...(playerDropdown.dropUp ? { bottom: playerDropdown.coords.bottom } : { top: playerDropdown.coords.top }),
+              }}
+            >
+              {playerOptions.length === 0 ? (
+                <div className="px-2 py-1 text-xs text-zinc-500">No matches</div>
+              ) : (
+                playerOptions.map((player, index) => {
+                  const labelParts = [
+                    player.name.trim(),
+                    player.position ? `(${player.position})` : "",
+                  ].filter(Boolean);
+                  return (
+                    <button
+                      key={player.id}
+                      type="button"
+                      ref={(el) => {
+                        playerOptionRefs.current[index] = el;
+                      }}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        const committed = commitPlayerNumber(player.jerseyNumber);
+                        setPlayerDraft(committed);
+                        setPlayerOpen(false);
+                        setActivePlayerIndex(-1);
+                      }}
+                      onMouseEnter={() => setActivePlayerIndex(index)}
+                      className={`w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-white/[0.08] ${
+                        index === normalizedPlayerIndex ? "bg-white/[0.08]" : ""
+                      }`}
+                    >
+                      <span className="font-mono">{player.jerseyNumber || "--"}</span>
+                      {labelParts.length > 0 && <span className="text-zinc-400"> - {labelParts.join(" ")}</span>}
+                    </button>
+                  );
+                })
+              )}
+            </div>,
+            document.body,
+          )}
       </div>
       <PenaltyReasonInput
           value={penalty.infraction}

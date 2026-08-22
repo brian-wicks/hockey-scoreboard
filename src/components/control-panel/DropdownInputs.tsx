@@ -1,12 +1,26 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { PENALTY_OPTIONS } from "../../constants/penaltyOptions";
+
+interface DropdownCoords {
+  left: number;
+  top: number;
+  bottom: number;
+}
 
 export function useDropdownPlacement(open: boolean) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [dropUp, setDropUp] = useState(false);
   const [maxHeight, setMaxHeight] = useState(224);
+  // Viewport-relative coordinates for the popover, which is portalled to <body> (see
+  // the callers below) rather than positioned with CSS `absolute` against this
+  // container — a plain `absolute` popover only paints above elements within its own
+  // stacking context, and every GlassPanel forms its own via backdrop-filter, so a
+  // dropdown opened inside one panel would render *underneath* any GlassPanel that
+  // happens to come later in the DOM (e.g. the Overlay panel after the team panels).
+  const [coords, setCoords] = useState<DropdownCoords | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
 
     const updatePlacement = () => {
@@ -21,6 +35,7 @@ export function useDropdownPlacement(open: boolean) {
 
       setDropUp(shouldDropUp);
       setMaxHeight(Math.max(120, Math.min(224, Math.floor(available))));
+      setCoords({ left: rect.left, top: rect.bottom + 4, bottom: window.innerHeight - rect.top + 4 });
     };
 
     updatePlacement();
@@ -32,7 +47,7 @@ export function useDropdownPlacement(open: boolean) {
     };
   }, [open]);
 
-  return { containerRef, dropUp, maxHeight };
+  return { containerRef, dropUp, maxHeight, coords };
 }
 
 interface PenaltyReasonInputProps {
@@ -52,7 +67,7 @@ export function PenaltyReasonInput({ value, onChange, inputClassName, containerC
   const [activeIndex, setActiveIndex] = useState(-1);
   const suppressBlurCommitRef = useRef(false);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const { containerRef, dropUp, maxHeight } = useDropdownPlacement(open);
+  const { containerRef, dropUp, maxHeight, coords } = useDropdownPlacement(open);
 
   const inputValue = open ? draft : value;
 
@@ -142,42 +157,46 @@ export function PenaltyReasonInput({ value, onChange, inputClassName, containerC
         className={inputClassName}
         placeholder="Infraction"
       />
-      {open && (
-        <div
-          className={`absolute left-0 z-20 w-56 overflow-auto rounded-md border border-white/10 bg-zinc-950/95 backdrop-blur-sm shadow-lg ${
-            dropUp ? "bottom-full mb-1" : "top-full mt-1"
-          }`}
-          style={{ maxHeight: `${maxHeight}px` }}
-        >
-          {options.length === 0 ? (
-            <div className="px-2 py-1 text-xs text-zinc-500">No matches</div>
-          ) : (
-            options.map((option, index) => (
-              <button
-                key={option.code}
-                type="button"
-                ref={(el) => {
-                  optionRefs.current[index] = el;
-                }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  setDraft(option.code);
-                  onChange(option.code);
-                  setOpen(false);
-                  setActiveIndex(-1);
-                }}
-                onMouseEnter={() => setActiveIndex(index)}
-                className={`w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-white/[0.08] ${
-                  index === normalizedActiveIndex ? "bg-white/[0.08]" : ""
-                }`}
-              >
-                <span className="font-mono">{option.code}</span>
-                <span className="text-zinc-400"> - {option.label}</span>
-              </button>
-            ))
-          )}
-        </div>
-      )}
+      {open && coords &&
+        createPortal(
+          <div
+            className="fixed z-50 w-56 overflow-auto rounded-md border border-white/10 bg-zinc-950/95 backdrop-blur-sm shadow-lg"
+            style={{
+              left: coords.left,
+              maxHeight: `${maxHeight}px`,
+              ...(dropUp ? { bottom: coords.bottom } : { top: coords.top }),
+            }}
+          >
+            {options.length === 0 ? (
+              <div className="px-2 py-1 text-xs text-zinc-500">No matches</div>
+            ) : (
+              options.map((option, index) => (
+                <button
+                  key={option.code}
+                  type="button"
+                  ref={(el) => {
+                    optionRefs.current[index] = el;
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setDraft(option.code);
+                    onChange(option.code);
+                    setOpen(false);
+                    setActiveIndex(-1);
+                  }}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  className={`w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-white/[0.08] ${
+                    index === normalizedActiveIndex ? "bg-white/[0.08]" : ""
+                  }`}
+                >
+                  <span className="font-mono">{option.code}</span>
+                  <span className="text-zinc-400"> - {option.label}</span>
+                </button>
+              ))
+            )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -211,7 +230,7 @@ export function SearchDropdownInput({
   const [activeIndex, setActiveIndex] = useState(-1);
   const suppressBlurCommitRef = useRef(false);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const { containerRef, dropUp, maxHeight } = useDropdownPlacement(open);
+  const { containerRef, dropUp, maxHeight, coords } = useDropdownPlacement(open);
 
   const inputValue = open ? draft : value;
 
@@ -304,42 +323,46 @@ export function SearchDropdownInput({
         className={inputClassName}
         placeholder={placeholder}
       />
-      {open && (
-        <div
-          className={`absolute left-0 z-20 w-56 overflow-auto rounded-md border border-white/10 bg-zinc-950/95 backdrop-blur-sm shadow-lg ${
-            dropUp ? "bottom-full mb-1" : "top-full mt-1"
-          }`}
-          style={{ maxHeight: `${maxHeight}px` }}
-        >
-          {filteredOptions.length === 0 ? (
-            <div className="px-2 py-1 text-xs text-zinc-500">No matches</div>
-          ) : (
-            filteredOptions.map((option, index) => (
-              <button
-                key={`${option.value}-${index}`}
-                type="button"
-                ref={(el) => {
-                  optionRefs.current[index] = el;
-                }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  setDraft(option.value);
-                  onChange(option.value);
-                  setOpen(false);
-                  setActiveIndex(-1);
-                }}
-                onMouseEnter={() => setActiveIndex(index)}
-                className={`w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-white/[0.08] ${
-                  index === normalizedActiveIndex ? "bg-white/[0.08]" : ""
-                }`}
-              >
-                <span className="font-mono">{option.value}</span>
-                {option.label ? <span className="text-zinc-400"> - {option.label}</span> : null}
-              </button>
-            ))
-          )}
-        </div>
-      )}
+      {open && coords &&
+        createPortal(
+          <div
+            className="fixed z-50 w-56 overflow-auto rounded-md border border-white/10 bg-zinc-950/95 backdrop-blur-sm shadow-lg"
+            style={{
+              left: coords.left,
+              maxHeight: `${maxHeight}px`,
+              ...(dropUp ? { bottom: coords.bottom } : { top: coords.top }),
+            }}
+          >
+            {filteredOptions.length === 0 ? (
+              <div className="px-2 py-1 text-xs text-zinc-500">No matches</div>
+            ) : (
+              filteredOptions.map((option, index) => (
+                <button
+                  key={`${option.value}-${index}`}
+                  type="button"
+                  ref={(el) => {
+                    optionRefs.current[index] = el;
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setDraft(option.value);
+                    onChange(option.value);
+                    setOpen(false);
+                    setActiveIndex(-1);
+                  }}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  className={`w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-white/[0.08] ${
+                    index === normalizedActiveIndex ? "bg-white/[0.08]" : ""
+                  }`}
+                >
+                  <span className="font-mono">{option.value}</span>
+                  {option.label ? <span className="text-zinc-400"> - {option.label}</span> : null}
+                </button>
+              ))
+            )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
