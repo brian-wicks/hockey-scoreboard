@@ -119,7 +119,7 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
       <GlassPanel>
         <div className="flex items-center justify-between border-b border-white/10 pb-4">
           <div>
-            <h2 className="text-xl font-bold text-zinc-100">Team Presets</h2>
+            <h2 className="text-xl font-bold text-zinc-100">Teams</h2>
             <p className="text-sm text-zinc-400 mt-1">Save the current teams to your library, or load a saved team into Home or Away.</p>
           </div>
         </div>

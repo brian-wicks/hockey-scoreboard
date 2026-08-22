@@ -12,7 +12,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { id: "controls", label: "Controls", icon: House },
   { id: "settings", label: "Settings", icon: Settings },
-  { id: "presets", label: "Presets", icon: Bookmark },
+  { id: "presets", label: "Teams", icon: Bookmark },
   { id: "streamdeck", label: "Deck", icon: LayoutGrid },
   { id: "games", label: "Games", icon: Database },
 ];

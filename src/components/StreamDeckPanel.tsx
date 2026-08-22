@@ -16,6 +16,8 @@ import {
   RotateCcw,
   Info,
   Target,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { useStore, ShortcutAction, StreamDeckButton } from "../store";
@@ -376,6 +378,18 @@ export default function StreamDeckPanel() {
 
   return (
     <div className="flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto">
+      <div className="flex items-center justify-between mb-2 px-1">
+        <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Live Preview</span>
+        <button
+          type="button"
+          onClick={() => updateState({ overlayVisible: !gameState.overlayVisible })}
+          className="p-2 rounded-lg bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] text-zinc-300 hover:text-white transition-colors"
+          title={gameState.overlayVisible ? "Hide Overlay" : "Show Overlay"}
+          aria-label={gameState.overlayVisible ? "Hide Overlay" : "Show Overlay"}
+        >
+          {gameState.overlayVisible ? <Eye size={16} /> : <EyeOff size={16} />}
+        </button>
+      </div>
       <ScoreboardPreview />
 
       <div className="grid grid-cols-5 gap-2 sm:gap-4 p-2 sm:p-6 bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-3xl shadow-inner mb-8 mx-auto w-full max-w-2xl lg:max-w-3xl">

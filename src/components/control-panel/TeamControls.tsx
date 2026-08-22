@@ -70,16 +70,18 @@ export default function TeamControls({ team, state, gameState, eventLog, updateS
           team === "home" ? "min-[1200px]:-left-[240px]" : "min-[1200px]:-right-[240px]"
         } min-[1200px]:w-[220px]`}
       />
-      <div className="flex items-center justify-between pb-4 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <span
-            className="w-1.5 h-10 rounded-full"
-            style={{ backgroundColor: state.color, boxShadow: `0 0 12px ${state.color}88` }}
-          />
-          {state.logo && <img src={state.logo} alt={state.abbreviation} className="h-8 w-8 object-contain" />}
-          <h2 className="text-2xl font-bold text-zinc-100">{state.name}</h2>
+      <div className="flex flex-col gap-3 pb-1">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {state.logo && <img src={state.logo} alt={state.abbreviation} className="h-8 w-8 object-contain" />}
+            <h2 className="text-2xl font-bold text-zinc-100">{state.name}</h2>
+          </div>
+          <span className="text-zinc-500 font-mono">{state.abbreviation}</span>
         </div>
-        <span className="text-zinc-500 font-mono">{state.abbreviation}</span>
+        <div
+          className="h-1 rounded-full"
+          style={{ backgroundColor: state.color, boxShadow: `0 0 10px ${state.color}88` }}
+        />
       </div>
 
       <div className="flex flex-col gap-2">

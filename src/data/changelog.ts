@@ -11,6 +11,35 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.11.0',
+    date: '2026-08-22',
+    sections: {
+      added: [
+        'Add a new Dashboard with a resume-game card, quick actions, and recent game history.',
+        'Add a guided New Game wizard for picking or creating teams before starting a game.',
+        'Add a dedicated Team Library screen for managing saved teams independent of an active game.',
+        'Show the already-selected team at the top of the New Game wizard while picking the other side.',
+        'Add an eye toggle on the Stream Deck page to show/hide the live overlay.',
+      ],
+      changed: [
+        'Replace native browser confirmation popups with themed in-app dialogs when loading or deleting saved games and teams.',
+        'Replace the native color picker with a themed picker for team and Stream Deck colors.',
+        'Harden the app against abuse ahead of wider availability (rate limiting, stricter cross-origin rules, security headers).',
+        'Updated dependencies, including security patches.',
+        'Rename "Presets" to "Teams" in the Control Panel sidebar.',
+        'Replace the divider under each team\'s name with a bar matching their team color.',
+      ],
+      fixed: [
+        'Fix Google sign-in failing to complete.',
+        'Fix an invalid game-state update from a client being able to crash the live scoreboard for every connected user.',
+        'Fix the version badge overlapping the mobile bottom navigation bar.',
+        'Fix team logos not appearing on the New Game wizard\'s review step.',
+        'Fix the penalty player/reason dropdown appearing behind the Overlay panel on the Control Panel.',
+        'Fix the gamesheet PDF preview failing to load.',
+      ],
+    },
+  },
+  {
     version: '1.10.0',
     date: '2026-08-20',
     sections: {

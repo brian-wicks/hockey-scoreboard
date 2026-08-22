@@ -129,6 +129,7 @@ export default function NewGameWizard({ isOpen, onClose, onStarted }: NewGameWiz
                 setStep("review");
               }}
               onBack={() => setStep("home")}
+              otherSelection={{ label: "Home", draft: homeDraft }}
             />
           )}
           {step === "review" && (

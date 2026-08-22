@@ -24,11 +24,13 @@ function TeamSummaryCard({
 }) {
   return (
     <div className={`p-4 flex flex-col items-center gap-3 ${glassInsetClass}`}>
-      <div
-        className="w-12 h-12 rounded-full border border-white/20"
-        style={{ backgroundColor: draft.identity.color }}
-        aria-hidden
-      />
+      <div className="w-12 h-12 rounded-full border border-white/20 overflow-hidden flex items-center justify-center bg-white/[0.04]" aria-hidden>
+        {draft.identity.logo ? (
+          <img src={draft.identity.logo} alt="" className="w-full h-full object-contain" />
+        ) : (
+          <div className="w-full h-full" style={{ backgroundColor: draft.identity.color }} />
+        )}
+      </div>
       <div className="text-center">
         <div className="font-semibold text-zinc-100">{draft.identity.name || "Unnamed Team"}</div>
         <div className="text-xs font-mono text-zinc-400">{draft.identity.abbreviation || "-"}</div>

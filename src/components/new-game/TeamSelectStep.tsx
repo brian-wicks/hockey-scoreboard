@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { SavedTeam, TeamPlayer } from "../../store";
-import { GlassButton } from "../control-panel/ui/glass";
+import { GlassButton, glassInsetClass } from "../control-panel/ui/glass";
 import TeamEditorFields, { TeamIdentityDraft } from "../team/TeamEditorFields";
 import TeamLibraryGrid from "../team/TeamLibraryGrid";
 
@@ -14,6 +14,10 @@ interface TeamSelectStepProps {
   side: "home" | "away";
   onConfirm: (draft: TeamDraft) => void;
   onBack?: () => void;
+  /** The other side's already-confirmed team, if there is one — shown as a small
+   * summary at the top so it stays clear which team was already picked while
+   * choosing this one. */
+  otherSelection?: { label: string; draft: TeamDraft };
 }
 
 const DEFAULT_COLOR: Record<"home" | "away", string> = {
@@ -21,7 +25,7 @@ const DEFAULT_COLOR: Record<"home" | "away", string> = {
   away: "#ef4444",
 };
 
-export default function TeamSelectStep({ side, onConfirm, onBack }: TeamSelectStepProps) {
+export default function TeamSelectStep({ side, onConfirm, onBack, otherSelection }: TeamSelectStepProps) {
   const [mode, setMode] = useState<"library" | "create">("library");
   const [identity, setIdentity] = useState<TeamIdentityDraft>({
     name: "",
@@ -57,6 +61,30 @@ export default function TeamSelectStep({ side, onConfirm, onBack }: TeamSelectSt
         <h3 className="text-lg font-bold text-white">{sideLabel} Team</h3>
         <p className="text-sm text-zinc-400 mt-0.5">Pick a team from your library, or create a new one.</p>
       </div>
+
+      {otherSelection && (
+        <div className={`flex items-center gap-3 p-3 ${glassInsetClass}`}>
+          <div className="w-8 h-8 rounded-full border border-white/20 overflow-hidden flex items-center justify-center shrink-0 bg-white/[0.04]">
+            {otherSelection.draft.identity.logo ? (
+              <img
+                src={otherSelection.draft.identity.logo}
+                alt=""
+                className="w-full h-full object-contain"
+              />
+            ) : (
+              <div className="w-full h-full" style={{ backgroundColor: otherSelection.draft.identity.color }} />
+            )}
+          </div>
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-medium">
+              {otherSelection.label} team selected
+            </div>
+            <div className="text-sm font-semibold text-white truncate">
+              {otherSelection.draft.identity.name || "Unnamed Team"}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="inline-flex self-start rounded-xl border border-white/10 bg-white/[0.03] p-1 gap-1">
         <button

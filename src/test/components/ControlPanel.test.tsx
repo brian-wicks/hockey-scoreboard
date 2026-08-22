@@ -93,8 +93,8 @@ describe("ControlPanel Component", () => {
     expect(screen.getByText("Settings", { selector: 'div' })).toBeInTheDocument();
     expect(screen.queryByText("Clock")).not.toBeInTheDocument();
 
-    // Switch to Presets
-    fireEvent.click(screen.getAllByRole("button", { name: /Presets/i })[0]);
+    // Switch to Teams
+    fireEvent.click(screen.getAllByRole("button", { name: /Teams/i })[0]);
     expect(screen.getByText("Presets", { selector: 'div' })).toBeInTheDocument();
 
     // Switch to Stream Deck (sidebar label is shortened to "Deck" to stay one line)
