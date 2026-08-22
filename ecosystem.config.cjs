@@ -63,6 +63,7 @@ module.exports = {
     production: {
       user: deployUser,
       host: [deployHost],
+      key: "id_rsa",
       ref: "origin/main",
       repo: deployRepo,
       path: `${deployBasePath}/prod`,
