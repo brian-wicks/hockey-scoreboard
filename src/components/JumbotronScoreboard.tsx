@@ -56,6 +56,7 @@ export default function JumbotronScoreboard() {
   };
 
   const { homeTeam, awayTeam, period, jumbotronGradientsEnabled, jumbotronGoalHighlight } = safeState;
+  const lowerThird = safeState.lowerThird ?? { active: false, title: "", subtitle: "" };
   const periodLabel = formatPeriodLabel(period);
   const homeLabel = formatTeamLabel(homeTeam.name, homeTeam.abbreviation);
   const awayLabel = formatTeamLabel(awayTeam.name, awayTeam.abbreviation);
@@ -103,18 +104,18 @@ export default function JumbotronScoreboard() {
     if (remainingMs <= 0) {
       updateState({
         jumbotronGoalHighlight: null,
-        lowerThird: { ...safeState.lowerThird, active: false },
+        lowerThird: { ...lowerThird, active: false },
       });
       return;
     }
     const timer = window.setTimeout(() => {
       updateState({
         jumbotronGoalHighlight: null,
-        lowerThird: { ...safeState.lowerThird, active: false },
+        lowerThird: { ...lowerThird, active: false },
       });
     }, remainingMs + 50);
     return () => window.clearTimeout(timer);
-  }, [jumbotronGoalHighlight?.expiresAt, serverTimeOffsetMs, updateState, safeState.lowerThird]);
+  }, [jumbotronGoalHighlight?.expiresAt, serverTimeOffsetMs, updateState, lowerThird]);
 
   return (
     <div className="w-screen h-screen bg-black text-white jumbotron-root">

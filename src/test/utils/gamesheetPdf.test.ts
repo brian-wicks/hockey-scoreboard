@@ -88,8 +88,8 @@ describe("Gamesheet PDF Utility", () => {
     const layout = getDefaultGamesheetPdfLayout();
     const result = await buildGamesheetPdfBytes(
       {
-        homeTeam: { name: "", abbreviation: "", score: 0, shots: 0, penalties: [], players: [] },
-        awayTeam: { name: "", abbreviation: "", score: 0, shots: 0, penalties: [], players: [] },
+        homeTeam: { name: "", abbreviation: "", score: 0, shots: 0, timeouts: 0, logo: "", color: "", penalties: [], players: [] },
+        awayTeam: { name: "", abbreviation: "", score: 0, shots: 0, timeouts: 0, logo: "", color: "", penalties: [], players: [] },
         eventLog: [],
       },
       { layout }

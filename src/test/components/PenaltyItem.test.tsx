@@ -5,8 +5,8 @@ import PenaltyItem from "../../components/control-panel/PenaltyItem";
 describe("PenaltyItem", () => {
   const mockPenalty = { id: "p1", playerNumber: "10", timeRemaining: 120000, duration: 120000, infraction: "Tripping" };
   const mockRoster = [
-    { id: "1", jerseyNumber: "10", name: "Player 10", position: "F" as const },
-    { id: "2", jerseyNumber: "20", name: "Player 20", position: "D" as const },
+    { id: "1", jerseyNumber: "10", name: "Player 10", position: "C" as const },
+    { id: "2", jerseyNumber: "20", name: "Player 20", position: "A" as const },
   ];
 
   it("renders penalty details correctly", () => {
@@ -37,7 +37,7 @@ describe("PenaltyItem", () => {
     fireEvent.focus(playerInput);
     fireEvent.change(playerInput, { target: { value: "20" } });
     
-    const playerOption = screen.getByText("Player 20 (D)", { exact: false });
+    const playerOption = screen.getByText("Player 20 (A)", { exact: false });
     fireEvent.mouseDown(playerOption);
     
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ playerNumber: "20" }));

@@ -12,7 +12,6 @@ beforeEach(() => {
 
   // jsdom doesn't implement this; components call it while navigating options.
   if (!HTMLElement.prototype.scrollIntoView) {
-    // @ts-expect-error - not present in jsdom types
     HTMLElement.prototype.scrollIntoView = vi.fn();
   }
 });

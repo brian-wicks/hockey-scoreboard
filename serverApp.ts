@@ -268,7 +268,13 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     callback(new Error("Not allowed by CORS"));
   };
 
-  app.use(cors({ origin: corsOriginCheck }));
+  // Scoped to /api rather than applied globally: the SPA's own bundle is served
+  // with crossorigin script/link tags, which makes browsers send an Origin header
+  // even for same-origin loads. Applying this origin check to static asset
+  // serving rejected the app's own JS/CSS with 403 whenever it was reached via
+  // any origin other than the exact VITE_BASE_URL (a LAN IP, a different port, a
+  // tunnel) — a blank white page with no client-visible error.
+  app.use("/api", cors({ origin: corsOriginCheck }));
   app.use((err: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (err instanceof Error && err.message === "Not allowed by CORS") {
       res.status(403).json({ error: "Not allowed by CORS" });
@@ -1355,7 +1361,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
-  app.delete("/api/team-presets/:name", authenticateExpress, (req, res) => {
+  app.delete<{ name: string }>("/api/team-presets/:name", authenticateExpress, (req, res) => {
     const userId = (req as any).user.uid;
     try {
       const name = decodeURIComponent(req.params.name);
@@ -1407,7 +1413,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
-  app.delete("/api/teams/:name", authenticateExpress, (req, res) => {
+  app.delete<{ name: string }>("/api/teams/:name", authenticateExpress, (req, res) => {
     const userId = (req as any).user.uid;
     try {
       const name = decodeURIComponent(req.params.name);
@@ -1468,7 +1474,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     res.json({ id, name });
   });
 
-  app.get("/api/games/:id", authenticateExpress, (req, res) => {
+  app.get<{ id: string }>("/api/games/:id", authenticateExpress, (req, res) => {
     const userId = (req as any).user.uid;
     const game = getSavedGame(req.params.id, userId);
     if (!game) {
@@ -1477,7 +1483,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     res.json(game);
   });
 
-  app.delete("/api/games/:id", authenticateExpress, (req, res) => {
+  app.delete<{ id: string }>("/api/games/:id", authenticateExpress, (req, res) => {
     const userId = (req as any).user.uid;
     deleteSavedGame(req.params.id, userId);
     res.json({ success: true });

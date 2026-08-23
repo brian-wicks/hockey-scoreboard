@@ -114,7 +114,11 @@ export default function GoalReviewPanel({
                   onClick={() =>
                     updateState({
                       jumbotronGoalHighlight: null,
-                      lowerThird: { ...gameState.lowerThird, active: false },
+                      lowerThird: {
+                        active: false,
+                        title: gameState.lowerThird?.title ?? "",
+                        subtitle: gameState.lowerThird?.subtitle,
+                      },
                     })
                   }
                   variant="secondary"

@@ -56,7 +56,7 @@ describe("server API", () => {
 
   beforeAll(async () => {
     await mkdir(dataDir, { recursive: true });
-    server = createScoreboardServer(dataDir);
+    server = createScoreboardServer({ dataDir });
     port = await server.start(0);
   });
 
@@ -172,7 +172,7 @@ describe("server API", () => {
       auth: { token: userId }
     });
 
-    await new Promise(r => client.on("connect", r));
+    await new Promise<void>((resolve) => client.on("connect", () => resolve()));
     const newPenalty = { id: "p1", duration: 120000, timeRemaining: 120000, playerNumber: "99", infraction: "Tripping" };
     client.emit("updateGameState", {
       homeTeam: { penalties: [newPenalty] } as any,
@@ -201,7 +201,7 @@ describe("server API", () => {
     const shareData = await resCreate.json();
     const shareId = shareData.shareId;
 
-    await new Promise(r => client.on("connect", r));
+    await new Promise<void>((resolve) => client.on("connect", () => resolve()));
     client.emit("updateGameState", { homeTeam: { score: 1 } as any });
     await new Promise(r => setTimeout(r, 100));
     client.emit("updateGameState", { homeTeam: { score: 0 } as any });
@@ -223,7 +223,7 @@ describe("server API", () => {
       auth: { token: userId }
     });
 
-    await new Promise(r => client.on("connect", r));
+    await new Promise<void>((resolve) => client.on("connect", () => resolve()));
 
     client.emit("updateGameState", { homeTeam: { score: 1 } as any });
     await new Promise(r => setTimeout(r, 100));
@@ -258,7 +258,7 @@ describe("server API", () => {
       auth: { token: userId }
     });
 
-    await new Promise(r => client.on("connect", r));
+    await new Promise<void>((resolve) => client.on("connect", () => resolve()));
 
     // Simulate loading a saved game (or imported gamesheet) whose clock was left
     // running with a stale lastUpdate — e.g. saved a minute ago, only 5s remained.
@@ -286,7 +286,7 @@ describe("server API", () => {
       auth: { token: userId }
     });
 
-    await new Promise(r => client.on("connect", r));
+    await new Promise<void>((resolve) => client.on("connect", () => resolve()));
     client.emit("setClock", 300000); // 5 min
     await new Promise(r => setTimeout(r, 100));
     client.emit("clockIncrease");
@@ -340,7 +340,7 @@ describe("server API", () => {
       auth: { token: userId }
     });
 
-    await new Promise(r => client.on("connect", r));
+    await new Promise<void>((resolve) => client.on("connect", () => resolve()));
     const newPenalty = { id: "p2", duration: 120000, timeRemaining: 120000, playerNumber: "99", infraction: "Tripping" };
     client.emit("updateGameState", { homeTeam: { penalties: [newPenalty] } as any });
     await new Promise(r => setTimeout(r, 100));
@@ -365,7 +365,7 @@ describe("server API", () => {
       auth: { token: userId }
     });
 
-    await new Promise(r => client.on("connect", r));
+    await new Promise<void>((resolve) => client.on("connect", () => resolve()));
     const newPenalty = { id: "p3", duration: 120000, timeRemaining: 120000, playerNumber: "99", infraction: "Tripping" };
     client.emit("updateGameState", { homeTeam: { penalties: [newPenalty] } as any });
     await new Promise(r => setTimeout(r, 100));
@@ -390,7 +390,7 @@ describe("server API", () => {
       auth: { token: userId }
     });
 
-    await new Promise(r => client.on("connect", r));
+    await new Promise<void>((resolve) => client.on("connect", () => resolve()));
     const penaltyEvent = {
       id: "e1",
       type: "penalty_added",
@@ -432,7 +432,7 @@ describe("server API", () => {
 
       const attacker = createClient(baseUrl, { transports: ["websocket"], forceNew: true, auth: { token: attackerId } });
       const victim = createClient(baseUrl, { transports: ["websocket"], forceNew: true, auth: { token: victimId } });
-      await Promise.all([new Promise((r) => attacker.on("connect", r)), new Promise((r) => victim.on("connect", r))]);
+      await Promise.all([new Promise<void>((resolve) => attacker.on("connect", () => resolve())), new Promise<void>((resolve) => victim.on("connect", () => resolve()))]);
 
       attacker.emit("updateGameState", { homeTeam: { penalties: "not-an-array" } } as any);
       attacker.emit("updateGameState", { homeTeam: { penalties: [null] } } as any);
