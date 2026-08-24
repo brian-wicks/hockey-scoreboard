@@ -11,6 +11,24 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.11.1',
+    date: '2026-08-24',
+    sections: {
+      fixed: [
+        'Fix a bug that could let someone with a view-only share link control the live game clock.',
+        'Fix page content showing through solid-looking dialog headers when scrolling in Firefox.',
+        'Fix the color picker sometimes appearing behind other panels.',
+        'Fix some visitors seeing a blank white page when loading the app.',
+        'Fix a crash when clearing the goal-highlight lower third overlay.',
+        'Fix the clock occasionally showing the wrong time right after starting a new game.',
+        'Fix undo not properly reverting edits that only changed the event log.',
+        'Fix editing a penalty\'s remaining time overwriting its original duration.',
+        'Fix shortcut and Stream Deck settings sometimes not saving without any warning.',
+        'Fix the app sometimes not recognizing a game was still in progress during overtime.',
+      ],
+    },
+  },
+  {
     version: '1.11.0',
     date: '2026-08-22',
     sections: {
