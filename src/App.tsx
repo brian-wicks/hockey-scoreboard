@@ -96,7 +96,12 @@ function AppRoutes() {
   }
 
   if (!user && !isViewer) {
-    return <Login />;
+    return (
+      <>
+        <Login />
+        <AppFooter />
+      </>
+    );
   }
 
   return (
