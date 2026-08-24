@@ -29,6 +29,7 @@ export const saveGameState = adapter.saveGameState;
 export const getSavedGames = adapter.getSavedGames;
 export const getSavedGame = adapter.getSavedGame;
 export const createSavedGame = adapter.createSavedGame;
+export const updateSavedGame = adapter.updateSavedGame;
 export const deleteSavedGame = adapter.deleteSavedGame;
 export const getShareUserId = adapter.getShareUserId;
 export const getUserIdShare = adapter.getUserIdShare;

@@ -1,7 +1,7 @@
-import { Bookmark, Database, House, LayoutGrid, Settings } from "lucide-react";
+import { Bookmark, House, LayoutGrid, Settings } from "lucide-react";
 import type { ComponentType } from "react";
 
-export type ActiveTab = "controls" | "settings" | "presets" | "streamdeck" | "games";
+export type ActiveTab = "controls" | "settings" | "presets" | "streamdeck";
 
 interface NavItem {
   id: ActiveTab;
@@ -14,7 +14,6 @@ const NAV_ITEMS: NavItem[] = [
   { id: "settings", label: "Settings", icon: Settings },
   { id: "presets", label: "Teams", icon: Bookmark },
   { id: "streamdeck", label: "Deck", icon: LayoutGrid },
-  { id: "games", label: "Games", icon: Database },
 ];
 
 interface AppSidebarProps {

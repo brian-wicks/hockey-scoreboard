@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useStore } from "../store";
 import AppSidebar, { ActiveTab } from "./control-panel/AppSidebar";
@@ -13,7 +13,6 @@ import SettingsPanel from "./control-panel/SettingsPanel";
 import TeamControls from "./control-panel/TeamControls";
 import StreamDeckPanel from "./StreamDeckPanel";
 import ShareModal from "./control-panel/ShareModal";
-import SavedGamesPanel from "./control-panel/SavedGamesPanel";
 
 export default function ControlPanel() {
   const {
@@ -28,10 +27,12 @@ export default function ControlPanel() {
     undoLastUpdate,
     undoStack = [],
     isViewer,
+    activeGameId,
   } = useStore();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
-  const validTabs: ActiveTab[] = ["controls", "settings", "presets", "streamdeck", "games"];
+  const validTabs: ActiveTab[] = ["controls", "settings", "presets", "streamdeck"];
   const initialTab = validTabs.includes(requestedTab as ActiveTab) ? (requestedTab as ActiveTab) : "controls";
   const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -40,8 +41,21 @@ export default function ControlPanel() {
 
   ensureInitialized();
 
+  // activeGameId === null (not undefined — that's still "loading") means the operator
+  // has never opened/created a game — there's nothing to control here, so bounce back
+  // to the Dashboard's file browser rather than operating on an unsaved phantom game.
+  useEffect(() => {
+    if (!isViewer && activeGameId === null) {
+      navigate("/", { replace: true });
+    }
+  }, [isViewer, activeGameId, navigate]);
+
   if (!gameState) {
     return <div className="flex items-center justify-center h-screen bg-zinc-950 text-white">Connecting...</div>;
+  }
+
+  if (!isViewer && activeGameId === null) {
+    return null;
   }
 
   const {
@@ -119,8 +133,6 @@ export default function ControlPanel() {
               <PresetsPanel gameState={gameState} updateState={updateState} />
             ) : activeTab === "streamdeck" ? (
               <StreamDeckPanel />
-            ) : activeTab === "games" ? (
-              <SavedGamesPanel />
             ) : null}
           </main>
         </div>

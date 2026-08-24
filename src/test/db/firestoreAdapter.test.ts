@@ -4,10 +4,11 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 // translated to Firestore's path-based API: collectionSpy/docSpy/orderBySpy record
 // the chain of .collection()/.doc()/.orderBy() calls, while mockGet/mockSet/mockDelete
 // stand in for the terminal document/query operations.
-const { mockGet, mockSet, mockDelete, mockOrderByGet, collectionSpy, docSpy, orderBySpy } = vi.hoisted(() => {
+const { mockGet, mockSet, mockUpdate, mockDelete, mockOrderByGet, collectionSpy, docSpy, orderBySpy } = vi.hoisted(() => {
   return {
     mockGet: vi.fn(),
     mockSet: vi.fn(),
+    mockUpdate: vi.fn(),
     mockDelete: vi.fn(),
     mockOrderByGet: vi.fn(),
     collectionSpy: vi.fn(),
@@ -20,6 +21,7 @@ function makeDocRef() {
   return {
     get: mockGet,
     set: mockSet,
+    update: mockUpdate,
     delete: mockDelete,
     collection: (name: string) => {
       collectionSpy(name);
@@ -59,6 +61,7 @@ import {
   getSavedGames,
   getSavedGame,
   createSavedGame,
+  updateSavedGame,
   deleteSavedGame,
   getShareUserId,
   getUserIdShare,
@@ -121,8 +124,8 @@ describe("firestore adapter", () => {
     expect(collectionSpy).toHaveBeenNthCalledWith(2, "savedGames");
     expect(orderBySpy).toHaveBeenCalledWith("createdAt", "desc");
     expect(result).toEqual([
-      { id: "game-2", userId: "user1", name: "Second", state: "{}", createdAt: 200 },
-      { id: "game-1", userId: "user1", name: "First", state: "{}", createdAt: 100 },
+      { id: "game-2", userId: "user1", name: "Second", state: "{}", createdAt: 200, updatedAt: 200 },
+      { id: "game-1", userId: "user1", name: "First", state: "{}", createdAt: 100, updatedAt: 100 },
     ]);
   });
 
@@ -133,7 +136,7 @@ describe("firestore adapter", () => {
       data: () => ({ name: "First", state: "{}", createdAt: 100 }),
     });
     const result = await getSavedGame("game-1", "user1");
-    expect(result).toEqual({ id: "game-1", userId: "user1", name: "First", state: "{}", createdAt: 100 });
+    expect(result).toEqual({ id: "game-1", userId: "user1", name: "First", state: "{}", createdAt: 100, updatedAt: 100 });
   });
 
   it("returns null for a saved game that doesn't exist", async () => {
@@ -149,6 +152,16 @@ describe("firestore adapter", () => {
     expect(docSpy).toHaveBeenNthCalledWith(2, id);
     expect(mockSet).toHaveBeenCalledWith(
       expect.objectContaining({ name: "My Game", state: '{"score":0}', createdAt: expect.any(Number) }),
+    );
+  });
+
+  it("updates a saved game's state in place, autosaving without changing its id", async () => {
+    mockUpdate.mockResolvedValue(undefined);
+    await updateSavedGame("game-1", "user1", '{"score":3}');
+    expect(collectionSpy).toHaveBeenNthCalledWith(2, "savedGames");
+    expect(docSpy).toHaveBeenNthCalledWith(2, "game-1");
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ state: '{"score":3}', updatedAt: expect.any(Number) }),
     );
   });
 

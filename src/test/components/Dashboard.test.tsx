@@ -27,25 +27,23 @@ describe("Dashboard", () => {
       isViewer: false,
       user: { uid: "123", getIdToken: vi.fn().mockResolvedValue("token") },
       ensureInitialized: vi.fn(),
-      savedGames: [{ id: "g1", name: "Saved Game 1", createdAt: Date.now() }],
+      activeGameId: "g1",
+      savedGames: [{ id: "g1", name: "Saved Game 1", createdAt: Date.now(), updatedAt: Date.now() }],
       teamLibrary: [],
       loadSavedGames: vi.fn().mockResolvedValue(undefined),
       loadTeamLibrary: vi.fn().mockResolvedValue(undefined),
-      loadGame: vi.fn(),
+      openGame: vi.fn(),
       deleteGame: vi.fn(),
-      resetGame: vi.fn(),
       startNewGame: vi.fn(),
-      saveGame: vi.fn(),
       saveTeamToLibrary: vi.fn(),
       socket: null,
       isConnected: true,
     } as any);
   });
 
-  it("renders the resume card, primary actions, and saved games list", async () => {
+  it("renders the primary actions and saved games list", async () => {
     render(<Dashboard />, { wrapper: MemoryRouter });
 
-    expect(screen.getByText(/Open Control Panel/i)).toBeInTheDocument();
     expect(screen.getByText("New Game")).toBeInTheDocument();
     expect(screen.getByText("Manage Teams")).toBeInTheDocument();
     expect(await screen.findByText("Saved Game 1")).toBeInTheDocument();
@@ -57,6 +55,7 @@ describe("Dashboard", () => {
       isViewer: true,
       user: null,
       ensureInitialized: vi.fn(),
+      activeGameId: null,
       savedGames: [],
       teamLibrary: [],
     } as any);

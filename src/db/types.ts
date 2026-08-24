@@ -10,6 +10,7 @@ export interface SavedGame {
   name: string;
   state: string;
   createdAt: number;
+  updatedAt: number;
 }
 
 // Both src/db/sqliteAdapter.ts and src/db/firestoreAdapter.ts export exactly these
@@ -23,6 +24,7 @@ export interface DbAdapter {
   getSavedGames(userId: string): Promise<SavedGame[]>;
   getSavedGame(id: string, userId: string): Promise<SavedGame | null>;
   createSavedGame(userId: string, name: string, state: string): Promise<string>;
+  updateSavedGame(id: string, userId: string, state: string): Promise<void>;
   deleteSavedGame(id: string, userId: string): Promise<void>;
   getShareUserId(shareId: string): Promise<string | null>;
   getUserIdShare(userId: string): Promise<string | null>;

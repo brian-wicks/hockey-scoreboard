@@ -16,14 +16,14 @@ import * as Sentry from "@sentry/node";
 import {
   getUserConfig, 
   setUserConfig, 
-  getGameState, 
-  saveGameState,
+  getGameState,
   getShareUserId,
   getUserIdShare,
   setUserIdShare,
   getSavedGames,
   getSavedGame,
   createSavedGame,
+  updateSavedGame,
   deleteSavedGame,
   pingDatabase
 } from "./src/db/database.ts";
@@ -326,6 +326,9 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   // Per-user contexts
   interface UserContext {
     gameState: GameState;
+    // The saved_games row this context autosaves into. null only for a brand-new
+    // user who has never created a game — nothing is persisted until they do.
+    gameId: string | null;
     clockInterval: NodeJS.Timeout | null;
     lastPersistedAt: number;
   }
@@ -393,6 +396,37 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   }
 
+  // Every game is now its own saved_games row from creation — "the live game" is
+  // just whichever row activeGameId (a per-user config value) currently points at.
+  // A user who connects with no activeGameId yet is either pre-migration (still has
+  // an old singleton user_game_state blob, which gets promoted into a real saved_games
+  // row here, once, the first time they connect post-rollout) or genuinely new.
+  async function loadActiveGame(userId: string): Promise<{ gameState: GameState; gameId: string | null }> {
+    const activeGameId = await getUserConfig(userId, "activeGameId");
+    if (activeGameId) {
+      const saved = await getSavedGame(activeGameId, userId);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved.state) as GameState;
+          return { gameState: { ...parsed, ...sanitizeGameStateUpdate(parsed) }, gameId: activeGameId };
+        } catch (e) {
+          logError("Error parsing active saved game state", e, { userId, gameId: activeGameId });
+        }
+      }
+      // activeGameId pointed at a row that's gone or unparsable — fall through below.
+    }
+
+    const legacyState = await getGameState(userId);
+    const gameState = await getInitialGameState(userId);
+    if (legacyState) {
+      const name = `${gameState.homeTeam.name} vs ${gameState.awayTeam.name}`;
+      const newId = await createSavedGame(userId, name, JSON.stringify(gameState));
+      await setUserConfig(userId, "activeGameId", newId);
+      return { gameState, gameId: newId };
+    }
+    return { gameState, gameId: null };
+  }
+
   async function getUserContext(userId: string): Promise<UserContext> {
     const existing = userContexts.get(userId);
     if (existing) return existing;
@@ -400,9 +434,10 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     let pending = userContextInit.get(userId);
     if (!pending) {
       pending = (async () => {
-        const gameState = await getInitialGameState(userId);
+        const { gameState, gameId } = await loadActiveGame(userId);
         const context: UserContext = {
           gameState,
+          gameId,
           clockInterval: null,
           lastPersistedAt: 0,
         };
@@ -912,7 +947,10 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     const context = userContexts.get(userId)!;
     io.to(userId).emit("gameState", buildGameStatePayload(context.gameState));
     const currentTime = now();
-    if (!options.throttlePersist || currentTime - context.lastPersistedAt >= PERSIST_THROTTLE_MS) {
+    if (
+      context.gameId &&
+      (!options.throttlePersist || currentTime - context.lastPersistedAt >= PERSIST_THROTTLE_MS)
+    ) {
       // Mark persisted before the write resolves (not after) — otherwise a slow
       // write would let further ticks slip past the throttle window and pile up
       // concurrent writes for the same user. Fire-and-forget: a stale persisted
@@ -920,14 +958,21 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       // failed/delayed write here is bounded, non-fatal staleness, not correctness
       // bug — and awaiting it here would block the tick loop on a DB round trip.
       context.lastPersistedAt = currentTime;
-      saveGameState(userId, JSON.stringify(context.gameState)).catch((error) =>
-        logError("[Clock] Failed to persist throttled game state", error, { userId }),
+      updateSavedGame(context.gameId, userId, JSON.stringify(context.gameState)).catch((error) =>
+        logError("[Clock] Failed to persist throttled game state", error, { userId, gameId: context.gameId }),
       );
     }
   }
 
   function emitGameStateTo(socket: Socket, gameState: GameState) {
     socket.emit("gameState", buildGameStatePayload(gameState));
+  }
+
+  // Lets the client know which saved game (if any) is currently live, independent
+  // of the gameState broadcast — used to gate the Control Panel route and to badge
+  // the "open" game in the Dashboard's game list.
+  function emitActiveGame(userId: string, gameId: string | null) {
+    io.to(userId).emit("activeGame", gameId);
   }
 
   async function persistCurrentTeamDefaults(userId: string, gameState: GameState): Promise<void> {
@@ -1085,8 +1130,9 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     // Join a room for this user to enable per-user broadcasts
     socket.join(userId);
 
-    const { gameState } = await getUserContext(userId);
-    emitGameStateTo(socket, gameState);
+    const initialContext = await getUserContext(userId);
+    emitGameStateTo(socket, initialContext.gameState);
+    socket.emit("activeGame", initialContext.gameId);
 
     onSocketEvent(socket, "updateGameState", async (updates: Partial<GameState>) => {
       if (isViewer) {
@@ -1189,22 +1235,80 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       emitGameState(userId);
     });
 
-    onSocketEvent(socket, "resetGame", async (callback?: () => void) => {
-      if (isViewer) return;
-      logger.info({ userId }, "User requested hard reset to factory defaults");
-      const context = await getUserContext(userId);
-      if (context.clockInterval) {
-        clearInterval(context.clockInterval);
-        context.clockInterval = null;
-      }
-      context.gameState = await getInitialGameState(userId, true);
-      emitGameState(userId);
-      // Acknowledge directly to the requesting client once the reset broadcast has
-      // gone out, rather than having the client listen for the next arbitrary
-      // "gameState" event — a clock still ticking from the pre-reset state can emit
-      // its own broadcast in between, and a generic listener would race it.
-      if (typeof callback === "function") callback();
-    });
+    onSocketEvent(
+      socket,
+      "startNewGame",
+      async (
+        teams: { homeTeam?: TeamState; awayTeam?: TeamState } | undefined,
+        callback?: (result: { gameId: string }) => void,
+      ) => {
+        if (isViewer) return;
+        logger.info({ userId }, "User starting a new game");
+        const context = await getUserContext(userId);
+        if (context.clockInterval) {
+          clearInterval(context.clockInterval);
+          context.clockInterval = null;
+        }
+        let gameState = await getInitialGameState(userId, true);
+        const teamsPatch: Partial<GameState> = {};
+        if (teams?.homeTeam) teamsPatch.homeTeam = teams.homeTeam;
+        if (teams?.awayTeam) teamsPatch.awayTeam = teams.awayTeam;
+        if (Object.keys(teamsPatch).length > 0) {
+          gameState = { ...gameState, ...sanitizeGameStateUpdate(teamsPatch) };
+        }
+        const name = `${gameState.homeTeam.name} vs ${gameState.awayTeam.name}`.trim() || "New Game";
+        const gameId = await createSavedGame(userId, name, JSON.stringify(gameState));
+        context.gameState = gameState;
+        context.gameId = gameId;
+        await setUserConfig(userId, "activeGameId", gameId);
+        emitGameState(userId);
+        emitActiveGame(userId, gameId);
+        // Acknowledge directly to the requesting client once the new-game broadcast
+        // has gone out, rather than having the client listen for the next arbitrary
+        // "gameState" event — a clock still ticking from the outgoing game could
+        // otherwise emit its own broadcast in between, racing a generic listener.
+        if (typeof callback === "function") callback({ gameId });
+      },
+    );
+
+    onSocketEvent(
+      socket,
+      "openGame",
+      async (gameId: string, callback?: (result: { ok: boolean; error?: string }) => void) => {
+        if (isViewer) return;
+        if (typeof gameId !== "string" || !gameId) {
+          if (typeof callback === "function") callback({ ok: false, error: "Invalid game id" });
+          return;
+        }
+        const saved = await getSavedGame(gameId, userId);
+        if (!saved) {
+          if (typeof callback === "function") callback({ ok: false, error: "Game not found" });
+          return;
+        }
+        let gameState: GameState;
+        try {
+          const parsed = JSON.parse(saved.state) as GameState;
+          gameState = { ...parsed, ...sanitizeGameStateUpdate(parsed) };
+        } catch (e) {
+          logError("Error parsing opened saved game state", e, { userId, gameId });
+          if (typeof callback === "function") callback({ ok: false, error: "Corrupt saved game" });
+          return;
+        }
+        logger.info({ userId, gameId }, "User opening a saved game");
+        const context = await getUserContext(userId);
+        if (context.clockInterval) {
+          clearInterval(context.clockInterval);
+          context.clockInterval = null;
+        }
+        context.gameState = gameState;
+        context.gameId = gameId;
+        await setUserConfig(userId, "activeGameId", gameId);
+        reconcileRunningClock(userId, context.gameState);
+        emitGameState(userId);
+        emitActiveGame(userId, gameId);
+        if (typeof callback === "function") callback({ ok: true });
+      },
+    );
 
     socket.on("disconnect", () => {
       logger.info({ userId, socketId: socket.id }, "User disconnected from socket");
@@ -1493,19 +1597,9 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     res.json(games.map(g => ({
       id: g.id,
       name: g.name,
-      createdAt: g.createdAt
+      createdAt: g.createdAt,
+      updatedAt: g.updatedAt
     })));
-  });
-
-  app.post("/api/games", authenticateExpress, async (req, res) => {
-    const userId = (req as any).user.uid;
-    const { name } = req.body;
-    if (!name || typeof name !== "string") {
-      return res.status(400).json({ error: "Game name is required" });
-    }
-    const { gameState } = await getUserContext(userId);
-    const id = await createSavedGame(userId, name, JSON.stringify(gameState));
-    res.json({ id, name });
   });
 
   app.get<{ id: string }>("/api/games/:id", authenticateExpress, async (req, res) => {

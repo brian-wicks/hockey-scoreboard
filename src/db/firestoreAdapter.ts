@@ -45,6 +45,7 @@ export const getSavedGames = async (userId: string): Promise<SavedGame[]> => {
       name: data.name as string,
       state: data.state as string,
       createdAt: data.createdAt as number,
+      updatedAt: (data.updatedAt as number) ?? (data.createdAt as number),
     };
   });
 };
@@ -59,17 +60,27 @@ export const getSavedGame = async (id: string, userId: string): Promise<SavedGam
     name: data.name as string,
     state: data.state as string,
     createdAt: data.createdAt as number,
+    updatedAt: (data.updatedAt as number) ?? (data.createdAt as number),
   };
 };
 
 export const createSavedGame = async (userId: string, name: string, state: string): Promise<string> => {
   const id = randomUUID();
+  const now = Date.now();
   await usersCollection().doc(userId).collection("savedGames").doc(id).set({
     name,
     state,
-    createdAt: Date.now(),
+    createdAt: now,
+    updatedAt: now,
   });
   return id;
+};
+
+export const updateSavedGame = async (id: string, userId: string, state: string): Promise<void> => {
+  await usersCollection().doc(userId).collection("savedGames").doc(id).update({
+    state,
+    updatedAt: Date.now(),
+  });
 };
 
 export const deleteSavedGame = async (id: string, userId: string): Promise<void> => {
