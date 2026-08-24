@@ -29,71 +29,71 @@ vi.mock("better-sqlite3", () => {
 });
 
 // Import after mocking
-import { 
-  getUserConfig, 
-  setUserConfig, 
-  getGameState, 
-  saveGameState, 
-  getShareUserId, 
-  getUserIdShare, 
-  setUserIdShare 
-} from "../../db/database";
+import {
+  getUserConfig,
+  setUserConfig,
+  getGameState,
+  saveGameState,
+  getShareUserId,
+  getUserIdShare,
+  setUserIdShare
+} from "../../db/sqliteAdapter";
 
-describe("Database Module", () => {
+describe("sqlite adapter", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("gets user config", () => {
+  it("gets user config", async () => {
     mockGet.mockReturnValue({ value: "test-value" });
-    const result = getUserConfig("user1", "key1");
-    
+    const result = await getUserConfig("user1", "key1");
+
     expect(mockPrepare).toHaveBeenCalledWith(expect.stringContaining("SELECT value FROM user_configs"));
     expect(mockGet).toHaveBeenCalledWith("user1", "key1");
     expect(result).toBe("test-value");
   });
 
-  it("returns null if user config not found", () => {
+  it("returns null if user config not found", async () => {
     mockGet.mockReturnValue(undefined);
-    const result = getUserConfig("user1", "key1");
+    const result = await getUserConfig("user1", "key1");
     expect(result).toBeNull();
   });
 
-  it("sets user config", () => {
-    setUserConfig("user1", "key1", "value1");
+  it("sets user config", async () => {
+    await setUserConfig("user1", "key1", "value1");
     expect(mockPrepare).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO user_configs"));
     expect(mockRun).toHaveBeenCalledWith("user1", "key1", "value1");
   });
 
-  it("gets game state", () => {
+  it("gets game state", async () => {
     mockGet.mockReturnValue({ state: "{\"score\": 1}" });
-    const result = getGameState("user1");
+    const result = await getGameState("user1");
     expect(mockPrepare).toHaveBeenCalledWith(expect.stringContaining("SELECT state FROM user_game_state"));
     expect(result).toBe("{\"score\": 1}");
   });
 
-  it("saves game state", () => {
-    saveGameState("user1", "{\"score\": 2}");
+  it("saves game state", async () => {
+    await saveGameState("user1", "{\"score\": 2}");
     expect(mockPrepare).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO user_game_state"));
     expect(mockRun).toHaveBeenCalledWith("user1", "{\"score\": 2}");
   });
 
-  it("gets share user id", () => {
+  it("gets share user id", async () => {
     mockGet.mockReturnValue({ userId: "user-abc" });
-    const result = getShareUserId("share-123");
+    const result = await getShareUserId("share-123");
     expect(mockPrepare).toHaveBeenCalledWith(expect.stringContaining("SELECT userId FROM user_shares"));
     expect(result).toBe("user-abc");
   });
 
-  it("gets user id share", () => {
+  it("gets user id share", async () => {
     mockGet.mockReturnValue({ shareId: "share-xyz" });
-    const result = getUserIdShare("user-def");
+    const result = await getUserIdShare("user-def");
     expect(mockPrepare).toHaveBeenCalledWith(expect.stringContaining("SELECT shareId FROM user_shares"));
     expect(result).toBe("share-xyz");
   });
 
-  it("sets user id share", () => {
-    setUserIdShare("user-ghi", "share-789");
+  it("sets user id share", async () => {
+    await setUserIdShare("user-ghi", "share-789");
     expect(mockPrepare).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO user_shares"));
     expect(mockRun).toHaveBeenCalledWith("share-789", "user-ghi");
   });

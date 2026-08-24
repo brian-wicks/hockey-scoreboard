@@ -35,11 +35,13 @@ module.exports = {
         NODE_ENV: "staging",
         PORT: 3697,
         VITE_BASE_URL: "https://stage-scoreboard.brianwicks.co.uk",
+        DB_BACKEND: "firestore",
       },
       env_production: {
         NODE_ENV: "production",
         PORT: 3696,
         VITE_BASE_URL: "https://scoreboard.brianwicks.co.uk",
+        DB_BACKEND: "firestore",
       },
     },
   ],
@@ -56,6 +58,7 @@ module.exports = {
         NODE_ENV: "staging",
         PORT: 3697,
         VITE_BASE_URL: "https://stage-scoreboard.brianwicks.co.uk",
+        DB_BACKEND: "firestore",
       },
       "post-deploy":
         "npm ci && npm run build && pm2 startOrReload ecosystem.config.cjs --env staging",
@@ -71,6 +74,7 @@ module.exports = {
         NODE_ENV: "production",
         PORT: 3696,
         VITE_BASE_URL: "https://scoreboard.brianwicks.co.uk",
+        DB_BACKEND: "firestore",
       },
       "post-deploy":
         "npm ci && npm run build && pm2 startOrReload ecosystem.config.cjs --env production",

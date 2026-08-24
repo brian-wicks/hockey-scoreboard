@@ -1,143 +1,36 @@
-import Database from "better-sqlite3";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
-import { existsSync, mkdirSync } from "fs";
-import { randomUUID } from "crypto";
+import type { DbAdapter } from "./types.ts";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+export type { DBConfig, SavedGame } from "./types.ts";
 
-const dbDir = join(__dirname, "../../data");
-if (!existsSync(dbDir)) {
-  mkdirSync(dbDir, { recursive: true });
+// DB_BACKEND selects the persistence backend: "firestore" opts in explicitly;
+// anything else (unset, "sqlite", a typo) falls back to sqlite, so local dev
+// stays zero-config by construction. Staging/production set this to "firestore"
+// via ecosystem.config.cjs; vitest never sets it, so the test suite keeps
+// exercising the real sqlite adapter exactly as it did before this toggle existed.
+const backend = process.env.DB_BACKEND === "firestore" ? "firestore" : "sqlite";
+
+// Fail fast at import time rather than on the first Firestore call deep inside a
+// request handler, where a missing credential would surface as an opaque SDK error.
+if (backend === "firestore" && !process.env.FIREBASE_SERVICE_ACCOUNT) {
+  throw new Error(
+    "DB_BACKEND=firestore requires FIREBASE_SERVICE_ACCOUNT to be set (see .env.example).",
+  );
 }
 
-const db = new Database(join(dbDir, "scoreboard.db"));
+// Dynamically imported so a sqlite-only host never loads firebase-admin/firestore,
+// and a Firestore-only host never opens/creates data/scoreboard.db on disk.
+const adapter: DbAdapter =
+  backend === "firestore" ? await import("./firestoreAdapter.ts") : await import("./sqliteAdapter.ts");
 
-// Enable WAL mode for better concurrency
-db.pragma("journal_mode = WAL");
-
-// Initialize tables
-db.exec(`
-  CREATE TABLE IF NOT EXISTS user_configs (
-    userId TEXT,
-    key TEXT,
-    value TEXT,
-    PRIMARY KEY(userId, key)
-  );
-
-  CREATE TABLE IF NOT EXISTS user_game_state (
-    userId TEXT PRIMARY KEY,
-    state TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS user_shares (
-    shareId TEXT PRIMARY KEY,
-    userId TEXT UNIQUE
-  );
-
-  CREATE TABLE IF NOT EXISTS saved_games (
-    id TEXT PRIMARY KEY,
-    userId TEXT,
-    name TEXT,
-    state TEXT,
-    createdAt INTEGER
-  );
-`);
-
-export interface DBConfig {
-  userId: string;
-  key: string;
-  value: string;
-}
-
-export interface SavedGame {
-  id: string;
-  userId: string;
-  name: string;
-  state: string;
-  createdAt: number;
-}
-
-export const getUserConfig = (userId: string, key: string): string | null => {
-  const stmt = db.prepare("SELECT value FROM user_configs WHERE userId = ? AND key = ?");
-  const row = stmt.get(userId, key) as { value: string } | undefined;
-  return row ? row.value : null;
-};
-
-export const setUserConfig = (userId: string, key: string, value: string): void => {
-  const stmt = db.prepare(`
-    INSERT INTO user_configs (userId, key, value)
-    VALUES (?, ?, ?)
-    ON CONFLICT(userId, key) DO UPDATE SET value = excluded.value
-  `);
-  stmt.run(userId, key, value);
-};
-
-export const getGameState = (userId: string): string | null => {
-  const stmt = db.prepare("SELECT state FROM user_game_state WHERE userId = ?");
-  const row = stmt.get(userId) as { state: string } | undefined;
-  return row ? row.state : null;
-};
-
-export const saveGameState = (userId: string, state: string): void => {
-  const stmt = db.prepare(`
-    INSERT INTO user_game_state (userId, state)
-    VALUES (?, ?)
-    ON CONFLICT(userId) DO UPDATE SET state = excluded.state
-  `);
-  stmt.run(userId, state);
-};
-
-export const getSavedGames = (userId: string): SavedGame[] => {
-  const stmt = db.prepare("SELECT * FROM saved_games WHERE userId = ? ORDER BY createdAt DESC");
-  return stmt.all(userId) as SavedGame[];
-};
-
-export const getSavedGame = (id: string, userId: string): SavedGame | null => {
-  const stmt = db.prepare("SELECT * FROM saved_games WHERE id = ? AND userId = ?");
-  return stmt.get(id, userId) as SavedGame | undefined ?? null;
-};
-
-export const createSavedGame = (userId: string, name: string, state: string): string => {
-  const id = randomUUID();
-  const stmt = db.prepare(`
-    INSERT INTO saved_games (id, userId, name, state, createdAt)
-    VALUES (?, ?, ?, ?, ?)
-  `);
-  stmt.run(id, userId, name, state, Date.now());
-  return id;
-};
-
-export const deleteSavedGame = (id: string, userId: string): void => {
-  const stmt = db.prepare("DELETE FROM saved_games WHERE id = ? AND userId = ?");
-  stmt.run(id, userId);
-};
-
-export const getShareUserId = (shareId: string): string | null => {
-  const stmt = db.prepare("SELECT userId FROM user_shares WHERE shareId = ?");
-  const row = stmt.get(shareId) as { userId: string } | undefined;
-  return row ? row.userId : null;
-};
-
-export const getUserIdShare = (userId: string): string | null => {
-  const stmt = db.prepare("SELECT shareId FROM user_shares WHERE userId = ?");
-  const row = stmt.get(userId) as { shareId: string } | undefined;
-  return row ? row.shareId : null;
-};
-
-export const setUserIdShare = (userId: string, shareId: string): void => {
-  const stmt = db.prepare(`
-    INSERT INTO user_shares (shareId, userId)
-    VALUES (?, ?)
-    ON CONFLICT(userId) DO UPDATE SET shareId = excluded.shareId
-  `);
-  stmt.run(shareId, userId);
-};
-
-export const pingDatabase = (): boolean => {
-  const row = db.prepare("SELECT 1 AS ok").get() as { ok: number } | undefined;
-  return row?.ok === 1;
-};
-
-export default db;
+export const getUserConfig = adapter.getUserConfig;
+export const setUserConfig = adapter.setUserConfig;
+export const getGameState = adapter.getGameState;
+export const saveGameState = adapter.saveGameState;
+export const getSavedGames = adapter.getSavedGames;
+export const getSavedGame = adapter.getSavedGame;
+export const createSavedGame = adapter.createSavedGame;
+export const deleteSavedGame = adapter.deleteSavedGame;
+export const getShareUserId = adapter.getShareUserId;
+export const getUserIdShare = adapter.getUserIdShare;
+export const setUserIdShare = adapter.setUserIdShare;
+export const pingDatabase = adapter.pingDatabase;

@@ -286,8 +286,8 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
 
   // Unauthenticated and outside the rate limiter below so uptime monitors can poll
   // it freely without eating into the API's abuse-protection budget.
-  app.get("/api/health", (req, res) => {
-    const dbOk = pingDatabase();
+  app.get("/api/health", async (req, res) => {
+    const dbOk = await pingDatabase();
     res.status(dbOk ? 200 : 503).json({
       status: dbOk ? "ok" : "error",
       uptimeSeconds: Math.round(process.uptime()),
@@ -330,10 +330,16 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     lastPersistedAt: number;
   }
   const userContexts = new Map<string, UserContext>();
+  // Guards getUserContext's first-touch creation: getInitialGameState now awaits a
+  // DB read, so two concurrent first-touches for the same user (a socket connecting
+  // while an HTTP request for the same user is in flight) could otherwise each build
+  // and .set() their own UserContext, silently dropping one. Callers awaiting the
+  // same in-flight promise instead removes that race.
+  const userContextInit = new Map<string, Promise<UserContext>>();
 
-  function getInitialGameState(userId: string, ignoreSavedState = false): GameState {
+  async function getInitialGameState(userId: string, ignoreSavedState = false): Promise<GameState> {
     if (!ignoreSavedState) {
-      const savedState = getGameState(userId);
+      const savedState = await getGameState(userId);
       if (savedState) {
         try {
           const parsed = JSON.parse(savedState) as GameState;
@@ -344,7 +350,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       }
     }
 
-    const persistedDefaults = ignoreSavedState ? null : readTeamDefaults(userId);
+    const persistedDefaults = ignoreSavedState ? null : await readTeamDefaults(userId);
     return {
       homeTeam: persistedDefaults ? { ...baseHomeTeam, ...persistedDefaults.homeTeam } : baseHomeTeam,
       awayTeam: persistedDefaults ? { ...baseAwayTeam, ...persistedDefaults.awayTeam } : baseAwayTeam,
@@ -387,19 +393,30 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   }
 
-  function getUserContext(userId: string): UserContext {
-    let context = userContexts.get(userId);
-    if (!context) {
-      const gameState = getInitialGameState(userId);
-      context = {
-        gameState,
-        clockInterval: null,
-        lastPersistedAt: 0,
-      };
-      userContexts.set(userId, context);
-      reconcileRunningClock(userId, gameState);
+  async function getUserContext(userId: string): Promise<UserContext> {
+    const existing = userContexts.get(userId);
+    if (existing) return existing;
+
+    let pending = userContextInit.get(userId);
+    if (!pending) {
+      pending = (async () => {
+        const gameState = await getInitialGameState(userId);
+        const context: UserContext = {
+          gameState,
+          clockInterval: null,
+          lastPersistedAt: 0,
+        };
+        userContexts.set(userId, context);
+        reconcileRunningClock(userId, gameState);
+        return context;
+      })();
+      userContextInit.set(userId, pending);
     }
-    return context;
+    try {
+      return await pending;
+    } finally {
+      userContextInit.delete(userId);
+    }
   }
 
   const baseHomeTeam: TeamState = {
@@ -534,9 +551,9 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     };
   }
 
-  function readTeamDefaults(userId: string): TeamDefaults | null {
+  async function readTeamDefaults(userId: string): Promise<TeamDefaults | null> {
     try {
-      const dataStr = getUserConfig(userId, "team-defaults");
+      const dataStr = await getUserConfig(userId, "team-defaults");
       const data = dataStr ? JSON.parse(dataStr) : null;
       if (!data) {
         // Fallback to global file for initial default if it exists
@@ -559,15 +576,15 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   }
 
-  function writeTeamDefaults(userId: string, defaults: TeamDefaults) {
-    setUserConfig(userId, "team-defaults", JSON.stringify(defaults));
+  async function writeTeamDefaults(userId: string, defaults: TeamDefaults): Promise<void> {
+    await setUserConfig(userId, "team-defaults", JSON.stringify(defaults));
   }
 
-  function readPdfLayout(userId: string): unknown | null {
+  async function readPdfLayout(userId: string): Promise<unknown | null> {
     try {
-      const dataStr = getUserConfig(userId, "pdf-layout");
+      const dataStr = await getUserConfig(userId, "pdf-layout");
       if (dataStr) return JSON.parse(dataStr);
-      
+
       if (existsSync(PDF_LAYOUT_FILE)) {
         return JSON.parse(readFileSync(PDF_LAYOUT_FILE, "utf-8"));
       }
@@ -578,13 +595,13 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   }
 
-  function writePdfLayout(userId: string, layout: unknown) {
-    setUserConfig(userId, "pdf-layout", JSON.stringify(layout));
+  async function writePdfLayout(userId: string, layout: unknown): Promise<void> {
+    await setUserConfig(userId, "pdf-layout", JSON.stringify(layout));
   }
 
-  function readTeamPresets(userId: string): TeamPreset[] {
+  async function readTeamPresets(userId: string): Promise<TeamPreset[]> {
     try {
-      const dataStr = getUserConfig(userId, "team-presets");
+      const dataStr = await getUserConfig(userId, "team-presets");
       const data = dataStr ? JSON.parse(dataStr) : null;
       if (!Array.isArray(data)) {
         if (existsSync(TEAM_PRESETS_FILE)) {
@@ -612,13 +629,13 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   }
 
-  function writeTeamPresets(userId: string, presets: TeamPreset[]) {
-    setUserConfig(userId, "team-presets", JSON.stringify(presets));
+  async function writeTeamPresets(userId: string, presets: TeamPreset[]): Promise<void> {
+    await setUserConfig(userId, "team-presets", JSON.stringify(presets));
   }
 
-  function readTeamLibrary(userId: string): SavedTeam[] {
+  async function readTeamLibrary(userId: string): Promise<SavedTeam[]> {
     try {
-      const dataStr = getUserConfig(userId, "team-library");
+      const dataStr = await getUserConfig(userId, "team-library");
       const data = dataStr ? JSON.parse(dataStr) : null;
       if (!Array.isArray(data)) {
         if (existsSync(TEAM_LIBRARY_FILE)) {
@@ -644,8 +661,8 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   }
 
-  function writeTeamLibrary(userId: string, teams: SavedTeam[]) {
-    setUserConfig(userId, "team-library", JSON.stringify(teams));
+  async function writeTeamLibrary(userId: string, teams: SavedTeam[]): Promise<void> {
+    await setUserConfig(userId, "team-library", JSON.stringify(teams));
   }
 
   function formatClockTime(timeRemainingMs: number): string {
@@ -886,13 +903,26 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   // the bounded staleness this introduces is safe.
   const PERSIST_THROTTLE_MS = 1000;
 
+  // Every caller already holds (or has just awaited) this user's context, so this
+  // reads it straight from the map rather than going through the async
+  // getUserContext — keeping this function itself synchronous is what lets the
+  // clock tick (up to 10x/second, see startClockInterval) call it without ever
+  // waiting on a network round trip.
   function emitGameState(userId: string, options: { throttlePersist?: boolean } = {}) {
-    const context = getUserContext(userId);
+    const context = userContexts.get(userId)!;
     io.to(userId).emit("gameState", buildGameStatePayload(context.gameState));
     const currentTime = now();
     if (!options.throttlePersist || currentTime - context.lastPersistedAt >= PERSIST_THROTTLE_MS) {
-      saveGameState(userId, JSON.stringify(context.gameState));
+      // Mark persisted before the write resolves (not after) — otherwise a slow
+      // write would let further ticks slip past the throttle window and pile up
+      // concurrent writes for the same user. Fire-and-forget: a stale persisted
+      // lastUpdate is safely recovered by reconcileRunningClock() on reload, so a
+      // failed/delayed write here is bounded, non-fatal staleness, not correctness
+      // bug — and awaiting it here would block the tick loop on a DB round trip.
       context.lastPersistedAt = currentTime;
+      saveGameState(userId, JSON.stringify(context.gameState)).catch((error) =>
+        logError("[Clock] Failed to persist throttled game state", error, { userId }),
+      );
     }
   }
 
@@ -900,15 +930,19 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     socket.emit("gameState", buildGameStatePayload(gameState));
   }
 
-  function persistCurrentTeamDefaults(userId: string, gameState: GameState) {
-    writeTeamDefaults(userId, {
+  async function persistCurrentTeamDefaults(userId: string, gameState: GameState): Promise<void> {
+    await writeTeamDefaults(userId, {
       homeTeam: extractPresetTeam(gameState.homeTeam),
       awayTeam: extractPresetTeam(gameState.awayTeam),
     });
   }
 
+  // Same reasoning as emitGameState: every caller has already established this
+  // user's context (either just inside getUserContext's own creation path, or
+  // after an earlier `await getUserContext(userId)` in the calling handler), so
+  // this reads the map directly rather than awaiting getUserContext again.
   function startClockInterval(userId: string) {
-    const context = getUserContext(userId);
+    const context = userContexts.get(userId)!;
     if (context.clockInterval) {
       clearInterval(context.clockInterval);
     }
@@ -959,7 +993,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     const shareId = socket.handshake.auth.shareId;
 
     if (shareId) {
-      const userId = getShareUserId(shareId);
+      const userId = await getShareUserId(shareId);
       if (userId) {
         socket.data.userId = userId;
         socket.data.isViewer = true;
@@ -1025,15 +1059,15 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   function onSocketEvent<Args extends unknown[]>(
     socket: Socket,
     event: string,
-    handler: (...args: Args) => void,
+    handler: (...args: Args) => void | Promise<void>,
   ) {
-    socket.on(event, (...args: Args) => {
+    socket.on(event, async (...args: Args) => {
       if (isSocketEventRateLimited(socket)) {
         logger.warn({ userId: socket.data.userId, socketId: socket.id, event }, "[Socket] Rate limit exceeded, dropping event");
         return;
       }
       try {
-        handler(...args);
+        await handler(...args);
       } catch (error) {
         logError(`[Socket] Unhandled error in "${event}" handler`, error, {
           userId: socket.data.userId,
@@ -1043,7 +1077,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     });
   }
 
-  io.on("connection", (socket) => {
+  io.on("connection", async (socket) => {
     const userId = socket.data.userId;
     const isViewer = socket.data.isViewer === true;
     logger.info({ userId, socketId: socket.id, isViewer }, "User connected via socket");
@@ -1051,15 +1085,15 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     // Join a room for this user to enable per-user broadcasts
     socket.join(userId);
 
-    const { gameState } = getUserContext(userId);
+    const { gameState } = await getUserContext(userId);
     emitGameStateTo(socket, gameState);
 
-    onSocketEvent(socket, "updateGameState", (updates: Partial<GameState>) => {
+    onSocketEvent(socket, "updateGameState", async (updates: Partial<GameState>) => {
       if (isViewer) {
         logger.warn({ userId, socketId: socket.id }, "[Socket] Unauthorized update attempt from viewer");
         return;
       }
-      const context = getUserContext(userId);
+      const context = await getUserContext(userId);
       const sanitizedUpdates = sanitizeGameStateUpdate(updates);
       const previousState = { ...context.gameState };
       let nextState: GameState = { ...context.gameState, ...sanitizedUpdates };
@@ -1086,12 +1120,12 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       emitGameState(userId);
     });
 
-    onSocketEvent(socket, "startClock", () => {
+    onSocketEvent(socket, "startClock", async () => {
       if (isViewer) {
         logger.warn({ userId, socketId: socket.id }, "[Socket] Unauthorized startClock attempt from viewer");
         return;
       }
-      const context = getUserContext(userId);
+      const context = await getUserContext(userId);
       const { gameState } = context;
       if (!gameState.clock.isRunning && gameState.clock.timeRemaining > 0) {
         gameState.clock.isRunning = true;
@@ -1101,12 +1135,12 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       }
     });
 
-    onSocketEvent(socket, "stopClock", () => {
+    onSocketEvent(socket, "stopClock", async () => {
       if (isViewer) {
         logger.warn({ userId, socketId: socket.id }, "[Socket] Unauthorized stopClock attempt from viewer");
         return;
       }
-      const context = getUserContext(userId);
+      const context = await getUserContext(userId);
       const { gameState } = context;
       if (gameState.clock.isRunning) {
         const currentTime = now();
@@ -1120,50 +1154,50 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       }
     });
 
-    onSocketEvent(socket, "setClock", (timeMs: number) => {
+    onSocketEvent(socket, "setClock", async (timeMs: number) => {
       if (isViewer) {
         logger.warn({ userId, socketId: socket.id }, "[Socket] Unauthorized setClock attempt from viewer");
         return;
       }
       if (!Number.isFinite(timeMs)) return;
-      const context = getUserContext(userId);
+      const context = await getUserContext(userId);
       const { gameState } = context;
       gameState.clock.timeRemaining = Math.max(0, timeMs);
       gameState.clock.lastUpdate = now();
       emitGameState(userId);
     });
 
-    onSocketEvent(socket, "clockIncrease", () => {
+    onSocketEvent(socket, "clockIncrease", async () => {
       if (isViewer) {
         logger.warn({ userId, socketId: socket.id }, "[Socket] Unauthorized clockIncrease attempt from viewer");
         return;
       }
-      const context = getUserContext(userId);
+      const context = await getUserContext(userId);
       const { gameState } = context;
       gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining + 1000);
       emitGameState(userId);
     });
 
-    onSocketEvent(socket, "clockDecrease", () => {
+    onSocketEvent(socket, "clockDecrease", async () => {
       if (isViewer) {
         logger.warn({ userId, socketId: socket.id }, "[Socket] Unauthorized clockDecrease attempt from viewer");
         return;
       }
-      const context = getUserContext(userId);
+      const context = await getUserContext(userId);
       const { gameState } = context;
       gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining - 1000);
       emitGameState(userId);
     });
 
-    onSocketEvent(socket, "resetGame", (callback?: () => void) => {
+    onSocketEvent(socket, "resetGame", async (callback?: () => void) => {
       if (isViewer) return;
       logger.info({ userId }, "User requested hard reset to factory defaults");
-      const context = getUserContext(userId);
+      const context = await getUserContext(userId);
       if (context.clockInterval) {
         clearInterval(context.clockInterval);
         context.clockInterval = null;
       }
-      context.gameState = getInitialGameState(userId, true);
+      context.gameState = await getInitialGameState(userId, true);
       emitGameState(userId);
       // Acknowledge directly to the requesting client once the reset broadcast has
       // gone out, rather than having the client listen for the next arbitrary
@@ -1177,10 +1211,10 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     });
   });
 
-  app.get("/api/shortcuts", authenticateExpress, (req, res) => {
+  app.get("/api/shortcuts", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
     try {
-      const dataStr = getUserConfig(userId, "shortcuts");
+      const dataStr = await getUserConfig(userId, "shortcuts");
       if (dataStr) {
         res.json(JSON.parse(dataStr));
       } else {
@@ -1198,14 +1232,14 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
-  app.post("/api/shortcuts", authenticateExpress, (req, res) => {
+  app.post("/api/shortcuts", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
     if (!Array.isArray(req.body)) {
       res.status(400).json({ success: false, error: "Invalid shortcuts payload" });
       return;
     }
     try {
-      setUserConfig(userId, "shortcuts", JSON.stringify(req.body));
+      await setUserConfig(userId, "shortcuts", JSON.stringify(req.body));
       res.json({ success: true });
     } catch (error) {
       logError("Error saving shortcuts", error, { userId });
@@ -1213,10 +1247,10 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
-  app.get("/api/streamdeck", authenticateExpress, (req, res) => {
+  app.get("/api/streamdeck", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
     try {
-      const dataStr = getUserConfig(userId, "streamdeck");
+      const dataStr = await getUserConfig(userId, "streamdeck");
       if (dataStr) {
         res.json(JSON.parse(dataStr));
       } else {
@@ -1234,14 +1268,14 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
-  app.post("/api/streamdeck", authenticateExpress, (req, res) => {
+  app.post("/api/streamdeck", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
     if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
       res.status(400).json({ success: false, error: "Invalid Stream Deck config" });
       return;
     }
     try {
-      setUserConfig(userId, "streamdeck", JSON.stringify(req.body));
+      await setUserConfig(userId, "streamdeck", JSON.stringify(req.body));
       res.json({ success: true });
     } catch (error) {
       logError("Error saving Stream Deck config", error, { userId });
@@ -1249,9 +1283,9 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
-  app.get("/api/pdf-layout", authenticateExpress, (req, res) => {
+  app.get("/api/pdf-layout", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
-    const layout = readPdfLayout(userId);
+    const layout = await readPdfLayout(userId);
     if (!layout) {
       res.status(404).json({ error: "No saved PDF layout" });
       return;
@@ -1259,7 +1293,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     res.json(layout);
   });
 
-  app.post("/api/pdf-layout", authenticateExpress, (req, res) => {
+  app.post("/api/pdf-layout", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
     try {
       const layout = req.body;
@@ -1267,7 +1301,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         res.status(400).json({ error: "Invalid layout" });
         return;
       }
-      writePdfLayout(userId, layout);
+      await writePdfLayout(userId, layout);
       res.json({ success: true });
     } catch (error) {
       logError("Error saving PDF layout", error, { userId });
@@ -1275,19 +1309,19 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
-  app.get("/api/team-defaults", authenticateExpress, (req, res) => {
+  app.get("/api/team-defaults", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
-    const { gameState } = getUserContext(userId);
+    const { gameState } = await getUserContext(userId);
     res.json({
       homeTeam: extractPresetTeam(gameState.homeTeam),
       awayTeam: extractPresetTeam(gameState.awayTeam),
     });
   });
 
-  app.post("/api/team-defaults", authenticateExpress, (req, res) => {
+  app.post("/api/team-defaults", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
     try {
-      const context = getUserContext(userId);
+      const context = await getUserContext(userId);
       const updates = req.body as Partial<TeamDefaults>;
       if (updates.homeTeam) {
         const preset = normalizePresetTeam(updates.homeTeam);
@@ -1311,7 +1345,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
           players: preset.players ?? context.gameState.awayTeam.players,
         };
       }
-      persistCurrentTeamDefaults(userId, context.gameState);
+      await persistCurrentTeamDefaults(userId, context.gameState);
       emitGameState(userId);
       res.json({ success: true });
     } catch (error) {
@@ -1320,15 +1354,15 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
-  app.get("/api/team-presets", authenticateExpress, (req, res) => {
+  app.get("/api/team-presets", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
-    res.json(readTeamPresets(userId));
+    res.json(await readTeamPresets(userId));
   });
 
-  app.post("/api/team-presets", authenticateExpress, (req, res) => {
+  app.post("/api/team-presets", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
     try {
-      const context = getUserContext(userId);
+      const context = await getUserContext(userId);
       const payload = req.body as Partial<TeamPreset>;
       const name = String(payload.name ?? "").trim();
       if (!name) {
@@ -1338,7 +1372,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       const homeTeam = payload.homeTeam ? normalizePresetTeam(payload.homeTeam) : extractPresetTeam(context.gameState.homeTeam);
       const awayTeam = payload.awayTeam ? normalizePresetTeam(payload.awayTeam) : extractPresetTeam(context.gameState.awayTeam);
 
-      const presets = readTeamPresets(userId);
+      const presets = await readTeamPresets(userId);
       const existingIndex = presets.findIndex((preset) => preset.name.toLowerCase() === name.toLowerCase());
       const nextPreset: TeamPreset = {
         name,
@@ -1353,7 +1387,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         presets.push(nextPreset);
       }
 
-      writeTeamPresets(userId, presets);
+      await writeTeamPresets(userId, presets);
       res.json({ success: true, presets });
     } catch (error) {
       logError("Error saving team preset", error, { userId });
@@ -1361,13 +1395,13 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
-  app.delete<{ name: string }>("/api/team-presets/:name", authenticateExpress, (req, res) => {
+  app.delete<{ name: string }>("/api/team-presets/:name", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
     try {
       const name = decodeURIComponent(req.params.name);
-      const presets = readTeamPresets(userId);
+      const presets = await readTeamPresets(userId);
       const filtered = presets.filter((preset) => preset.name.toLowerCase() !== name.toLowerCase());
-      writeTeamPresets(userId, filtered);
+      await writeTeamPresets(userId, filtered);
       res.json({ success: true, presets: filtered });
     } catch (error) {
       logError("Error deleting team preset", error, { userId });
@@ -1375,15 +1409,15 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
-  app.get("/api/teams", authenticateExpress, (req, res) => {
+  app.get("/api/teams", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
-    res.json(readTeamLibrary(userId));
+    res.json(await readTeamLibrary(userId));
   });
 
-  app.post("/api/teams", authenticateExpress, (req, res) => {
+  app.post("/api/teams", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
     try {
-      const context = getUserContext(userId);
+      const context = await getUserContext(userId);
       const payload = req.body as Partial<SavedTeam>;
       const name = String(payload.name ?? "").trim();
       if (!name) {
@@ -1391,7 +1425,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       }
 
       const team = payload.team ? normalizePresetTeam(payload.team) : extractPresetTeam(context.gameState.homeTeam);
-      const teams = readTeamLibrary(userId);
+      const teams = await readTeamLibrary(userId);
       const existingIndex = teams.findIndex((entry) => entry.name.toLowerCase() === name.toLowerCase());
       const nextEntry: SavedTeam = {
         name,
@@ -1405,7 +1439,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         teams.push(nextEntry);
       }
 
-      writeTeamLibrary(userId, teams);
+      await writeTeamLibrary(userId, teams);
       res.json({ success: true, teams });
     } catch (error) {
       logError("Error saving team entry", error, { userId });
@@ -1413,13 +1447,13 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
-  app.delete<{ name: string }>("/api/teams/:name", authenticateExpress, (req, res) => {
+  app.delete<{ name: string }>("/api/teams/:name", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
     try {
       const name = decodeURIComponent(req.params.name);
-      const teams = readTeamLibrary(userId);
+      const teams = await readTeamLibrary(userId);
       const filtered = teams.filter((entry) => entry.name.toLowerCase() !== name.toLowerCase());
-      writeTeamLibrary(userId, filtered);
+      await writeTeamLibrary(userId, filtered);
       res.json({ success: true, teams: filtered });
     } catch (error) {
       logError("Error deleting team entry", error, { userId });
@@ -1427,35 +1461,35 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
-  app.get("/api/share", authenticateExpress, (req, res) => {
+  app.get("/api/share", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
-    const shareId = getUserIdShare(userId);
+    const shareId = await getUserIdShare(userId);
     res.json({ shareId });
   });
 
-  app.post("/api/share", shareCreationLimiter, authenticateExpress, (req, res) => {
+  app.post("/api/share", shareCreationLimiter, authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
     // Unlike randomId() (used for non-sensitive event/roster ids), a share link is an
     // unauthenticated bearer token for a user's live game state, so it needs a
     // cryptographically secure generator rather than Math.random().
     const shareId = randomUUID();
-    setUserIdShare(userId, shareId);
+    await setUserIdShare(userId, shareId);
     res.json({ shareId });
   });
 
-  app.get("/api/share/:shareId/state", (req, res) => {
+  app.get("/api/share/:shareId/state", async (req, res) => {
     const { shareId } = req.params;
-    const userId = getShareUserId(shareId);
+    const userId = await getShareUserId(shareId);
     if (!userId) {
       return res.status(404).json({ error: "Invalid share link" });
     }
-    const { gameState } = getUserContext(userId);
+    const { gameState } = await getUserContext(userId);
     res.json(buildGameStatePayload(gameState));
   });
 
-  app.get("/api/games", authenticateExpress, (req, res) => {
+  app.get("/api/games", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
-    const games = getSavedGames(userId);
+    const games = await getSavedGames(userId);
     res.json(games.map(g => ({
       id: g.id,
       name: g.name,
@@ -1463,29 +1497,29 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     })));
   });
 
-  app.post("/api/games", authenticateExpress, (req, res) => {
+  app.post("/api/games", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
     const { name } = req.body;
     if (!name || typeof name !== "string") {
       return res.status(400).json({ error: "Game name is required" });
     }
-    const { gameState } = getUserContext(userId);
-    const id = createSavedGame(userId, name, JSON.stringify(gameState));
+    const { gameState } = await getUserContext(userId);
+    const id = await createSavedGame(userId, name, JSON.stringify(gameState));
     res.json({ id, name });
   });
 
-  app.get<{ id: string }>("/api/games/:id", authenticateExpress, (req, res) => {
+  app.get<{ id: string }>("/api/games/:id", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
-    const game = getSavedGame(req.params.id, userId);
+    const game = await getSavedGame(req.params.id, userId);
     if (!game) {
       return res.status(404).json({ error: "Game not found" });
     }
     res.json(game);
   });
 
-  app.delete<{ id: string }>("/api/games/:id", authenticateExpress, (req, res) => {
+  app.delete<{ id: string }>("/api/games/:id", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
-    deleteSavedGame(req.params.id, userId);
+    await deleteSavedGame(req.params.id, userId);
     res.json({ success: true });
   });
 
