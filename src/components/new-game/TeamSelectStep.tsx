@@ -130,6 +130,7 @@ export default function TeamSelectStep({ side, onConfirm, onBack, otherSelection
             onRosterChange={setRoster}
             rosterExpandedDefault={false}
             framed={false}
+            logoInput="upload"
           />
           <p className="text-xs text-zinc-500 italic">Roster is optional — you can add players later in Settings.</p>
           <GlassButton onClick={handleCreateContinue} disabled={!identity.name.trim()} variant="primary" className="self-end">

@@ -215,10 +215,13 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     // files it references. img-src is broad (https:/data:) because team logos and
     // Google profile photos are arbitrary user-supplied URLs, not a fixed allowlist.
     // connect-src covers the Firebase Auth endpoints the SDK calls directly from the
-    // page; frame-src covers the authDomain iframe above (the popup window itself runs
-    // in its own origin/CSP context, so it isn't governed by this page's CSP at all) —
-    // plus blob:, which the gamesheet PDF layout editor needs for its live preview
-    // (it renders a generated PDF via URL.createObjectURL into an <iframe>).
+    // page, plus firebasestorage.googleapis.com for team logo uploads/downloads
+    // (src/lib/uploadTeamLogo.ts) — without it the browser silently blocks the
+    // upload XHR client-side (no network request even reaches Storage); frame-src
+    // covers the authDomain iframe above (the popup window itself runs in its own
+    // origin/CSP context, so it isn't governed by this page's CSP at all) — plus
+    // blob:, which the gamesheet PDF layout editor needs for its live preview (it
+    // renders a generated PDF via URL.createObjectURL into an <iframe>).
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
@@ -231,6 +234,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
           "https://identitytoolkit.googleapis.com",
           "https://securetoken.googleapis.com",
           "https://apis.google.com",
+          "https://firebasestorage.googleapis.com",
         ],
         frameSrc: firebaseAuthDomain
           ? ["'self'", "blob:", `https://${firebaseAuthDomain}`]

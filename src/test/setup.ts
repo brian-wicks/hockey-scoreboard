@@ -21,6 +21,13 @@ vi.mock("firebase/auth", () => ({
   signOut: vi.fn(),
 }));
 
+vi.mock("firebase/storage", () => ({
+  getStorage: vi.fn(() => ({})),
+  ref: vi.fn(),
+  uploadBytes: vi.fn(),
+  getDownloadURL: vi.fn(),
+}));
+
 if (!globalThis.requestAnimationFrame) {
   globalThis.requestAnimationFrame = (callback: FrameRequestCallback) => {
     return globalThis.setTimeout(() => callback(Date.now()), 16) as unknown as number;
