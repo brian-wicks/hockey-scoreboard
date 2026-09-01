@@ -33,6 +33,7 @@ export default function DashboardHeader() {
   }, [user]);
 
   return (
+    <>
     <header className="bg-white/[0.03] backdrop-blur-xl border-b border-white/10">
       <div className="px-3 py-2 sm:px-6 sm:py-4 flex items-center justify-between gap-2">
         <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white flex items-center gap-2">
@@ -93,8 +94,9 @@ export default function DashboardHeader() {
           </div>
         )}
       </div>
-
-      <OBSSetupGuide isOpen={isOBSGuideOpen} onClose={() => setIsOBSGuideOpen(false)} />
     </header>
+
+    <OBSSetupGuide isOpen={isOBSGuideOpen} onClose={() => setIsOBSGuideOpen(false)} />
+    </>
   );
 }
