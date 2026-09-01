@@ -70,4 +70,49 @@ describe("PdfLayoutSettings Component", () => {
     fireEvent.click(screen.getByText("Reset defaults"));
     expect(screen.getByDisplayValue("1")).toBeInTheDocument();
   });
+
+  // These target the exact risk of extracting 177 hand-written number/align
+  // fields into shared NumberField/AlignField components: that a field's own
+  // invalid-input fallback (some fall back to the field's previous value,
+  // most fall back to 0 — see PdfLayoutSettings.tsx) got swapped or dropped
+  // in the process, since both wrappers look identical at the JSX call site.
+  it("falls back to the field's own previous value (not 0) on invalid input", () => {
+    render(<PdfLayoutSettings homeTeam={homeTeam as any} awayTeam={awayTeam as any} eventLog={[]} />);
+
+    // Two fields share this label (Team names' Home X and Home shots' Home X,
+    // pre-existing in the original markup) — the first is Team names'.
+    const homeXInput = screen.getAllByLabelText("Home X")[0];
+    fireEvent.change(homeXInput, { target: { value: "42" } });
+    expect(homeXInput).toHaveValue(42);
+
+    fireEvent.change(homeXInput, { target: { value: "" } });
+    expect(homeXInput).toHaveValue(42);
+
+    const saved = JSON.parse(localStorage.getItem("gamesheetPdfLayoutV1") ?? "{}");
+    expect(saved.teamNames.homeX).toBe(42);
+  });
+
+  it("falls back to 0 (not the previous value) on invalid input for fields wired that way", () => {
+    render(<PdfLayoutSettings homeTeam={homeTeam as any} awayTeam={awayTeam as any} eventLog={[]} />);
+
+    const offsetXInput = screen.getByLabelText("Offset X");
+    fireEvent.change(offsetXInput, { target: { value: "42" } });
+    expect(offsetXInput).toHaveValue(42);
+
+    fireEvent.change(offsetXInput, { target: { value: "" } });
+    expect(offsetXInput).toHaveValue(0);
+
+    const saved = JSON.parse(localStorage.getItem("gamesheetPdfLayoutV1") ?? "{}");
+    expect(saved.offsetX).toBe(0);
+  });
+
+  it("wires the alignment dropdown through AlignField to the right nested path", () => {
+    render(<PdfLayoutSettings homeTeam={homeTeam as any} awayTeam={awayTeam as any} eventLog={[]} />);
+
+    const alignSelect = screen.getByLabelText("Alignment");
+    fireEvent.change(alignSelect, { target: { value: "center" } });
+
+    const saved = JSON.parse(localStorage.getItem("gamesheetPdfLayoutV1") ?? "{}");
+    expect(saved.teamNames.align).toBe("center");
+  });
 });

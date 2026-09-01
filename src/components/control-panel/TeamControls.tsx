@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Minus, Plus } from "lucide-react";
 import { GameState, TeamState, useStore } from "../../store";
 import { buildGoalieChangeEvent, buildShotEvent } from "../../utils/eventLog";
+import { createBlankPenalty } from "../../utils/penalty";
 import { UpdateGameState } from "./types";
 import GoalReviewPanel from "./GoalReviewPanel";
 import PenaltyItem from "./PenaltyItem";
@@ -166,16 +167,7 @@ export default function TeamControls({ team, state, eventLog, updateState }: Tea
         <div className="flex items-center justify-between mb-4">
           <SectionLabel>Penalties</SectionLabel>
           <GlassButton
-            onClick={() => {
-              const newPenalty = {
-                id: Math.random().toString(36).slice(2, 11),
-                playerNumber: "",
-                timeRemaining: 120000,
-                duration: 120000,
-                infraction: "",
-              };
-              updateTeam({ penalties: [...state.penalties, newPenalty] });
-            }}
+            onClick={() => updateTeam({ penalties: [...state.penalties, createBlankPenalty()] })}
             variant="secondary"
             className="px-3 py-1.5 text-sm"
           >

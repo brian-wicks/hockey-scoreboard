@@ -427,6 +427,8 @@ export default function StreamDeckPanel() {
               <button
                 onClick={() => setEditingIndex(index)}
                 className="absolute -top-1.5 -right-1.5 p-1.5 bg-white/[0.06] border border-white/10 text-zinc-400 rounded-full border border-white/15 opacity-0 group-hover:opacity-100 transition-opacity hover:text-white hover:bg-white/[0.1] z-20 shadow-xl"
+                title={`Edit "${button.label}"`}
+                aria-label={`Edit "${button.label}"`}
               >
                 <Settings size={14} />
               </button>
