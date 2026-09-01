@@ -1372,6 +1372,28 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
+  app.get("/api/onboarding", authenticateExpress, async (req, res) => {
+    const userId = (req as any).user.uid;
+    try {
+      const dataStr = await getUserConfig(userId, "onboarding");
+      res.json(dataStr ? JSON.parse(dataStr) : {});
+    } catch (error) {
+      logError("Error loading onboarding state", error, { userId });
+      res.status(500).json({ success: false, error: "Failed to load onboarding state" });
+    }
+  });
+
+  app.post("/api/onboarding", authenticateExpress, async (req, res) => {
+    const userId = (req as any).user.uid;
+    try {
+      await setUserConfig(userId, "onboarding", JSON.stringify(req.body));
+      res.json({ success: true });
+    } catch (error) {
+      logError("Error saving onboarding state", error, { userId });
+      res.status(500).json({ success: false, error: "Failed to save onboarding state" });
+    }
+  });
+
   app.get("/api/streamdeck", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
     try {
