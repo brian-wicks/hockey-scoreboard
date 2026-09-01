@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import GameActionsPanel from "../../components/control-panel/GameActionsPanel";
+import { useStore } from "../../store";
 
 describe("GameActionsPanel Component", () => {
   const mockUpdateState = vi.fn();
@@ -31,10 +32,12 @@ describe("GameActionsPanel Component", () => {
   });
 
   it("updates period and sets clock when a button is clicked", () => {
+    // GameActionsPanel reads gameState from the store directly (not as a prop) —
+    // see the comment in GameActionsPanel.tsx for why.
+    useStore.setState({ gameState: baseGameState as any });
     render(
       <GameActionsPanel
         period="1st"
-        gameState={baseGameState as any}
         updateState={mockUpdateState}
         setClock={mockSetClock}
       />
@@ -62,10 +65,10 @@ describe("GameActionsPanel Component", () => {
       clock: { timeRemaining: 0 },
     };
 
+    useStore.setState({ gameState: finishedGameState as any });
     render(
       <GameActionsPanel
         period="1st"
-        gameState={finishedGameState as any}
         updateState={mockUpdateState}
         setClock={mockSetClock}
       />
@@ -82,10 +85,10 @@ describe("GameActionsPanel Component", () => {
       eventLog: [{ type: "period_end", period: "1st" }],
     };
 
+    useStore.setState({ gameState: stateWithEndEvent as any });
     render(
       <GameActionsPanel
         period="1st"
-        gameState={stateWithEndEvent as any}
         updateState={mockUpdateState}
         setClock={mockSetClock}
       />

@@ -94,7 +94,7 @@ export default function ControlPanel() {
             {activeTab === "controls" || isViewer ? (
               <div className="flex flex-col gap-6">
                 <div className="grid grid-cols-1 min-[950px]:grid-cols-3 gap-6">
-                  <TeamControls team="home" state={homeTeam} gameState={gameState} eventLog={eventLog} updateState={updateState} />
+                  <TeamControls team="home" state={homeTeam} eventLog={eventLog} updateState={updateState} />
 
                   <div className="flex flex-col gap-6">
                     <ClockControl
@@ -105,10 +105,10 @@ export default function ControlPanel() {
                       setClock={setClock}
                       serverTimeOffsetMs={serverTimeOffsetMs}
                     />
-                    <GameActionsPanel period={period} gameState={gameState} updateState={updateState} setClock={setClock} />
+                    <GameActionsPanel period={period} updateState={updateState} setClock={setClock} />
                   </div>
 
-                  <TeamControls team="away" state={awayTeam} gameState={gameState} eventLog={eventLog} updateState={updateState} />
+                  <TeamControls team="away" state={awayTeam} eventLog={eventLog} updateState={updateState} />
                 </div>
 
                 <OverlayControlsPanel
@@ -118,7 +118,6 @@ export default function ControlPanel() {
                   lowerThird={lowerThird}
                 />
                 <EventLogPanel
-                  gameState={gameState}
                   eventLog={eventLog}
                   homeTeam={homeTeam}
                   awayTeam={awayTeam}

@@ -1,11 +1,11 @@
-import { GameState } from "../../store";
+import { memo } from "react";
+import { useStore } from "../../store";
 import { buildPeriodEndEvent } from "../../utils/eventLog";
 import { UpdateGameState } from "./types";
 import { GlassPanel, SectionLabel } from "./ui/glass";
 
 interface GameActionsPanelProps {
   period: string;
-  gameState?: GameState;
   updateState: UpdateGameState;
   setClock: (timeMs: number) => void;
 }
@@ -17,8 +17,14 @@ const PERIOD_CLOCKS_MS: Record<string, number> = {
   OT: 5 * 60 * 1000,
 };
 
-export default function GameActionsPanel({ period, gameState, updateState, setClock }: GameActionsPanelProps) {
+// period/updateState/setClock are the only props this needs to render — gameState
+// is read imperatively below, only at click time, so it deliberately isn't a prop.
+// That keeps this panel's props stable across the clock's ~10x/sec ticks (which
+// replace gameState with a new object graph every time but never touch period),
+// so memo actually skips re-rendering instead of always missing on prop identity.
+function GameActionsPanel({ period, updateState, setClock }: GameActionsPanelProps) {
   const updatePeriod = (nextPeriod: string) => {
+    const gameState = useStore.getState().gameState;
     if (gameState && period && period !== nextPeriod) {
       const lastEvent = gameState.eventLog[gameState.eventLog.length - 1];
       const alreadyEnded =
@@ -68,3 +74,5 @@ export default function GameActionsPanel({ period, gameState, updateState, setCl
     </GlassPanel>
   );
 }
+
+export default memo(GameActionsPanel);

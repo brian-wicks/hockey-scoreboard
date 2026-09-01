@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Download } from "lucide-react";
-import { GameEvent, GameState, TeamState, TeamPlayer } from "../../store";
+import { GameEvent, GameState, TeamState, TeamPlayer, useStore } from "../../store";
 import { exportGamesheetPdf } from "../../utils/gamesheetPdf";
 import { toSkaterLabel } from "../../utils/roster";
 import { PenaltyReasonInput, SearchDropdownInput } from "./DropdownInputs";
@@ -9,7 +9,6 @@ import { loadPdfLayout } from "./PdfLayoutSettings";
 import { GlassButton, GlassPanel } from "./ui/glass";
 
 interface EventLogPanelProps {
-  gameState: GameState;
   eventLog: GameEvent[];
   homeTeam: TeamState;
   awayTeam: TeamState;
@@ -18,8 +17,10 @@ interface EventLogPanelProps {
   updateState: UpdateGameState;
 }
 
+// gameState is read imperatively (useStore.getState()) inside the export/import
+// handlers below, only at click time — it's never used in render, so it
+// deliberately isn't a prop here (see GameActionsPanel for the same pattern).
 export default function EventLogPanel({
-  gameState,
   eventLog,
   homeTeam,
   awayTeam,
@@ -36,6 +37,8 @@ export default function EventLogPanel({
   };
 
   const buildExportState = () => {
+    const gameState = useStore.getState().gameState;
+    if (!gameState) return null;
     const { serverTime, ...rest } = gameState;
     return rest;
   };
@@ -43,6 +46,11 @@ export default function EventLogPanel({
   const exportGamesheetJson = () => {
     try {
       const payload = buildExportState();
+      if (!payload) {
+        setJsonIoStatus("error");
+        setTimeout(() => setJsonIoStatus("idle"), 2000);
+        return;
+      }
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -61,6 +69,8 @@ export default function EventLogPanel({
   };
 
   const mergeImportedState = (incoming: Partial<GameState>) => {
+    const gameState = useStore.getState().gameState;
+    if (!gameState) return null;
     const nextHome = { ...gameState.homeTeam, ...(incoming.homeTeam ?? {}) };
     const nextAway = { ...gameState.awayTeam, ...(incoming.awayTeam ?? {}) };
     const nextClock = { ...gameState.clock, ...(incoming.clock ?? {}) };
@@ -95,6 +105,11 @@ export default function EventLogPanel({
           return;
         }
         const merged = mergeImportedState(parsed);
+        if (!merged) {
+          setJsonIoStatus("error");
+          setTimeout(() => setJsonIoStatus("idle"), 2000);
+          return;
+        }
         updateState(merged);
         setJsonIoStatus("imported");
         setTimeout(() => setJsonIoStatus("idle"), 1200);

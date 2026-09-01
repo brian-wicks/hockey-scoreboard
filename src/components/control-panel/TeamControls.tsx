@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Minus, Plus } from "lucide-react";
-import { GameState, TeamState } from "../../store";
+import { GameState, TeamState, useStore } from "../../store";
 import { buildGoalieChangeEvent, buildShotEvent } from "../../utils/eventLog";
 import { UpdateGameState } from "./types";
 import GoalReviewPanel from "./GoalReviewPanel";
@@ -11,16 +11,37 @@ import { GlassButton, GlassPanel, SectionLabel, glassInputClass } from "./ui/gla
 interface TeamControlsProps {
   team: "home" | "away";
   state: TeamState;
-  gameState: GameState;
   updateState: UpdateGameState;
   eventLog: GameState["eventLog"];
 }
 
-export default function TeamControls({ team, state, gameState, eventLog, updateState }: TeamControlsProps) {
+// gameState is sourced here (rather than threaded down from ControlPanel as a
+// prop) because GoalReviewPanel below is the only thing under this component
+// that actually needs it reactively — everything else here only reads it inside
+// click handlers.
+export default function TeamControls({ team, state, eventLog, updateState }: TeamControlsProps) {
+  const gameState = useStore((s) => s.gameState);
   const [focusPenaltyId, setFocusPenaltyId] = useState<string | null>(null);
   const [goalieValue, setGoalieValue] = useState("");
   const previousPenaltyCountRef = useRef(state.penalties.length);
   const rosterPlayers = state.players ?? [];
+
+  useEffect(() => {
+    const previousPenaltyCount = previousPenaltyCountRef.current;
+    if (state.penalties.length > previousPenaltyCount) {
+      const newestPenalty = state.penalties[state.penalties.length - 1];
+      if (newestPenalty) {
+        setFocusPenaltyId(newestPenalty.id);
+      }
+    }
+    previousPenaltyCountRef.current = state.penalties.length;
+  }, [state.penalties]);
+
+  // Never actually null in practice — ControlPanel doesn't render this component
+  // until gameState is loaded — but the store types it as nullable, so narrow it
+  // once here (before the closures below, which all reference gameState) rather
+  // than re-checking in every handler.
+  if (!gameState) return null;
 
   const updateTeam = (updates: Partial<TeamState>) => {
     updateState({ [`${team}Team`]: { ...state, ...updates } });
@@ -43,17 +64,6 @@ export default function TeamControls({ team, state, gameState, eventLog, updateS
     const event = buildGoalieChangeEvent(gameState, team, nextGoalie);
     appendEventLog(event);
   };
-
-  useEffect(() => {
-    const previousPenaltyCount = previousPenaltyCountRef.current;
-    if (state.penalties.length > previousPenaltyCount) {
-      const newestPenalty = state.penalties[state.penalties.length - 1];
-      if (newestPenalty) {
-        setFocusPenaltyId(newestPenalty.id);
-      }
-    }
-    previousPenaltyCountRef.current = state.penalties.length;
-  }, [state.penalties]);
 
   return (
     <GlassPanel

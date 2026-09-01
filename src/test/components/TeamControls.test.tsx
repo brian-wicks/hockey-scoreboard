@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import TeamControls from "../../components/control-panel/TeamControls";
+import { useStore } from "../../store";
 
 const mockUpdateState = vi.fn();
 
@@ -38,6 +39,9 @@ const baseState = {
 describe("TeamControls", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // TeamControls reads gameState from the store directly (not as a prop) —
+    // see the comment in TeamControls.tsx for why.
+    useStore.setState({ gameState: baseState as any });
   });
 
   it("increments and decrements score", () => {
@@ -45,7 +49,6 @@ describe("TeamControls", () => {
       <TeamControls
         team="home"
         state={baseState.homeTeam as any}
-        gameState={baseState as any}
         eventLog={[]}
         updateState={mockUpdateState}
       />
@@ -70,7 +73,6 @@ describe("TeamControls", () => {
       <TeamControls
         team="home"
         state={baseState.homeTeam as any}
-        gameState={baseState as any}
         eventLog={[]}
         updateState={mockUpdateState}
       />
@@ -91,7 +93,6 @@ describe("TeamControls", () => {
       <TeamControls
         team="home"
         state={baseState.homeTeam as any}
-        gameState={baseState as any}
         eventLog={[]}
         updateState={mockUpdateState}
       />
@@ -114,7 +115,6 @@ describe("TeamControls", () => {
       <TeamControls
         team="home"
         state={baseState.homeTeam as any}
-        gameState={baseState as any}
         eventLog={[]}
         updateState={mockUpdateState}
       />
@@ -147,7 +147,6 @@ describe("TeamControls", () => {
       <TeamControls
         team="home"
         state={stateWithPenalty as any}
-        gameState={baseState as any}
         eventLog={[]}
         updateState={mockUpdateState}
       />
