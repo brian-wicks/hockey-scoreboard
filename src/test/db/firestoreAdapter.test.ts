@@ -192,11 +192,33 @@ describe("firestore adapter", () => {
   });
 
   it("sets a share as a 2-document fan-out (shares/{shareId} + users/{userId}.shareId)", async () => {
+    mockGet.mockResolvedValue({ data: () => undefined });
     mockSet.mockResolvedValue(undefined);
     await setUserIdShare("user-ghi", "share-789");
 
     expect(mockSet).toHaveBeenCalledWith({ userId: "user-ghi" });
     expect(mockSet).toHaveBeenCalledWith({ shareId: "share-789" }, { merge: true });
+    expect(mockDelete).not.toHaveBeenCalled();
+  });
+
+  it("revokes the previous share link when a user's shareId is replaced", async () => {
+    mockGet.mockResolvedValue({ data: () => ({ shareId: "share-old" }) });
+    mockSet.mockResolvedValue(undefined);
+    mockDelete.mockResolvedValue(undefined);
+    await setUserIdShare("user-ghi", "share-new");
+
+    expect(docSpy).toHaveBeenCalledWith("share-old");
+    expect(mockDelete).toHaveBeenCalledTimes(1);
+    expect(mockSet).toHaveBeenCalledWith({ userId: "user-ghi" });
+    expect(mockSet).toHaveBeenCalledWith({ shareId: "share-new" }, { merge: true });
+  });
+
+  it("does not attempt to revoke when regenerating to the same shareId", async () => {
+    mockGet.mockResolvedValue({ data: () => ({ shareId: "share-same" }) });
+    mockSet.mockResolvedValue(undefined);
+    await setUserIdShare("user-ghi", "share-same");
+
+    expect(mockDelete).not.toHaveBeenCalled();
   });
 
   it("pings healthy when the read succeeds", async () => {

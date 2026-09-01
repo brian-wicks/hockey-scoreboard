@@ -100,10 +100,18 @@ export const getUserIdShare = async (userId: string): Promise<string | null> => 
 };
 
 export const setUserIdShare = async (userId: string, shareId: string): Promise<void> => {
-  await Promise.all([
-    sharesCollection().doc(shareId).set({ userId }),
-    usersCollection().doc(userId).set({ shareId }, { merge: true }),
-  ]);
+  const userRef = usersCollection().doc(userId);
+  const snap = await userRef.get();
+  const oldShareId = snap.data()?.shareId;
+
+  // Revoke the previous share link so it stops resolving once a new one is
+  // issued — mirrors sqliteAdapter's same-row upsert, which does this for free.
+  const revokeOld =
+    typeof oldShareId === "string" && oldShareId !== shareId
+      ? sharesCollection().doc(oldShareId).delete()
+      : Promise.resolve();
+
+  await Promise.all([revokeOld, sharesCollection().doc(shareId).set({ userId }), userRef.set({ shareId }, { merge: true })]);
 };
 
 // Costs exactly one read (hit or miss, same billing) and doesn't require any
