@@ -1,9 +1,8 @@
-import { useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useState } from "react";
 import { Minus } from "lucide-react";
 import { Penalty, TeamPlayer } from "../../store";
 import { parseTimeInputMs } from "../../utils/clock";
-import { PenaltyReasonInput, useDropdownPlacement } from "./DropdownInputs";
+import { ComboboxDropdown, PenaltyReasonInput, useComboboxField } from "./DropdownInputs";
 import { glassInsetClass } from "./ui/glass";
 
 interface PenaltyItemProps {
@@ -25,15 +24,18 @@ export default function PenaltyItem({
 }: PenaltyItemProps) {
   const [editMode, setEditMode] = useState(false);
   const [editValue, setEditValue] = useState("2:00");
-  const [playerDraft, setPlayerDraft] = useState(penalty.playerNumber);
-  const [playerOpen, setPlayerOpen] = useState(false);
-  const [activePlayerIndex, setActivePlayerIndex] = useState(-1);
-  const suppressPlayerBlurCommitRef = useRef(false);
-  const playerDropdown = useDropdownPlacement(playerOpen);
-  const playerOptionRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const playerInputValue = playerOpen ? playerDraft : penalty.playerNumber;
+  const formatPlayerSearchValue = (player: TeamPlayer) => {
+    const number = player.jerseyNumber.trim();
+    const name = player.name.trim();
+    return `${number} ${name}`.trim();
+  };
 
+  // Unlike PenaltyReasonInput/SearchDropdownInput, a committed value here isn't
+  // just passed through — it's matched against the roster (by jersey, name, or
+  // "jersey name") and normalized to a bare 2-digit jersey number, whether the
+  // player was picked from the list or the text was typed and blurred/entered
+  // freely.
   const commitPlayerNumber = (value: string) => {
     const trimmed = value.trim();
     const normalized = trimmed.toLowerCase();
@@ -48,32 +50,21 @@ export default function PenaltyItem({
     return nextPlayerNumber;
   };
 
-  const formatPlayerSearchValue = (player: TeamPlayer) => {
-    const number = player.jerseyNumber.trim();
-    const name = player.name.trim();
-    return `${number} ${name}`.trim();
-  };
-
-  const playerOptions = rosterPlayers.filter((player) => {
-    const query = playerInputValue.trim().toLowerCase();
-    if (!query) return true;
-    const number = player.jerseyNumber.trim().toLowerCase();
-    const name = player.name.trim().toLowerCase();
-    const label = formatPlayerSearchValue(player).toLowerCase();
-    return number.includes(query) || name.includes(query) || label.includes(query);
+  const playerCombobox = useComboboxField({
+    value: penalty.playerNumber,
+    getOptions: (inputValue) => {
+      const query = inputValue.trim().toLowerCase();
+      if (!query) return rosterPlayers;
+      return rosterPlayers.filter((player) => {
+        const number = player.jerseyNumber.trim().toLowerCase();
+        const name = player.name.trim().toLowerCase();
+        const label = formatPlayerSearchValue(player).toLowerCase();
+        return number.includes(query) || name.includes(query) || label.includes(query);
+      });
+    },
+    getOptionValue: (player) => player.jerseyNumber,
+    onCommit: commitPlayerNumber,
   });
-
-  const normalizedPlayerIndex =
-    playerOpen && playerOptions.length > 0
-      ? Math.min(Math.max(activePlayerIndex, 0), playerOptions.length - 1)
-      : -1;
-
-  const scrollPlayerIntoView = (index: number) => {
-    if (!playerOpen || index < 0) return;
-    requestAnimationFrame(() => {
-      playerOptionRefs.current[index]?.scrollIntoView({ block: "nearest" });
-    });
-  };
 
   const formatPenaltyTime = (ms: number) => {
     const totalSeconds = Math.ceil(ms / 1000);
@@ -95,7 +86,7 @@ export default function PenaltyItem({
 
   return (
     <div className={`flex items-center gap-2 p-2 ${glassInsetClass}`}>
-      <div ref={playerDropdown.containerRef} className="relative">
+      <div ref={playerCombobox.containerRef} className="relative">
         <input
           ref={(el) => {
             if (!el || !autoFocusPlayer) return;
@@ -104,117 +95,39 @@ export default function PenaltyItem({
             onAutoFocusHandled?.();
           }}
           type="text"
-          value={playerInputValue}
-          onChange={(e) => {
-            setPlayerDraft(e.target.value);
-            setPlayerOpen(true);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-              if (!playerOpen) {
-                setPlayerOpen(true);
-                if (playerOptions.length > 0) {
-                  setActivePlayerIndex(0);
-                  scrollPlayerIntoView(0);
-                } else {
-                  setActivePlayerIndex(-1);
-                }
-                return;
-              }
-              if (playerOptions.length === 0) return;
-              e.preventDefault();
-              const delta = e.key === "ArrowDown" ? 1 : -1;
-              const baseIndex = normalizedPlayerIndex === -1 ? 0 : normalizedPlayerIndex;
-              const nextIndex = (baseIndex + delta + playerOptions.length) % playerOptions.length;
-              setActivePlayerIndex(nextIndex);
-              scrollPlayerIntoView(nextIndex);
-              return;
-            }
-            if (e.key === "Enter") {
-              e.preventDefault();
-              if (playerOpen && normalizedPlayerIndex >= 0 && normalizedPlayerIndex < playerOptions.length) {
-                const selected = playerOptions[normalizedPlayerIndex];
-                const committed = commitPlayerNumber(selected.jerseyNumber);
-                setPlayerDraft(committed);
-                setPlayerOpen(false);
-                setActivePlayerIndex(-1);
-                suppressPlayerBlurCommitRef.current = true;
-                return;
-              }
-              const committed = commitPlayerNumber((e.target as HTMLInputElement).value);
-              setPlayerDraft(committed);
-              setPlayerOpen(false);
-              setActivePlayerIndex(-1);
-            }
-          }}
+          value={playerCombobox.inputValue}
+          onChange={playerCombobox.handleChange}
+          onKeyDown={playerCombobox.handleKeyDown}
           onFocus={(e) => {
             e.currentTarget.select();
-            setPlayerDraft(penalty.playerNumber);
-            setPlayerOpen(true);
-            if (playerOptions.length > 0) {
-              setActivePlayerIndex(0);
-              scrollPlayerIntoView(0);
-            }
+            playerCombobox.handleFocus();
           }}
-          onBlur={(e) => {
-            if (suppressPlayerBlurCommitRef.current) {
-              suppressPlayerBlurCommitRef.current = false;
-              return;
-            }
-            const committed = commitPlayerNumber(e.target.value);
-            setPlayerDraft(committed);
-            setPlayerOpen(false);
-            setActivePlayerIndex(-1);
-          }}
+          onBlur={playerCombobox.handleBlur}
           className="w-16 bg-white/[0.05] border border-white/10 text-center rounded-md p-1 text-sm font-mono focus:border-indigo-400/60 focus:outline-none"
           placeholder="#"
         />
-        {playerOpen && playerDropdown.coords &&
-          createPortal(
-            <div
-              className="fixed z-50 w-44 overflow-auto rounded-md border border-white/10 bg-zinc-950/95 backdrop-blur-sm shadow-lg"
-              style={{
-                left: playerDropdown.coords.left,
-                maxHeight: `${playerDropdown.maxHeight}px`,
-                ...(playerDropdown.dropUp ? { bottom: playerDropdown.coords.bottom } : { top: playerDropdown.coords.top }),
-              }}
-            >
-              {playerOptions.length === 0 ? (
-                <div className="px-2 py-1 text-xs text-zinc-500">No matches</div>
-              ) : (
-                playerOptions.map((player, index) => {
-                  const labelParts = [
-                    player.name.trim(),
-                    player.position ? `(${player.position})` : "",
-                  ].filter(Boolean);
-                  return (
-                    <button
-                      key={player.id}
-                      type="button"
-                      ref={(el) => {
-                        playerOptionRefs.current[index] = el;
-                      }}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        const committed = commitPlayerNumber(player.jerseyNumber);
-                        setPlayerDraft(committed);
-                        setPlayerOpen(false);
-                        setActivePlayerIndex(-1);
-                      }}
-                      onMouseEnter={() => setActivePlayerIndex(index)}
-                      className={`w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-white/[0.08] ${
-                        index === normalizedPlayerIndex ? "bg-white/[0.08]" : ""
-                      }`}
-                    >
-                      <span className="font-mono">{player.jerseyNumber || "--"}</span>
-                      {labelParts.length > 0 && <span className="text-zinc-400"> - {labelParts.join(" ")}</span>}
-                    </button>
-                  );
-                })
-              )}
-            </div>,
-            document.body,
-          )}
+        <ComboboxDropdown
+          open={playerCombobox.open}
+          coords={playerCombobox.coords}
+          dropUp={playerCombobox.dropUp}
+          maxHeight={playerCombobox.maxHeight}
+          options={playerCombobox.options}
+          activeIndex={playerCombobox.normalizedActiveIndex}
+          optionRefs={playerCombobox.optionRefs}
+          onOptionMouseDown={playerCombobox.handleOptionMouseDown}
+          onOptionMouseEnter={playerCombobox.setActiveIndex}
+          widthClassName="w-44"
+          getOptionKey={(player) => player.id}
+          renderOption={(player) => {
+            const labelParts = [player.name.trim(), player.position ? `(${player.position})` : ""].filter(Boolean);
+            return (
+              <>
+                <span className="font-mono">{player.jerseyNumber || "--"}</span>
+                {labelParts.length > 0 && <span className="text-zinc-400"> - {labelParts.join(" ")}</span>}
+              </>
+            );
+          }}
+        />
       </div>
       <PenaltyReasonInput
           value={penalty.infraction}

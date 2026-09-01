@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { X, PlayCircle } from "lucide-react";
 import { TeamState, useStore } from "../../store";
-import { isGameInProgress } from "../../utils/gameProgress";
-import InProgressGate from "./InProgressGate";
 import TeamSelectStep, { TeamDraft } from "./TeamSelectStep";
 import ReviewStep from "./ReviewStep";
 
@@ -12,7 +10,7 @@ interface NewGameWizardProps {
   onStarted: () => void;
 }
 
-type WizardStep = "gate" | "home" | "away" | "review";
+type WizardStep = "home" | "away" | "review";
 
 const EMPTY_DRAFT: TeamDraft = { source: "new", identity: { name: "", abbreviation: "", logo: "", color: "#3b82f6" }, players: [] };
 
@@ -31,8 +29,8 @@ function draftToTeamState(draft: TeamDraft): TeamState {
 }
 
 export default function NewGameWizard({ isOpen, onClose, onStarted }: NewGameWizardProps) {
-  const { gameState, resetGame, startNewGame, saveGame, saveTeamToLibrary } = useStore();
-  const [step, setStep] = useState<WizardStep>("gate");
+  const { startNewGame, saveTeamToLibrary } = useStore();
+  const [step, setStep] = useState<WizardStep>("home");
   const [homeDraft, setHomeDraft] = useState<TeamDraft>(EMPTY_DRAFT);
   const [awayDraft, setAwayDraft] = useState<TeamDraft>(EMPTY_DRAFT);
   const [saveHomeToLibrary, setSaveHomeToLibrary] = useState(true);
@@ -40,28 +38,16 @@ export default function NewGameWizard({ isOpen, onClose, onStarted }: NewGameWiz
   const [starting, setStarting] = useState(false);
 
   useEffect(() => {
-    if (!isOpen || !gameState) return;
-    setStep(isGameInProgress(gameState) ? "gate" : "home");
+    if (!isOpen) return;
+    setStep("home");
     setHomeDraft(EMPTY_DRAFT);
     setAwayDraft(EMPTY_DRAFT);
     setSaveHomeToLibrary(true);
     setSaveAwayToLibrary(true);
     setStarting(false);
-  }, [isOpen, gameState]);
+  }, [isOpen]);
 
-  if (!isOpen || !gameState) return null;
-
-  const cameFromGate = isGameInProgress(gameState);
-
-  const handleQuickStart = () => {
-    resetGame();
-    onStarted();
-  };
-
-  const handleSaveAndContinue = async (name: string) => {
-    await saveGame(name);
-    setStep("home");
-  };
+  if (!isOpen) return null;
 
   const handleStart = async () => {
     setStarting(true);
@@ -72,7 +58,7 @@ export default function NewGameWizard({ isOpen, onClose, onStarted }: NewGameWiz
       if (awayDraft.source === "new" && saveAwayToLibrary && awayDraft.identity.name.trim()) {
         await saveTeamToLibrary(awayDraft.identity.name.trim(), { ...awayDraft.identity, players: awayDraft.players });
       }
-      startNewGame(draftToTeamState(homeDraft), draftToTeamState(awayDraft));
+      await startNewGame({ homeTeam: draftToTeamState(homeDraft), awayTeam: draftToTeamState(awayDraft) });
       onStarted();
     } finally {
       setStarting(false);
@@ -102,15 +88,6 @@ export default function NewGameWizard({ isOpen, onClose, onStarted }: NewGameWiz
         </div>
 
         <div className="p-4 sm:p-6">
-          {step === "gate" && (
-            <InProgressGate
-              gameState={gameState}
-              onSaveAndContinue={handleSaveAndContinue}
-              onDiscardContinue={() => setStep("home")}
-              onQuickStart={handleQuickStart}
-              onCancel={onClose}
-            />
-          )}
           {step === "home" && (
             <TeamSelectStep
               side="home"
@@ -118,7 +95,6 @@ export default function NewGameWizard({ isOpen, onClose, onStarted }: NewGameWiz
                 setHomeDraft(draft);
                 setStep("away");
               }}
-              onBack={cameFromGate ? () => setStep("gate") : undefined}
             />
           )}
           {step === "away" && (

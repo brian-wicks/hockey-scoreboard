@@ -174,8 +174,10 @@ interface StoreState {
   authError: string | null;
   shareId: string | null;
   isViewer: boolean;
-  savedGames: { id: string; name: string; createdAt: number }[];
+  savedGames: { id: string; name: string; createdAt: number; updatedAt: number }[];
   teamLibrary: SavedTeam[];
+  // undefined = not yet known (still connecting); null = known to have no game open.
+  activeGameId: string | null | undefined;
 
   connect: () => void;
   connectViewer: (shareId: string) => void;
@@ -196,11 +198,9 @@ interface StoreState {
 
   // Game Management Actions
   loadSavedGames: () => Promise<void>;
-  saveGame: (name: string) => Promise<void>;
-  loadGame: (id: string) => Promise<void>;
+  openGame: (id: string) => Promise<void>;
   deleteGame: (id: string) => Promise<void>;
-  resetGame: () => void;
-  startNewGame: (homeTeam: TeamState, awayTeam: TeamState) => void;
+  startNewGame: (teams?: { homeTeam: TeamState; awayTeam: TeamState }) => Promise<void>;
 
   // Team Library Actions
   loadTeamLibrary: () => Promise<void>;
@@ -435,6 +435,7 @@ export const useStore = create<StoreState>((set, get) => ({
   isViewer: false,
   savedGames: [],
   teamLibrary: [],
+  activeGameId: undefined,
 
   setUser: (user) => set((state) => ({ 
     user, 
@@ -461,7 +462,7 @@ export const useStore = create<StoreState>((set, get) => ({
       }
       await signOut(auth);
       hasInitialized = false;
-      set({ user: null, gameState: null, socket: null, isViewer: false, shareId: null, authError: null, savedGames: [], teamLibrary: [], undoStack: [] });
+      set({ user: null, gameState: null, socket: null, isViewer: false, shareId: null, authError: null, savedGames: [], teamLibrary: [], undoStack: [], activeGameId: undefined });
     } catch (error) {
       console.error("Logout failed:", error);
     }
@@ -497,57 +498,19 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
-  saveGame: async (name: string) => {
-    const { user } = get();
-    if (!user) return;
-    try {
-      const token = await user.getIdToken();
-      const apiUrl = BASE_URL === window.location.origin ? "" : BASE_URL;
-      console.log(`Saving game "${name}" to ${apiUrl}/api/games`);
-      const response = await fetch(`${apiUrl}/api/games`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ name }),
+  openGame: async (id: string) => {
+    const { socket } = get();
+    if (!socket) return;
+    await new Promise<void>((resolve) => {
+      socket.emit("openGame", id, (result: { ok: boolean; error?: string }) => {
+        if (!result?.ok) {
+          console.error(`Failed to open game ${id}:`, result?.error);
+        } else {
+          set({ undoStack: [] });
+        }
+        resolve();
       });
-      if (response.ok) {
-        console.log("Game saved successfully");
-        await get().loadSavedGames();
-      } else {
-        const errorText = await response.text();
-        console.error(`Failed to save game: ${response.status} ${response.statusText}`, errorText);
-      }
-    } catch (error) {
-      console.error("Failed to save game:", error);
-    }
-  },
-
-  loadGame: async (id: string) => {
-    const { user, socket } = get();
-    if (!user || !socket) return;
-    try {
-      const token = await user.getIdToken();
-      const apiUrl = BASE_URL === window.location.origin ? "" : BASE_URL;
-      console.log(`Loading game ${id} from ${apiUrl}/api/games/${id}`);
-      const response = await fetch(`${apiUrl}/api/games/${id}`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const game = await response.json();
-        const gameState = JSON.parse(game.state);
-        set({ gameState, undoStack: [] });
-        saveCachedState(gameState);
-        socket.emit("updateGameState", gameState);
-        console.log("Game loaded and socket updated");
-      } else {
-        const errorText = await response.text();
-        console.error(`Failed to load game: ${response.status} ${response.statusText}`, errorText);
-      }
-    } catch (error) {
-      console.error("Failed to load game:", error);
-    }
+    });
   },
 
   deleteGame: async (id: string) => {
@@ -573,26 +536,18 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
-  resetGame: () => {
-    const { socket } = get();
-    if (socket) {
-      socket.emit("resetGame");
-      set({ undoStack: [] });
-    }
-  },
-
-  startNewGame: (homeTeam: TeamState, awayTeam: TeamState) => {
+  startNewGame: async (teams?: { homeTeam: TeamState; awayTeam: TeamState }) => {
     const { socket } = get();
     if (!socket) return;
-    // Wait for the server's ack — which fires only after *this* reset has been
-    // applied and broadcast — rather than listening for the next arbitrary
-    // "gameState" event. A clock still ticking from the pre-reset state can emit
-    // its own broadcast in between, and a generic `socket.once` listener would
-    // race it, merging the new team names onto stale pre-reset state.
-    socket.emit("resetGame", () => {
-      get().updateState({ homeTeam, awayTeam });
+    await new Promise<void>((resolve) => {
+      // The server creates and saves the new game, then acks — team sanitization
+      // and persistence happen atomically server-side, rather than this racing a
+      // separate updateState call against a clock tick from the outgoing game.
+      socket.emit("startNewGame", teams, () => {
+        set({ undoStack: [] });
+        resolve();
+      });
     });
-    set({ undoStack: [] });
   },
 
   loadTeamLibrary: async () => {
@@ -780,6 +735,10 @@ export const useStore = create<StoreState>((set, get) => ({
         const serverTimeOffsetMs = serverTime === null ? get().serverTimeOffsetMs : serverTime - Date.now();
         set({ gameState: state, serverTimeOffsetMs });
         saveCachedState(state);
+      });
+
+      socket.on("activeGame", (gameId: string | null) => {
+        set({ activeGameId: gameId });
       });
 
       set({ socket, isConnected: socket.connected });

@@ -1,13 +1,9 @@
 import { useStore } from "../store";
-import { buildShotEvent, buildPeriodEndEvent } from "../utils/eventLog";
+import { buildShotEvent } from "../utils/eventLog";
+import { transitionToPeriod } from "../utils/period";
+import { createBlankPenalty } from "../utils/penalty";
 
 const PERIODS = ["1st", "2nd", "3rd", "OT"];
-const PERIOD_CLOCKS_MS: Record<string, number> = {
-  "1st": 20 * 60 * 1000,
-  "2nd": 20 * 60 * 1000,
-  "3rd": 20 * 60 * 1000,
-  OT: 5 * 60 * 1000,
-};
 
 export function useSharedActions() {
   const { gameState, startClock, stopClock, clockIncrease, clockDecrease, updateState, setClock } = useStore();
@@ -16,27 +12,7 @@ export function useSharedActions() {
     if (!gameState) return;
 
     const updatePeriod = (nextPeriod: string) => {
-      const currentPeriod = gameState.period;
-      if (currentPeriod !== nextPeriod) {
-        const lastEvent = gameState.eventLog[gameState.eventLog.length - 1];
-        const alreadyEnded =
-          (gameState.clock.timeRemaining ?? 0) <= 0 ||
-          (lastEvent?.type === "period_end" && lastEvent.period === currentPeriod);
-        
-        if (alreadyEnded) {
-          updateState({ period: nextPeriod });
-        } else {
-          const endEvent = buildPeriodEndEvent(gameState, currentPeriod);
-          updateState({ period: nextPeriod, eventLog: [...gameState.eventLog, endEvent] });
-        }
-      } else {
-        updateState({ period: nextPeriod });
-      }
-      
-      const nextClock = PERIOD_CLOCKS_MS[nextPeriod];
-      if (typeof nextClock === "number") {
-        setClock(nextClock);
-      }
+      transitionToPeriod(gameState, gameState.period, nextPeriod, updateState, setClock);
     };
 
     switch (action) {
@@ -112,28 +88,14 @@ export function useSharedActions() {
         break;
       }
       case "homePenaltyAdd": {
-        const newPenalty = {
-          id: Math.random().toString(36).slice(2, 11),
-          playerNumber: "",
-          timeRemaining: 120000,
-          duration: 120000,
-          infraction: "",
-        };
         updateState({
-          homeTeam: { ...gameState.homeTeam, penalties: [...gameState.homeTeam.penalties, newPenalty] },
+          homeTeam: { ...gameState.homeTeam, penalties: [...gameState.homeTeam.penalties, createBlankPenalty()] },
         });
         break;
       }
       case "awayPenaltyAdd": {
-        const newPenalty = {
-          id: Math.random().toString(36).slice(2, 11),
-          playerNumber: "",
-          timeRemaining: 120000,
-          duration: 120000,
-          infraction: "",
-        };
         updateState({
-          awayTeam: { ...gameState.awayTeam, penalties: [...gameState.awayTeam.penalties, newPenalty] },
+          awayTeam: { ...gameState.awayTeam, penalties: [...gameState.awayTeam.penalties, createBlankPenalty()] },
         });
         break;
       }

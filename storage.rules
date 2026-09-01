@@ -1,0 +1,25 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Team crest logos, one folder per uploading user (src/lib/uploadTeamLogo.ts).
+    // Reads are public because logos render on unauthenticated surfaces — the
+    // stream overlay, jumbotron, and read-only share links all need to load them
+    // without a signed-in session. Writes are limited to the owning user and
+    // capped at 3MB/image-only, mirroring the client-side checks in
+    // src/lib/uploadTeamLogo.ts (defense in depth — the client check alone can be
+    // bypassed by calling Storage directly).
+    match /team-logos/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size < 3 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Everything else is closed by default.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

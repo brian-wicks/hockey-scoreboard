@@ -46,6 +46,18 @@ db.exec(`
   );
 `);
 
+// saved_games predates the updatedAt column — add it for existing databases rather
+// than dropping/recreating the table. SQLite has no "ADD COLUMN IF NOT EXISTS", so
+// guard with a check against the existing schema instead of relying on a thrown error.
+const savedGamesColumns = db.prepare("PRAGMA table_info(saved_games)").all() as { name: string }[];
+if (!savedGamesColumns.some((col) => col.name === "updatedAt")) {
+  db.exec("ALTER TABLE saved_games ADD COLUMN updatedAt INTEGER");
+}
+// Rows from before the column existed (or from the ADD COLUMN above) get NULL —
+// backfill from createdAt so they don't sort/display as if last touched in 1970.
+// Cheap no-op once every row has a value, so it's safe to run on every startup.
+db.exec("UPDATE saved_games SET updatedAt = createdAt WHERE updatedAt IS NULL");
+
 // Every export below is synchronous internally (better-sqlite3 has no async API) —
 // only the return type is promisified, to satisfy the shared DbAdapter interface
 // that src/db/firestoreAdapter.ts also implements. No behavior change from the
@@ -66,19 +78,11 @@ export const setUserConfig = async (userId: string, key: string, value: string):
   stmt.run(userId, key, value);
 };
 
+// Read-only: nothing writes user_game_state anymore (see the DbAdapter comment).
 export const getGameState = async (userId: string): Promise<string | null> => {
   const stmt = db.prepare("SELECT state FROM user_game_state WHERE userId = ?");
   const row = stmt.get(userId) as { state: string } | undefined;
   return row ? row.state : null;
-};
-
-export const saveGameState = async (userId: string, state: string): Promise<void> => {
-  const stmt = db.prepare(`
-    INSERT INTO user_game_state (userId, state)
-    VALUES (?, ?)
-    ON CONFLICT(userId) DO UPDATE SET state = excluded.state
-  `);
-  stmt.run(userId, state);
 };
 
 export const getSavedGames = async (userId: string): Promise<SavedGame[]> => {
@@ -93,12 +97,20 @@ export const getSavedGame = async (id: string, userId: string): Promise<SavedGam
 
 export const createSavedGame = async (userId: string, name: string, state: string): Promise<string> => {
   const id = randomUUID();
+  const now = Date.now();
   const stmt = db.prepare(`
-    INSERT INTO saved_games (id, userId, name, state, createdAt)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO saved_games (id, userId, name, state, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?)
   `);
-  stmt.run(id, userId, name, state, Date.now());
+  stmt.run(id, userId, name, state, now, now);
   return id;
+};
+
+export const updateSavedGame = async (id: string, userId: string, state: string): Promise<void> => {
+  const stmt = db.prepare(`
+    UPDATE saved_games SET state = ?, updatedAt = ? WHERE id = ? AND userId = ?
+  `);
+  stmt.run(state, Date.now(), id, userId);
 };
 
 export const deleteSavedGame = async (id: string, userId: string): Promise<void> => {

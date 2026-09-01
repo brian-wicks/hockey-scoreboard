@@ -54,7 +54,6 @@ describe("EventLogPanel Component", () => {
   it("renders the event log entries", () => {
     render(
       <EventLogPanel
-        gameState={mockGameState}
         eventLog={mockGameState.eventLog}
         homeTeam={mockGameState.homeTeam}
         awayTeam={mockGameState.awayTeam}
@@ -78,7 +77,6 @@ describe("EventLogPanel Component", () => {
   it("handles event type changes", () => {
     render(
       <EventLogPanel
-        gameState={mockGameState}
         eventLog={mockGameState.eventLog}
         homeTeam={mockGameState.homeTeam}
         awayTeam={mockGameState.awayTeam}
@@ -103,7 +101,6 @@ describe("EventLogPanel Component", () => {
   it("splits events into a Home column and an Away column", () => {
     render(
       <EventLogPanel
-        gameState={mockGameState}
         eventLog={mockGameState.eventLog}
         homeTeam={mockGameState.homeTeam}
         awayTeam={mockGameState.awayTeam}

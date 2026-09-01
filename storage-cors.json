@@ -1,0 +1,12 @@
+[
+  {
+    "origin": [
+      "http://localhost:3696",
+      "https://stage-scoreboard.brianwicks.co.uk",
+      "https://scoreboard.brianwicks.co.uk"
+    ],
+    "method": ["GET", "POST", "PUT", "HEAD"],
+    "maxAgeSeconds": 3600,
+    "responseHeader": ["Content-Type", "x-goog-resumable", "Authorization"]
+  }
+]

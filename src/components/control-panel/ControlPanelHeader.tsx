@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Share2, AlertCircle, LayoutPanelTop, LogOut, PresentationIcon, RotateCcw, Trophy, User as UserIcon, Menu, X } from "lucide-react";
+import { Share2, AlertCircle, LayoutPanelTop, LogOut, PresentationIcon, RotateCcw, Trophy, User as UserIcon, Menu, X, DoorOpen } from "lucide-react";
 import { MAX_UNDO_STEPS, useStore } from "../../store";
 import { GlassButton } from "./ui/glass";
 
@@ -71,6 +71,16 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
         {/* Desktop Navigation */}
         <div className="hidden lg:flex items-center gap-4">
           <div className="flex gap-2">
+            {!isViewer && (
+              <Link
+                to="/"
+                className="flex items-center gap-2 px-3 py-2 bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 rounded-xl text-sm font-medium text-red-300 hover:text-red-200 transition-colors"
+                title="Close this game and return to the Dashboard"
+              >
+                <DoorOpen size={16} />
+                <span>Close</span>
+              </Link>
+            )}
             <a
               href={overlayPath}
               target="_blank"
@@ -180,6 +190,16 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
       {isMenuOpen && (
         <div className="lg:hidden absolute top-full left-0 right-0 bg-zinc-950/90 backdrop-blur-xl border-b border-white/10 shadow-2xl animate-in slide-in-from-top-2 duration-200">
           <div className="p-4 flex flex-col gap-2">
+            {!isViewer && (
+              <Link
+                to="/"
+                onClick={() => setIsMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 rounded-xl text-sm font-medium text-red-300 hover:text-red-200 transition-colors"
+              >
+                <DoorOpen size={18} />
+                <span>Close</span>
+              </Link>
+            )}
             <a
               href={overlayPath}
               target="_blank"

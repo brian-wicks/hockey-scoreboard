@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
-import { PlayerPosition, TeamPlayer } from "../../store";
+import { ChevronDown, Upload } from "lucide-react";
+import { PlayerPosition, TeamPlayer, useStore } from "../../store";
 import { ColorPicker } from "../control-panel/ui/ColorPicker";
+import { LogoUploadError, uploadTeamLogo } from "../../lib/uploadTeamLogo";
 
 export interface TeamIdentityDraft {
   name: string;
@@ -21,6 +22,11 @@ interface TeamEditorFieldsProps {
   /** False when already nested inside another blurred/bordered container (e.g. a modal) — skips
    * this component's own outer glass panel so blur/border don't stack on top of the parent's. */
   framed?: boolean;
+  /** "url" (default) shows the raw Logo URL text field alongside a small upload button —
+   * used by the Edit Team modal and Settings, where someone may already have a URL to paste.
+   * "upload" replaces it with a single drag-and-drop/click-to-browse dropzone and no URL
+   * field — used by the New Game wizard's team creation step. */
+  logoInput?: "url" | "upload";
 }
 
 const identityEqual = (a: TeamIdentityDraft, b: TeamIdentityDraft) =>
@@ -67,10 +73,16 @@ export default function TeamEditorFields({
   onRosterChange,
   rosterExpandedDefault = false,
   framed = true,
+  logoInput = "url",
 }: TeamEditorFieldsProps) {
+  const user = useStore((state) => state.user);
   const [name, setName] = useState(identity.name);
   const [abbreviation, setAbbreviation] = useState(identity.abbreviation);
   const [logo, setLogo] = useState(identity.logo);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [logoUploadError, setLogoUploadError] = useState<string | null>(null);
+  const [isDraggingLogo, setIsDraggingLogo] = useState(false);
+  const logoFileInputRef = useRef<HTMLInputElement | null>(null);
   const [rosterDraft, setRosterDraft] = useState<TeamPlayer[]>(roster);
   const [rosterExpanded, setRosterExpanded] = useState(rosterExpandedDefault);
   const rosterRef = useRef<HTMLDivElement | null>(null);
@@ -137,6 +149,34 @@ export default function TeamEditorFields({
     onRosterChange(nextPlayers);
   };
 
+  const uploadLogoFile = async (file: File) => {
+    if (!user) return;
+    setIsUploadingLogo(true);
+    setLogoUploadError(null);
+    try {
+      const url = await uploadTeamLogo(user.uid, file);
+      setLogo(url);
+      onIdentityCommit({ logo: url });
+    } catch (error) {
+      setLogoUploadError(error instanceof LogoUploadError ? error.message : "Upload failed. Please try again.");
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
+  const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file later
+    if (file) void uploadLogoFile(file);
+  };
+
+  const handleLogoDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingLogo(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) void uploadLogoFile(file);
+  };
+
   return (
     <div className={framed ? "bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl p-6" : undefined}>
       {title && (
@@ -181,22 +221,90 @@ export default function TeamEditorFields({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-zinc-400 mb-1">Logo URL</label>
-          <input
-            type="text"
-            value={logo}
-            onChange={(e) => setLogo(e.target.value)}
-            onBlur={() => onIdentityCommit({ logo })}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
+          <label className="block text-sm font-medium text-zinc-400 mb-1">Logo</label>
+          {logoInput === "upload" ? (
+            <div
+              onClick={() => logoFileInputRef.current?.click()}
+              onDragEnter={(e) => {
                 e.preventDefault();
-                onIdentityCommit({ logo });
-                (e.target as HTMLInputElement).blur();
-              }
-            }}
-            placeholder="https://example.com/logo.png"
-            className="w-full bg-white/[0.05] border border-white/10 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none"
-          />
+                setIsDraggingLogo(true);
+              }}
+              onDragOver={(e) => e.preventDefault()}
+              onDragLeave={() => setIsDraggingLogo(false)}
+              onDrop={handleLogoDrop}
+              role="button"
+              tabIndex={0}
+              className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 text-center cursor-pointer transition-colors ${
+                isDraggingLogo
+                  ? "border-indigo-400 bg-indigo-500/10"
+                  : "border-white/15 hover:border-white/25 bg-white/[0.03]"
+              }`}
+            >
+              {logo ? (
+                <img src={logo} alt="" className="w-16 h-16 object-contain rounded-lg" />
+              ) : (
+                <Upload size={20} className="text-zinc-500" />
+              )}
+              <span className="text-xs text-zinc-400">
+                {isUploadingLogo ? "Uploading…" : logo ? "Drag & drop, or click to replace" : "Drag & drop an image, or click to browse"}
+              </span>
+              {logoUploadError && <span className="text-xs text-red-400">{logoUploadError}</span>}
+              <input
+                ref={logoFileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleLogoFileChange}
+                onClick={(e) => e.stopPropagation()}
+                className="hidden"
+              />
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 shrink-0 rounded-lg bg-white/[0.05] border border-white/10 flex items-center justify-center overflow-hidden">
+                {logo ? (
+                  <img src={logo} alt="" className="w-full h-full object-contain" />
+                ) : (
+                  <Upload size={16} className="text-zinc-600" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                <input
+                  type="text"
+                  value={logo}
+                  onChange={(e) => setLogo(e.target.value)}
+                  onBlur={() => onIdentityCommit({ logo })}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      onIdentityCommit({ logo });
+                      (e.target as HTMLInputElement).blur();
+                    }
+                  }}
+                  placeholder="https://example.com/logo.png"
+                  className="w-full bg-white/[0.05] border border-white/10 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={isUploadingLogo || !user}
+                    onClick={() => logoFileInputRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-medium text-zinc-100"
+                  >
+                    <Upload size={13} />
+                    {isUploadingLogo ? "Uploading…" : "Upload image"}
+                  </button>
+                  {logoUploadError && <span className="text-xs text-red-400">{logoUploadError}</span>}
+                </div>
+                <input
+                  ref={logoFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoFileChange}
+                  className="hidden"
+                />
+              </div>
+            </div>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-zinc-400 mb-1">Primary Color</label>

@@ -25,14 +25,11 @@ export const setUserConfig = async (userId: string, key: string, value: string):
   await usersCollection().doc(userId).collection("configs").doc(key).set({ value });
 };
 
+// Read-only: nothing writes gameState/current anymore (see the DbAdapter comment).
 export const getGameState = async (userId: string): Promise<string | null> => {
   const snap = await usersCollection().doc(userId).collection("gameState").doc("current").get();
   const data = snap.data();
   return typeof data?.state === "string" ? data.state : null;
-};
-
-export const saveGameState = async (userId: string, state: string): Promise<void> => {
-  await usersCollection().doc(userId).collection("gameState").doc("current").set({ state });
 };
 
 export const getSavedGames = async (userId: string): Promise<SavedGame[]> => {
@@ -45,6 +42,7 @@ export const getSavedGames = async (userId: string): Promise<SavedGame[]> => {
       name: data.name as string,
       state: data.state as string,
       createdAt: data.createdAt as number,
+      updatedAt: (data.updatedAt as number) ?? (data.createdAt as number),
     };
   });
 };
@@ -59,17 +57,27 @@ export const getSavedGame = async (id: string, userId: string): Promise<SavedGam
     name: data.name as string,
     state: data.state as string,
     createdAt: data.createdAt as number,
+    updatedAt: (data.updatedAt as number) ?? (data.createdAt as number),
   };
 };
 
 export const createSavedGame = async (userId: string, name: string, state: string): Promise<string> => {
   const id = randomUUID();
+  const now = Date.now();
   await usersCollection().doc(userId).collection("savedGames").doc(id).set({
     name,
     state,
-    createdAt: Date.now(),
+    createdAt: now,
+    updatedAt: now,
   });
   return id;
+};
+
+export const updateSavedGame = async (id: string, userId: string, state: string): Promise<void> => {
+  await usersCollection().doc(userId).collection("savedGames").doc(id).update({
+    state,
+    updatedAt: Date.now(),
+  });
 };
 
 export const deleteSavedGame = async (id: string, userId: string): Promise<void> => {
@@ -89,10 +97,18 @@ export const getUserIdShare = async (userId: string): Promise<string | null> => 
 };
 
 export const setUserIdShare = async (userId: string, shareId: string): Promise<void> => {
-  await Promise.all([
-    sharesCollection().doc(shareId).set({ userId }),
-    usersCollection().doc(userId).set({ shareId }, { merge: true }),
-  ]);
+  const userRef = usersCollection().doc(userId);
+  const snap = await userRef.get();
+  const oldShareId = snap.data()?.shareId;
+
+  // Revoke the previous share link so it stops resolving once a new one is
+  // issued — mirrors sqliteAdapter's same-row upsert, which does this for free.
+  const revokeOld =
+    typeof oldShareId === "string" && oldShareId !== shareId
+      ? sharesCollection().doc(oldShareId).delete()
+      : Promise.resolve();
+
+  await Promise.all([revokeOld, sharesCollection().doc(shareId).set({ userId }), userRef.set({ shareId }, { merge: true })]);
 };
 
 // Costs exactly one read (hit or miss, same billing) and doesn't require any

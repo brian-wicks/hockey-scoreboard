@@ -1,15 +1,21 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const { mockGet, mockRun, mockExec, mockPrepare, mockPragma } = vi.hoisted(() => {
+const { mockGet, mockRun, mockAll, mockExec, mockPrepare, mockPragma } = vi.hoisted(() => {
   const mGet = vi.fn();
   const mRun = vi.fn();
+  // Defaults to "updatedAt already exists" so the module-load-time migration check
+  // in sqliteAdapter.ts (PRAGMA table_info(saved_games)) doesn't trigger an ALTER
+  // TABLE on every test run.
+  const mAll = vi.fn().mockReturnValue([{ name: "updatedAt" }]);
   return {
     mockGet: mGet,
     mockRun: mRun,
+    mockAll: mAll,
     mockExec: vi.fn(),
     mockPrepare: vi.fn().mockReturnValue({
       get: mGet,
       run: mRun,
+      all: mAll,
     }),
     mockPragma: vi.fn(),
   };
@@ -33,7 +39,6 @@ import {
   getUserConfig,
   setUserConfig,
   getGameState,
-  saveGameState,
   getShareUserId,
   getUserIdShare,
   setUserIdShare
@@ -70,12 +75,6 @@ describe("sqlite adapter", () => {
     const result = await getGameState("user1");
     expect(mockPrepare).toHaveBeenCalledWith(expect.stringContaining("SELECT state FROM user_game_state"));
     expect(result).toBe("{\"score\": 1}");
-  });
-
-  it("saves game state", async () => {
-    await saveGameState("user1", "{\"score\": 2}");
-    expect(mockPrepare).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO user_game_state"));
-    expect(mockRun).toHaveBeenCalledWith("user1", "{\"score\": 2}");
   });
 
   it("gets share user id", async () => {

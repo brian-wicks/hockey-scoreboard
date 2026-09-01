@@ -358,26 +358,30 @@ describe("store", () => {
     expect(useStore.getState().undoStack).toEqual([]);
   });
 
-  it("clears the undo stack when loading a saved game", async () => {
+  it("clears the undo stack when opening a saved game", async () => {
     const savedGameState = { ...baseState, homeTeam: { ...baseState.homeTeam, score: 9 } };
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ state: JSON.stringify(savedGameState) }),
-    });
-    vi.stubGlobal("fetch", fetchMock);
     const { useStore } = await import("../store");
+    useStore.setState({ user: mockUser as any });
+    await useStore.getState().connect();
     useStore.setState({
-      socket: socketMock as any,
-      user: mockUser as any,
       gameState: baseState,
-      // Stale undo entry from the previously loaded/edited game.
+      // Stale undo entry from the previously open/edited game.
       undoStack: [{ homeTeam: baseState.homeTeam }],
     });
 
-    await useStore.getState().loadGame("game-1");
+    // Simulate the server: it broadcasts the opened game's state, then acks.
+    socketMock.emit.mockImplementation((event: string, ...args: any[]) => {
+      if (event === "openGame") {
+        listeners.get("gameState")?.(savedGameState);
+        const callback = args[args.length - 1];
+        callback?.({ ok: true });
+      }
+    });
 
-    // The stale entry must not survive — undoing right after a load must not splice
-    // an unrelated game's team/event data back into the just-loaded game.
+    await useStore.getState().openGame("game-1");
+
+    // The stale entry must not survive — undoing right after opening a game must not
+    // splice an unrelated game's team/event data back into the just-opened game.
     expect(useStore.getState().undoStack).toEqual([]);
     expect(useStore.getState().gameState?.homeTeam.score).toBe(9);
   });

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useStore } from "../store";
 import AppSidebar, { ActiveTab } from "./control-panel/AppSidebar";
@@ -13,7 +13,6 @@ import SettingsPanel from "./control-panel/SettingsPanel";
 import TeamControls from "./control-panel/TeamControls";
 import StreamDeckPanel from "./StreamDeckPanel";
 import ShareModal from "./control-panel/ShareModal";
-import SavedGamesPanel from "./control-panel/SavedGamesPanel";
 
 export default function ControlPanel() {
   const {
@@ -28,10 +27,12 @@ export default function ControlPanel() {
     undoLastUpdate,
     undoStack = [],
     isViewer,
+    activeGameId,
   } = useStore();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
-  const validTabs: ActiveTab[] = ["controls", "settings", "presets", "streamdeck", "games"];
+  const validTabs: ActiveTab[] = ["controls", "settings", "presets", "streamdeck"];
   const initialTab = validTabs.includes(requestedTab as ActiveTab) ? (requestedTab as ActiveTab) : "controls";
   const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -40,8 +41,21 @@ export default function ControlPanel() {
 
   ensureInitialized();
 
+  // activeGameId === null (not undefined — that's still "loading") means the operator
+  // has never opened/created a game — there's nothing to control here, so bounce back
+  // to the Dashboard's file browser rather than operating on an unsaved phantom game.
+  useEffect(() => {
+    if (!isViewer && activeGameId === null) {
+      navigate("/", { replace: true });
+    }
+  }, [isViewer, activeGameId, navigate]);
+
   if (!gameState) {
     return <div className="flex items-center justify-center h-screen bg-zinc-950 text-white">Connecting...</div>;
+  }
+
+  if (!isViewer && activeGameId === null) {
+    return null;
   }
 
   const {
@@ -80,7 +94,7 @@ export default function ControlPanel() {
             {activeTab === "controls" || isViewer ? (
               <div className="flex flex-col gap-6">
                 <div className="grid grid-cols-1 min-[950px]:grid-cols-3 gap-6">
-                  <TeamControls team="home" state={homeTeam} gameState={gameState} eventLog={eventLog} updateState={updateState} />
+                  <TeamControls team="home" state={homeTeam} eventLog={eventLog} updateState={updateState} />
 
                   <div className="flex flex-col gap-6">
                     <ClockControl
@@ -91,10 +105,10 @@ export default function ControlPanel() {
                       setClock={setClock}
                       serverTimeOffsetMs={serverTimeOffsetMs}
                     />
-                    <GameActionsPanel period={period} gameState={gameState} updateState={updateState} setClock={setClock} />
+                    <GameActionsPanel period={period} updateState={updateState} setClock={setClock} />
                   </div>
 
-                  <TeamControls team="away" state={awayTeam} gameState={gameState} eventLog={eventLog} updateState={updateState} />
+                  <TeamControls team="away" state={awayTeam} eventLog={eventLog} updateState={updateState} />
                 </div>
 
                 <OverlayControlsPanel
@@ -104,7 +118,6 @@ export default function ControlPanel() {
                   lowerThird={lowerThird}
                 />
                 <EventLogPanel
-                  gameState={gameState}
                   eventLog={eventLog}
                   homeTeam={homeTeam}
                   awayTeam={awayTeam}
@@ -119,8 +132,6 @@ export default function ControlPanel() {
               <PresetsPanel gameState={gameState} updateState={updateState} />
             ) : activeTab === "streamdeck" ? (
               <StreamDeckPanel />
-            ) : activeTab === "games" ? (
-              <SavedGamesPanel />
             ) : null}
           </main>
         </div>
