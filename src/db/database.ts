@@ -25,7 +25,6 @@ const adapter: DbAdapter =
 export const getUserConfig = adapter.getUserConfig;
 export const setUserConfig = adapter.setUserConfig;
 export const getGameState = adapter.getGameState;
-export const saveGameState = adapter.saveGameState;
 export const getSavedGames = adapter.getSavedGames;
 export const getSavedGame = adapter.getSavedGame;
 export const createSavedGame = adapter.createSavedGame;

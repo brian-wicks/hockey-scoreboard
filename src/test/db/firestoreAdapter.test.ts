@@ -57,7 +57,6 @@ import {
   getUserConfig,
   setUserConfig,
   getGameState,
-  saveGameState,
   getSavedGames,
   getSavedGame,
   createSavedGame,
@@ -104,12 +103,6 @@ describe("firestore adapter", () => {
     expect(collectionSpy).toHaveBeenNthCalledWith(2, "gameState");
     expect(docSpy).toHaveBeenNthCalledWith(2, "current");
     expect(result).toBe('{"score": 1}');
-  });
-
-  it("saves game state", async () => {
-    mockSet.mockResolvedValue(undefined);
-    await saveGameState("user1", '{"score": 2}');
-    expect(mockSet).toHaveBeenCalledWith({ state: '{"score": 2}' });
   });
 
   it("lists saved games ordered by createdAt desc, scoped under the user", async () => {

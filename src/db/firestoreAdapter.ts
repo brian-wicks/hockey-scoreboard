@@ -25,14 +25,11 @@ export const setUserConfig = async (userId: string, key: string, value: string):
   await usersCollection().doc(userId).collection("configs").doc(key).set({ value });
 };
 
+// Read-only: nothing writes gameState/current anymore (see the DbAdapter comment).
 export const getGameState = async (userId: string): Promise<string | null> => {
   const snap = await usersCollection().doc(userId).collection("gameState").doc("current").get();
   const data = snap.data();
   return typeof data?.state === "string" ? data.state : null;
-};
-
-export const saveGameState = async (userId: string, state: string): Promise<void> => {
-  await usersCollection().doc(userId).collection("gameState").doc("current").set({ state });
 };
 
 export const getSavedGames = async (userId: string): Promise<SavedGame[]> => {

@@ -39,7 +39,6 @@ import {
   getUserConfig,
   setUserConfig,
   getGameState,
-  saveGameState,
   getShareUserId,
   getUserIdShare,
   setUserIdShare
@@ -76,12 +75,6 @@ describe("sqlite adapter", () => {
     const result = await getGameState("user1");
     expect(mockPrepare).toHaveBeenCalledWith(expect.stringContaining("SELECT state FROM user_game_state"));
     expect(result).toBe("{\"score\": 1}");
-  });
-
-  it("saves game state", async () => {
-    await saveGameState("user1", "{\"score\": 2}");
-    expect(mockPrepare).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO user_game_state"));
-    expect(mockRun).toHaveBeenCalledWith("user1", "{\"score\": 2}");
   });
 
   it("gets share user id", async () => {

@@ -78,19 +78,11 @@ export const setUserConfig = async (userId: string, key: string, value: string):
   stmt.run(userId, key, value);
 };
 
+// Read-only: nothing writes user_game_state anymore (see the DbAdapter comment).
 export const getGameState = async (userId: string): Promise<string | null> => {
   const stmt = db.prepare("SELECT state FROM user_game_state WHERE userId = ?");
   const row = stmt.get(userId) as { state: string } | undefined;
   return row ? row.state : null;
-};
-
-export const saveGameState = async (userId: string, state: string): Promise<void> => {
-  const stmt = db.prepare(`
-    INSERT INTO user_game_state (userId, state)
-    VALUES (?, ?)
-    ON CONFLICT(userId) DO UPDATE SET state = excluded.state
-  `);
-  stmt.run(userId, state);
 };
 
 export const getSavedGames = async (userId: string): Promise<SavedGame[]> => {

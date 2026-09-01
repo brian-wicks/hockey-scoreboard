@@ -353,13 +353,19 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   // same in-flight promise instead removes that race.
   const userContextInit = new Map<string, Promise<UserContext>>();
 
-  async function getInitialGameState(userId: string, ignoreSavedState = false): Promise<GameState> {
+  // Returns fromLegacyState so callers that also need to know whether the state
+  // came from the pre-refactor singleton blob (to migrate it) don't have to
+  // re-fetch getGameState themselves — see loadActiveGame below.
+  async function getInitialGameState(
+    userId: string,
+    ignoreSavedState = false,
+  ): Promise<{ gameState: GameState; fromLegacyState: boolean }> {
     if (!ignoreSavedState) {
       const savedState = await getGameState(userId);
       if (savedState) {
         try {
           const parsed = JSON.parse(savedState) as GameState;
-          return { ...parsed, ...sanitizeGameStateUpdate(parsed) };
+          return { gameState: { ...parsed, ...sanitizeGameStateUpdate(parsed) }, fromLegacyState: true };
         } catch (e) {
           logError("Error parsing saved game state", e, { userId });
         }
@@ -368,20 +374,23 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
 
     const persistedDefaults = ignoreSavedState ? null : await readTeamDefaults(userId);
     return {
-      homeTeam: persistedDefaults ? { ...baseHomeTeam, ...persistedDefaults.homeTeam } : baseHomeTeam,
-      awayTeam: persistedDefaults ? { ...baseAwayTeam, ...persistedDefaults.awayTeam } : baseAwayTeam,
-      clock: {
-        timeRemaining: 20 * 60 * 1000,
-        isRunning: false,
-        lastUpdate: now(),
+      gameState: {
+        homeTeam: persistedDefaults ? { ...baseHomeTeam, ...persistedDefaults.homeTeam } : baseHomeTeam,
+        awayTeam: persistedDefaults ? { ...baseAwayTeam, ...persistedDefaults.awayTeam } : baseAwayTeam,
+        clock: {
+          timeRemaining: 20 * 60 * 1000,
+          isRunning: false,
+          lastUpdate: now(),
+        },
+        period: "1st",
+        eventLog: [],
+        overlayVisible: true,
+        overlayLayout: "main",
+        jumbotronGradientsEnabled: true,
+        lowerThird: { active: false, title: "", subtitle: "" },
+        jumbotronGoalHighlight: null,
       },
-      period: "1st",
-      eventLog: [],
-      overlayVisible: true,
-      overlayLayout: "main",
-      jumbotronGradientsEnabled: true,
-      lowerThird: { active: false, title: "", subtitle: "" },
-      jumbotronGoalHighlight: null,
+      fromLegacyState: false,
     };
   }
 
@@ -429,9 +438,8 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       // activeGameId pointed at a row that's gone or unparsable — fall through below.
     }
 
-    const legacyState = await getGameState(userId);
-    const gameState = await getInitialGameState(userId);
-    if (legacyState) {
+    const { gameState, fromLegacyState } = await getInitialGameState(userId);
+    if (fromLegacyState) {
       const name = `${gameState.homeTeam.name} vs ${gameState.awayTeam.name}`;
       const newId = await createSavedGame(userId, name, JSON.stringify(gameState));
       await setUserConfig(userId, "activeGameId", newId);
@@ -1262,7 +1270,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
           clearInterval(context.clockInterval);
           context.clockInterval = null;
         }
-        let gameState = await getInitialGameState(userId, true);
+        let { gameState } = await getInitialGameState(userId, true);
         const teamsPatch: Partial<GameState> = {};
         if (teams?.homeTeam) teamsPatch.homeTeam = teams.homeTeam;
         if (teams?.awayTeam) teamsPatch.awayTeam = teams.awayTeam;

@@ -3,6 +3,7 @@ import { afterAll, describe, expect, it, beforeAll, vi } from "vitest";
 import { mkdir, rm, writeFile } from "fs/promises";
 import path from "path";
 import { io as createClient } from "socket.io-client";
+import Database from "better-sqlite3";
 import { createScoreboardServer } from "../../serverApp";
 
 // Mock firebase-admin
@@ -380,6 +381,34 @@ describe("server API", () => {
     client.close();
   });
 
+  it("closes a penalty as expired (not manual) once its clock tick reaches zero", async () => {
+    const userId = "user-penalty-expire-test";
+    const baseUrl = `http://localhost:${port}`;
+    const shareId = await createShare(baseUrl, userId);
+    const client = createClient(baseUrl, {
+      transports: ["websocket"],
+      forceNew: true,
+      auth: { token: userId }
+    });
+
+    await new Promise<void>((resolve) => client.on("connect", () => resolve()));
+    const shortPenalty = { id: "p5", duration: 150, timeRemaining: 150, playerNumber: "88", infraction: "Slashing" };
+    client.emit("updateGameState", { homeTeam: { penalties: [shortPenalty] } as any });
+    await new Promise(r => setTimeout(r, 100));
+    client.emit("startClock");
+    // Clock ticks up to 10x/second — well beyond the 150ms penalty duration.
+    await new Promise(r => setTimeout(r, 400));
+    client.emit("stopClock");
+    await new Promise(r => setTimeout(r, 100));
+
+    const res = await fetch(`${baseUrl}/api/share/${shareId}/state`);
+    const state = await res.json();
+    expect(state.homeTeam.penalties).toHaveLength(0);
+    const closedEvent = state.eventLog.find((e: any) => e.penaltyId === "p5" && e.endClockTime);
+    expect(closedEvent.removalReason).toBe("expired");
+    client.close();
+  });
+
   it("syncs penalty state when eventLog is updated directly", async () => {
     const userId = "user-eventlog-sync-test";
     const baseUrl = `http://localhost:${port}`;
@@ -455,6 +484,53 @@ describe("server API", () => {
     } finally {
       process.off("uncaughtException", onUncaught);
     }
+  });
+
+  it("migrates a legacy user_game_state row into a saved_games row on first load, once", async () => {
+    const userId = "user-legacy-migration-test";
+    const baseUrl = `http://localhost:${port}`;
+
+    // Nothing writes user_game_state anymore (it's read-only, see src/db/types.ts),
+    // so seed it directly the way a pre-refactor row would have looked.
+    const legacyState = {
+      homeTeam: { name: "Legacy Home", abbreviation: "LHM", score: 3, shots: 10, timeouts: 0, logo: "", color: "#ff0000", penalties: [], players: [] },
+      awayTeam: { name: "Legacy Away", abbreviation: "LAW", score: 1, shots: 5, timeouts: 0, logo: "", color: "#0000ff", penalties: [], players: [] },
+      clock: { timeRemaining: 600000, isRunning: false, lastUpdate: Date.now() },
+      period: "2nd",
+      eventLog: [],
+      overlayVisible: true,
+      overlayLayout: "main",
+      jumbotronGradientsEnabled: true,
+      lowerThird: { active: false, title: "", subtitle: "" },
+      jumbotronGoalHighlight: null,
+    };
+    // data/scoreboard.db isn't reset between runs (this file's tests all write into
+    // it directly) — clear out this userId's rows first so reruns don't hit a stale
+    // activeGameId from a previous run and skip the migration path entirely.
+    const rawDb = new Database(path.join(process.cwd(), "data", "scoreboard.db"));
+    rawDb.prepare("DELETE FROM user_game_state WHERE userId = ?").run(userId);
+    rawDb.prepare("DELETE FROM user_configs WHERE userId = ?").run(userId);
+    rawDb.prepare("DELETE FROM saved_games WHERE userId = ?").run(userId);
+    rawDb.prepare("INSERT INTO user_game_state (userId, state) VALUES (?, ?)").run(userId, JSON.stringify(legacyState));
+    rawDb.close();
+
+    const shareId = await createShare(baseUrl, userId);
+    const state = await (await fetch(`${baseUrl}/api/share/${shareId}/state`)).json();
+    expect(state.homeTeam.score).toBe(3);
+    expect(state.period).toBe("2nd");
+
+    const games = await (
+      await fetch(`${baseUrl}/api/games`, { headers: { Authorization: `Bearer ${userId}` } })
+    ).json();
+    expect(games).toHaveLength(1);
+    expect(games[0].name).toBe("Legacy Home vs Legacy Away");
+
+    // A second load of the same running context must not run migration again.
+    await fetch(`${baseUrl}/api/share/${shareId}/state`);
+    const gamesAfterSecondLoad = await (
+      await fetch(`${baseUrl}/api/games`, { headers: { Authorization: `Bearer ${userId}` } })
+    ).json();
+    expect(gamesAfterSecondLoad).toHaveLength(1);
   });
 
   it("persists and reads streamdeck config", async () => {
