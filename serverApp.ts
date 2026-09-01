@@ -71,7 +71,14 @@ interface Penalty {
   infraction: string;
 }
 
-type EventType = "goal" | "goal_revoked" | "penalty_added" | "penalty_over_notice" | "period_end";
+type EventType =
+  | "goal"
+  | "goal_revoked"
+  | "penalty_added"
+  | "penalty_over_notice"
+  | "shot_on_goal"
+  | "goalie_change"
+  | "period_end";
 
 interface GameEvent {
   id: string;
@@ -87,6 +94,8 @@ interface GameEvent {
   scorer?: string;
   assist1?: string;
   assist2?: string;
+  goalie?: string;
+  shotDelta?: number;
   removalReason?: "manual" | "expired";
   note?: string;
   readOnly?: boolean;
