@@ -44,9 +44,9 @@ describe("PdfLayoutSettings Component", () => {
   it("renders the PDF layout tweak form on its own, without a toggle", () => {
     render(<PdfLayoutSettings homeTeam={homeTeam as any} awayTeam={awayTeam as any} eventLog={[]} />);
 
-    expect(screen.getByText("PDF layout tweaks")).toBeInTheDocument();
-    expect(screen.getByText("Save to file")).toBeInTheDocument();
-    expect(screen.getByText("Load from file")).toBeInTheDocument();
+    expect(screen.getByText("Gamesheet layout")).toBeInTheDocument();
+    expect(screen.getByText("Save layout")).toBeInTheDocument();
+    expect(screen.getByText("Revert to saved")).toBeInTheDocument();
     expect(screen.getByText("Reset defaults")).toBeInTheDocument();
   });
 

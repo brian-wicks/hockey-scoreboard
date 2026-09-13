@@ -19,6 +19,9 @@ export const changelogEntries: ChangelogEntry[] = [
         'Add team logo uploads.',
         'Add a Close action to the Control Panel for finishing a game.',
         'Add a home page for signed-out visitors.',
+        'Upload your own blank gamesheet PDF to be filled in with game data.',
+        'Position gamesheet fields by dragging them on the page instead of typing coordinates.',
+        'Add a sample-data toggle for checking a gamesheet layout against a full game.',
       ],
       changed: [
         'Games now save automatically from the moment they are created, replacing the manual Save button.',

@@ -17,6 +17,19 @@ service firebase.storage {
                    && request.resource.contentType.matches('image/.*');
     }
 
+    // Blank gamesheet template PDFs, one folder per uploading user
+    // (src/lib/uploadGamesheetTemplate.ts). Reads are public for the same reason
+    // as logos: the PDF export runs client-side wherever a layout is rendered.
+    // Writes are limited to the owning user and capped at 10MB/PDF-only,
+    // mirroring the client-side checks in src/lib/uploadGamesheetTemplate.ts.
+    match /gamesheet-templates/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType == 'application/pdf';
+    }
+
     // Everything else is closed by default.
     match /{allPaths=**} {
       allow read, write: if false;

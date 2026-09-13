@@ -4,6 +4,12 @@ import type {GameEvent, TeamPlayer, TeamState} from "../store";
 export type GamesheetPdfLayout = {
   // v2: X from LEFT, Y from TOP, in PDF points. If missing, layout is treated as legacy (v1) at render-time.
   version?: 2;
+  /**
+   * Download URL of a user-uploaded blank template (src/lib/uploadGamesheetTemplate.ts).
+   * Unset means the bundled default template. Coordinates are only meaningful
+   * against the template they were positioned on, so this travels with the layout.
+   */
+  templateUrl?: string;
   scale: number;
   offsetX: number;
   offsetY: number;
@@ -491,7 +497,7 @@ function getMaxElapsedSeconds(eventLog: GameEvent[]) {
   return maxPeriodEnd || maxAll;
 }
 
-function buildGoalieStats(eventLog: GameEvent[], roster: TeamPlayer[], team: "home" | "away") {
+export function buildGoalieStats(eventLog: GameEvent[], roster: TeamPlayer[], team: "home" | "away") {
   const goalieEvents = eventLog
     .filter((e) => e.type === "goalie_change" && e.team === team)
     .slice()
@@ -729,6 +735,42 @@ function s(layout: GamesheetPdfLayout, v: number) {
   return layout.scale * v;
 }
 
+export const DEFAULT_TEMPLATE_URL = "/Blank Paper Gamesheet-1.pdf";
+
+// Templates are re-fetched on every preview render (which fires on each layout
+// tweak), so cache the bytes per URL. Keyed by URL rather than held in a single
+// slot so switching templates back and forth doesn't thrash the network.
+const templateBytesCache = new Map<string, Promise<ArrayBuffer>>();
+
+/** Fetches a template PDF's bytes, falling back to the bundled default. */
+export async function loadTemplateBytes(templateUrl?: string): Promise<ArrayBuffer> {
+  const url = templateUrl || DEFAULT_TEMPLATE_URL;
+  const cached = templateBytesCache.get(url);
+  if (cached) return cached;
+
+  const pending = fetch(url)
+    .then((r) => {
+      if (!r.ok) throw new Error(`Failed to load template PDF (${r.status})`);
+      return r.arrayBuffer();
+    })
+    .catch((error) => {
+      // Don't cache failures — a transient network error shouldn't wedge the
+      // editor into a permanently broken template for the rest of the session.
+      templateBytesCache.delete(url);
+      throw error;
+    });
+
+  templateBytesCache.set(url, pending);
+  return pending;
+}
+
+/** Page size of a template, in PDF points — drives the drag editor's canvas scaling. */
+export async function getTemplatePageSize(templateUrl?: string): Promise<{ width: number; height: number }> {
+  const bytes = await loadTemplateBytes(templateUrl);
+  const doc = await PDFDocument.load(bytes);
+  return doc.getPage(0).getSize();
+}
+
 export async function exportGamesheetPdf(
   input: { homeTeam: TeamState; awayTeam: TeamState; eventLog: GameEvent[] },
   opts?: { layout?: GamesheetPdfLayout; debug?: boolean },
@@ -751,10 +793,8 @@ export async function buildGamesheetPdfBytes(
   input: { homeTeam: TeamState; awayTeam: TeamState; eventLog: GameEvent[] },
   opts?: { layout?: GamesheetPdfLayout; debug?: boolean },
 ) {
-  const templateBytes = await fetch("/Blank Paper Gamesheet-1.pdf").then((r) => {
-    if (!r.ok) throw new Error(`Failed to load template PDF (${r.status})`);
-    return r.arrayBuffer();
-  });
+  const layout = opts?.layout ?? getDefaultGamesheetPdfLayout();
+  const templateBytes = await loadTemplateBytes(layout.templateUrl);
 
   const pdfDoc = await PDFDocument.load(templateBytes);
   const page = pdfDoc.getPage(0);
@@ -762,8 +802,6 @@ export async function buildGamesheetPdfBytes(
 
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   page.setFont(font);
-
-  const layout = opts?.layout ?? getDefaultGamesheetPdfLayout();
 
   if (opts?.debug) {
     drawDebugGrid(page, width, height, layout.debugGridStep || 50);

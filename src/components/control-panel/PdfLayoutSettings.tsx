@@ -1,6 +1,10 @@
 import { useRef, useState } from "react";
 import { GameEvent, TeamState, useStore } from "../../store";
 import { buildGamesheetPdfBytes, GamesheetPdfLayout, getDefaultGamesheetPdfLayout } from "../../utils/gamesheetPdf";
+import { getSampleGamesheetInput } from "../../utils/gamesheetSampleData";
+import { ANCHOR_GROUPS } from "../../utils/gamesheetAnchors";
+import { TemplateUploadError, uploadGamesheetTemplate } from "../../lib/uploadGamesheetTemplate";
+import PdfLayoutCanvas from "./PdfLayoutCanvas";
 import { GlassPanel } from "./ui/glass";
 
 const PDF_LAYOUT_STORAGE_KEY = "gamesheetPdfLayoutV1";
@@ -256,14 +260,21 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
   const [fileLayoutStatus, setFileLayoutStatus] = useState<"idle" | "loading" | "saving" | "loaded" | "saved" | "error">("idle");
   const [showPdfPreview, setShowPdfPreview] = useState(true);
   const [previewDebug, setPreviewDebug] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewBytes, setPreviewBytes] = useState<Uint8Array | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [useSampleData, setUseSampleData] = useState(false);
+  const [visibleGroups, setVisibleGroups] = useState<string[]>([]);
+  const [templateStatus, setTemplateStatus] = useState<"idle" | "uploading" | "error">("idle");
+  const [templateError, setTemplateError] = useState<string | null>(null);
+  const [isDropTarget, setIsDropTarget] = useState(false);
+  const sampleInputRef = useRef(getSampleGamesheetInput());
   const hasLoadedLayoutRef = useRef(false);
   const lastSavedLayoutRef = useRef<GamesheetPdfLayout | null>(null);
   const previewTimerRef = useRef<number | null>(null);
   const lastPreviewDepsRef = useRef<{
     showPdfPreview: boolean;
     previewDebug: boolean;
+    useSampleData: boolean;
     pdfLayout: GamesheetPdfLayout;
     homeTeam: TeamState;
     awayTeam: TeamState;
@@ -296,6 +307,7 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
   const previewDeps = {
     showPdfPreview,
     previewDebug,
+    useSampleData,
     pdfLayout,
     homeTeam,
     awayTeam,
@@ -306,6 +318,7 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
     !lastPreviewDeps ||
     lastPreviewDeps.showPdfPreview !== previewDeps.showPdfPreview ||
     lastPreviewDeps.previewDebug !== previewDeps.previewDebug ||
+    lastPreviewDeps.useSampleData !== previewDeps.useSampleData ||
     lastPreviewDeps.pdfLayout !== previewDeps.pdfLayout ||
     lastPreviewDeps.homeTeam !== previewDeps.homeTeam ||
     lastPreviewDeps.awayTeam !== previewDeps.awayTeam ||
@@ -324,20 +337,13 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
     }
     previewTimerRef.current = window.setTimeout(() => {
       setIsGeneratingPreview(true);
-      buildGamesheetPdfBytes({ homeTeam, awayTeam, eventLog }, { layout: pdfLayout, debug: previewDebug })
+      const source = useSampleData ? sampleInputRef.current : { homeTeam, awayTeam, eventLog };
+      buildGamesheetPdfBytes(source, { layout: pdfLayout, debug: previewDebug })
         .then((bytes) => {
-          const blob = new Blob([bytes], { type: "application/pdf" });
-          const url = URL.createObjectURL(blob);
-          setPreviewUrl((prev) => {
-            if (prev) URL.revokeObjectURL(prev);
-            return url;
-          });
+          setPreviewBytes(bytes);
         })
         .catch(() => {
-          setPreviewUrl((prev) => {
-            if (prev) URL.revokeObjectURL(prev);
-            return null;
-          });
+          setPreviewBytes(null);
         })
         .finally(() => {
           setIsGeneratingPreview(false);
@@ -345,10 +351,36 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
     }, 300);
   }
 
+  const handleTemplateFile = async (file: File | undefined) => {
+    if (!file) return;
+    if (!user) {
+      setTemplateStatus("error");
+      setTemplateError("Sign in to upload a template.");
+      return;
+    }
+    setTemplateStatus("uploading");
+    setTemplateError(null);
+    try {
+      const url = await uploadGamesheetTemplate(user.uid, file);
+      setPdfLayout((prev) => ({ ...prev, templateUrl: url }));
+      setTemplateStatus("idle");
+    } catch (error) {
+      setTemplateStatus("error");
+      setTemplateError(
+        error instanceof TemplateUploadError ? error.message : "Upload failed. Please try again.",
+      );
+    }
+  };
+
   return (
-    <GlassPanel className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-sm text-zinc-200 font-semibold">PDF layout tweaks</div>
+    <GlassPanel className="p-4 space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <div className="text-sm text-zinc-200 font-semibold">Gamesheet layout</div>
+              <div className="text-xs text-zinc-500">
+                Drag each field onto your blank template to line it up with the printed boxes.
+              </div>
+            </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -378,7 +410,7 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
                 }}
                 className="px-2 py-1 text-xs rounded bg-indigo-500/80 hover:bg-indigo-500 border border-indigo-400/40 text-white"
               >
-                Save to file
+                Save layout
               </button>
               <button
                 type="button"
@@ -405,7 +437,7 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
                 }}
                 className="px-2 py-1 text-xs rounded bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] text-zinc-200"
               >
-                Load from file
+                Revert to saved
               </button>
               <button
                 type="button"
@@ -430,7 +462,7 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
             </div>
           </div>
 
-          <div className="mb-4 grid grid-cols-1 min-[760px]:grid-cols-3 gap-3">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
             <label className="flex items-center gap-2 text-xs text-zinc-300">
               <input
                 type="checkbox"
@@ -448,26 +480,140 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
                 className="accent-indigo-500"
                 disabled={!showPdfPreview}
               />
-              Preview debug grid/labels
+              Debug grid
             </label>
-            <div className="text-xs text-zinc-500 flex items-center">
+            <label className="flex items-center gap-2 text-xs text-zinc-300">
+              <input
+                type="checkbox"
+                checked={useSampleData}
+                onChange={(e) => setUseSampleData(e.target.checked)}
+                className="accent-indigo-500"
+                disabled={!showPdfPreview}
+              />
+              Show sample data
+            </label>
+            <div className="ml-auto text-xs text-zinc-500">
               {showPdfPreview ? (isGeneratingPreview ? "Updating preview…" : "Preview ready") : "Preview off"}
             </div>
           </div>
 
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDropTarget(true);
+            }}
+            onDragLeave={() => setIsDropTarget(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDropTarget(false);
+              void handleTemplateFile(e.dataTransfer.files?.[0]);
+            }}
+            className={`rounded-lg border border-dashed p-3 text-xs transition-colors ${
+              isDropTarget ? "border-indigo-400 bg-indigo-500/10" : "border-white/15 bg-white/[0.03]"
+            }`}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div className="text-zinc-300">
+                  {templateStatus === "uploading"
+                    ? "Uploading template…"
+                    : pdfLayout.templateUrl
+                      ? "Using your uploaded blank template"
+                      : "Using the built-in blank template"}
+                </div>
+                <div className="text-zinc-500">Drop a blank gamesheet PDF here to use your own.</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="px-2 py-1 rounded bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] text-zinc-200 cursor-pointer">
+                  Choose PDF
+                  <input
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      void handleTemplateFile(e.target.files?.[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                {pdfLayout.templateUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setPdfLayout((prev) => ({ ...prev, templateUrl: undefined }))}
+                    className="px-2 py-1 rounded bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] text-zinc-200"
+                  >
+                    Use built-in
+                  </button>
+                )}
+              </div>
+            </div>
+            {templateError && (
+              <div className="mt-2 rounded border border-red-400/30 bg-red-500/10 px-2 py-1 text-red-200">
+                {templateError}
+              </div>
+            )}
+          </div>
+
           {showPdfPreview && (
-            <div className="mb-6 border border-white/10 rounded-lg overflow-hidden bg-zinc-900">
-              {previewUrl ? (
-                <iframe
-                  title="Gamesheet PDF preview"
-                  src={previewUrl}
-                  className="w-full h-[560px] bg-zinc-900"
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] p-2">
+                <span className="text-[11px] font-medium text-zinc-400 mr-1">Show handles for</span>
+                <button
+                  type="button"
+                  onClick={() => setVisibleGroups([])}
+                  className={`px-2 py-0.5 rounded text-[11px] border ${
+                    visibleGroups.length === 0
+                      ? "bg-indigo-500/80 border-indigo-400/40 text-white"
+                      : "bg-white/[0.06] border-white/10 text-zinc-300 hover:bg-white/[0.1]"
+                  }`}
+                >
+                  All
+                </button>
+                {ANCHOR_GROUPS.map((group) => {
+                  const active = visibleGroups.includes(group);
+                  return (
+                    <button
+                      key={group}
+                      type="button"
+                      onClick={() =>
+                        setVisibleGroups((prev) =>
+                          active ? prev.filter((g) => g !== group) : [...prev, group],
+                        )
+                      }
+                      className={`px-2 py-0.5 rounded text-[11px] border ${
+                        active
+                          ? "bg-indigo-500/80 border-indigo-400/40 text-white"
+                          : "bg-white/[0.06] border-white/10 text-zinc-300 hover:bg-white/[0.1]"
+                      }`}
+                    >
+                      {group}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="rounded-lg border border-white/10 bg-zinc-900 p-2">
+                <PdfLayoutCanvas
+                  pdfBytes={previewBytes}
+                  layout={pdfLayout}
+                  onChange={setPdfLayout}
+                  visibleGroups={visibleGroups}
                 />
-              ) : (
-                <div className="p-4 text-sm text-zinc-500">Preview unavailable (template missing or generation error).</div>
-              )}
+              </div>
+              <div className="text-[11px] text-zinc-500">
+                Drag a handle to move its column. Dragging up or down moves the whole row.
+                Arrow keys nudge by 1pt, Shift+arrow by 10pt.
+              </div>
             </div>
           )}
+
+          <details className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
+          <summary className="cursor-pointer text-xs font-semibold text-zinc-300 select-none">
+            Fine-tune coordinates
+            <span className="ml-2 font-normal text-zinc-500">
+              every position as a number, for nudges the handles can't hit precisely
+            </span>
+          </summary>
+          <div className="mt-3">
 
           <div className="grid grid-cols-1 min-[760px]:grid-cols-3 gap-3">
             <NumberField label="Scale" small={false} step="0.01" value={pdfLayout.scale} onChange={(e) => setPdfLayout((p) => ({ ...p, scale: Number(e.target.value) || 1 }))} />
@@ -1420,9 +1566,12 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
           </div>
 
           <div className="mt-3 text-xs text-zinc-500">
-            Tip: click <span className="font-mono">Export (debug)</span>, then adjust scale/offset until the grid matches the
-            template boxes. Settings persist in this browser.
+            Tip: turn on <span className="font-mono">Debug grid</span> above, then adjust scale/offset until the grid matches
+            the template boxes. Settings persist in this browser.
           </div>
+
+          </div>
+          </details>
     </GlassPanel>
   );
 }

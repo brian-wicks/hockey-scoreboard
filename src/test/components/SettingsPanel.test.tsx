@@ -245,14 +245,14 @@ describe("SettingsPanel", () => {
 
     // Teams & Rosters is the default.
     expect(screen.getByText("Home Team Settings")).toBeInTheDocument();
-    expect(screen.queryByText("PDF layout tweaks")).not.toBeInTheDocument();
+    expect(screen.queryByText("Gamesheet layout")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Gamesheet PDF"));
-    expect(screen.getByText("PDF layout tweaks")).toBeInTheDocument();
+    expect(screen.getByText("Gamesheet layout")).toBeInTheDocument();
     expect(screen.queryByText("Home Team Settings")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Teams & Rosters"));
     expect(screen.getByText("Home Team Settings")).toBeInTheDocument();
-    expect(screen.queryByText("PDF layout tweaks")).not.toBeInTheDocument();
+    expect(screen.queryByText("Gamesheet layout")).not.toBeInTheDocument();
   });
 });
