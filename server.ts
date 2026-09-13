@@ -1,4 +1,12 @@
 import "dotenv/config";
+import { findMissingFirebaseEnvVars, formatMissingEnvError } from "./env-check.ts";
+
+const missingFirebaseVars = findMissingFirebaseEnvVars(process.env);
+if (missingFirebaseVars.length > 0) {
+  console.error(`\n${formatMissingEnvError(missingFirebaseVars)}\n`);
+  process.exit(1);
+}
+
 import "./instrument.ts";
 import * as Sentry from "@sentry/node";
 import { createScoreboardServer } from "./serverApp.ts";

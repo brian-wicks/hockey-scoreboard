@@ -4,13 +4,22 @@ import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
 import {defineConfig, loadEnv} from 'vite';
+import {findMissingFirebaseEnvVars, formatMissingEnvError} from './env-check';
 
 const packageJsonPath = path.resolve(__dirname, 'package.json');
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8')) as {version?: string};
 const appVersion = packageJson.version ?? '0.0.0';
 
-export default defineConfig(({mode}) => {
+export default defineConfig(({mode, command}) => {
   const env = loadEnv(mode, '.', '');
+
+  if (command === 'build') {
+    const missingFirebaseVars = findMissingFirebaseEnvVars(env);
+    if (missingFirebaseVars.length > 0) {
+      throw new Error(formatMissingEnvError(missingFirebaseVars));
+    }
+  }
+
   return {
     plugins: [react(), tailwindcss()],
     define: {
