@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { AlertCircle, Cast, LogOut, User as UserIcon } from "lucide-react";
 import { useStore } from "../../store";
 import OBSSetupGuide from "../control-panel/OBSSetupGuide";
@@ -9,28 +9,6 @@ export default function DashboardHeader() {
   const logout = useStore((state) => state.logout);
   const [imageError, setImageError] = useState(false);
   const [isOBSGuideOpen, setIsOBSGuideOpen] = useState(false);
-  const hasCheckedOnboardingRef = useRef(false);
-
-  useEffect(() => {
-    if (!user || hasCheckedOnboardingRef.current) return;
-    hasCheckedOnboardingRef.current = true;
-    void (async () => {
-      try {
-        // @ts-ignore
-        const baseUrl = (import.meta.env.VITE_BASE_URL || window.location.origin).replace(/\/+$/, "");
-        const token = await user.getIdToken();
-        const response = await fetch(`${baseUrl}/api/onboarding`, {
-          headers: { "Authorization": `Bearer ${token}` },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          if (!data.obsSetupSeen) setIsOBSGuideOpen(true);
-        }
-      } catch (error) {
-        console.error("Failed to load onboarding state:", error);
-      }
-    })();
-  }, [user]);
 
   return (
     <>
