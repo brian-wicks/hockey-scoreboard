@@ -1,6 +1,5 @@
-import { useRef, useState } from "react";
 import { Download } from "lucide-react";
-import { GameEvent, GameState, TeamState, TeamPlayer, useStore } from "../../store";
+import { GameEvent, TeamState, TeamPlayer } from "../../store";
 import { exportGamesheetPdf } from "../../utils/gamesheetPdf";
 import { toSkaterLabel } from "../../utils/roster";
 import { PenaltyReasonInput, SearchDropdownInput } from "./DropdownInputs";
@@ -17,9 +16,6 @@ interface EventLogPanelProps {
   updateState: UpdateGameState;
 }
 
-// gameState is read imperatively (useStore.getState()) inside the export/import
-// handlers below, only at click time — it's never used in render, so it
-// deliberately isn't a prop here (see GameActionsPanel for the same pattern).
 export default function EventLogPanel({
   eventLog,
   homeTeam,
@@ -28,101 +24,9 @@ export default function EventLogPanel({
   awayPlayers,
   updateState,
 }: EventLogPanelProps) {
-  const [jsonIoStatus, setJsonIoStatus] = useState<"idle" | "exported" | "importing" | "imported" | "error">("idle");
-  const importInputRef = useRef<HTMLInputElement | null>(null);
-
   const updateEvent = (id: string, updates: Partial<GameEvent>) => {
     const nextLog = eventLog.map((event) => (event.id === id ? { ...event, ...updates } : event));
     updateState({ eventLog: nextLog });
-  };
-
-  const buildExportState = () => {
-    const gameState = useStore.getState().gameState;
-    if (!gameState) return null;
-    const { serverTime, ...rest } = gameState;
-    return rest;
-  };
-
-  const exportGamesheetJson = () => {
-    try {
-      const payload = buildExportState();
-      if (!payload) {
-        setJsonIoStatus("error");
-        setTimeout(() => setJsonIoStatus("idle"), 2000);
-        return;
-      }
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `gamesheet-${new Date().toISOString().slice(0, 10)}.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 5_000);
-      setJsonIoStatus("exported");
-      setTimeout(() => setJsonIoStatus("idle"), 1200);
-    } catch {
-      setJsonIoStatus("error");
-      setTimeout(() => setJsonIoStatus("idle"), 2000);
-    }
-  };
-
-  const mergeImportedState = (incoming: Partial<GameState>) => {
-    const gameState = useStore.getState().gameState;
-    if (!gameState) return null;
-    const nextHome = { ...gameState.homeTeam, ...(incoming.homeTeam ?? {}) };
-    const nextAway = { ...gameState.awayTeam, ...(incoming.awayTeam ?? {}) };
-    const nextClock = { ...gameState.clock, ...(incoming.clock ?? {}) };
-
-    return {
-      ...gameState,
-      ...incoming,
-      homeTeam: nextHome,
-      awayTeam: nextAway,
-      clock: nextClock,
-      eventLog: Array.isArray(incoming.eventLog) ? incoming.eventLog : gameState.eventLog,
-      overlayVisible: incoming.overlayVisible ?? gameState.overlayVisible,
-      overlayLayout: incoming.overlayLayout ?? gameState.overlayLayout,
-      overlayCorner: incoming.overlayCorner ?? gameState.overlayCorner,
-      period: incoming.period ?? gameState.period,
-      jumbotronGoalHighlight: incoming.jumbotronGoalHighlight ?? gameState.jumbotronGoalHighlight,
-      lowerThird: incoming.lowerThird ?? gameState.lowerThird,
-    } satisfies GameState;
-  };
-
-  const importGamesheetJson = (file: File | null) => {
-    if (!file) return;
-    setJsonIoStatus("importing");
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const raw = typeof reader.result === "string" ? reader.result : "";
-        const parsed = JSON.parse(raw) as Partial<GameState>;
-        if (!parsed || typeof parsed !== "object") {
-          setJsonIoStatus("error");
-          setTimeout(() => setJsonIoStatus("idle"), 2000);
-          return;
-        }
-        const merged = mergeImportedState(parsed);
-        if (!merged) {
-          setJsonIoStatus("error");
-          setTimeout(() => setJsonIoStatus("idle"), 2000);
-          return;
-        }
-        updateState(merged);
-        setJsonIoStatus("imported");
-        setTimeout(() => setJsonIoStatus("idle"), 1200);
-      } catch {
-        setJsonIoStatus("error");
-        setTimeout(() => setJsonIoStatus("idle"), 2000);
-      }
-    };
-    reader.onerror = () => {
-      setJsonIoStatus("error");
-      setTimeout(() => setJsonIoStatus("idle"), 2000);
-    };
-    reader.readAsText(file);
   };
 
   const sortedLog = [...eventLog].reverse();
@@ -309,33 +213,6 @@ export default function EventLogPanel({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold text-zinc-300 uppercase tracking-wider">Event Log</h2>
           <div className="flex items-center gap-2 flex-wrap">
-            <input
-              ref={importInputRef}
-              type="file"
-              accept="application/json"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0] ?? null;
-                if (e.target.value) e.target.value = "";
-                importGamesheetJson(file);
-              }}
-            />
-            <GlassButton
-              type="button"
-              onClick={() => importInputRef.current?.click()}
-              variant="secondary"
-              title="Import gamesheet JSON"
-            >
-              Import JSON
-            </GlassButton>
-            <GlassButton
-              type="button"
-              onClick={exportGamesheetJson}
-              variant="secondary"
-              title="Export gamesheet JSON"
-            >
-              Export JSON
-            </GlassButton>
             <GlassButton
               type="button"
               onClick={() => exportGamesheetPdf({ homeTeam, awayTeam, eventLog }, { layout: loadPdfLayout() })}
@@ -345,27 +222,6 @@ export default function EventLogPanel({
               <Download size={16} />
               Export PDF
             </GlassButton>
-            <GlassButton
-              type="button"
-              onClick={() => exportGamesheetPdf({ homeTeam, awayTeam, eventLog }, { layout: loadPdfLayout(), debug: true })}
-              variant="ghost"
-              className="border border-white/10"
-              title="Export PDF with debug grid"
-            >
-              <Download size={16} />
-              Export (debug)
-            </GlassButton>
-            <div className="text-xs text-zinc-500 min-w-[90px] text-right">
-              {jsonIoStatus === "importing"
-                ? "Importing..."
-                : jsonIoStatus === "imported"
-                  ? "Imported"
-                  : jsonIoStatus === "exported"
-                    ? "Exported"
-                    : jsonIoStatus === "error"
-                      ? "Error"
-                      : ""}
-            </div>
           </div>
         </div>
 
