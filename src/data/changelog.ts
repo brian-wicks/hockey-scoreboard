@@ -11,6 +11,28 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.12.0',
+    date: '2026-09-13',
+    sections: {
+      added: [
+        'Add a guided OBS setup walkthrough for getting the overlay into a Browser Source.',
+        'Add team logo uploads.',
+        'Add a Close action to the Control Panel for finishing a game.',
+        'Add a home page for signed-out visitors.',
+      ],
+      changed: [
+        'Games now save automatically from the moment they are created, replacing the manual Save button.',
+        'Start games with New Game and reopen them with Open, both browsable from the Dashboard.',
+        'Remove the Games tab from the Control Panel sidebar.',
+        'Stop the period controls redrawing on every clock tick.',
+        'Name the missing setting when the app is misconfigured.',
+      ],
+      fixed: [
+        'Fix an old share link still working after generating a new one.',
+      ],
+    },
+  },
+  {
     version: '1.11.1',
     date: '2026-08-24',
     sections: {
