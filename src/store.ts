@@ -846,8 +846,9 @@ export const useStore = create<StoreState>((set, get) => ({
   updateShortcut: async (index: number, shortcut: KeyboardShortcut) => {
     const { user } = get();
     if (!user) return;
-    
-    const shortcuts = [...get().keyboardShortcuts];
+
+    const previousShortcuts = get().keyboardShortcuts;
+    const shortcuts = [...previousShortcuts];
     shortcuts[index] = shortcut;
     set({ keyboardShortcuts: shortcuts });
 
@@ -866,10 +867,14 @@ export const useStore = create<StoreState>((set, get) => ({
         body: JSON.stringify(shortcuts),
       });
       if (!response.ok) {
-        console.error(`Failed to save shortcuts: ${response.status} ${response.statusText}`);
+        throw new Error(`Failed to save shortcuts: ${response.status} ${response.statusText}`);
       }
     } catch (error) {
+      // Roll back the optimistic update so the UI doesn't keep showing a change
+      // that never actually made it to the server — otherwise it would silently
+      // revert only on the next reload, with no indication anything went wrong.
       console.error("Failed to save shortcuts:", error);
+      set({ keyboardShortcuts: previousShortcuts });
     }
   },
 
@@ -877,6 +882,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const { user } = get();
     if (!user) return;
 
+    const previousShortcuts = get().keyboardShortcuts;
     set({ keyboardShortcuts: [...defaultShortcuts] });
 
     try {
@@ -893,10 +899,11 @@ export const useStore = create<StoreState>((set, get) => ({
         body: JSON.stringify(defaultShortcuts),
       });
       if (!response.ok) {
-        console.error(`Failed to reset shortcuts: ${response.status} ${response.statusText}`);
+        throw new Error(`Failed to reset shortcuts: ${response.status} ${response.statusText}`);
       }
     } catch (error) {
       console.error("Failed to reset shortcuts:", error);
+      set({ keyboardShortcuts: previousShortcuts });
     }
   },
 
@@ -925,7 +932,8 @@ export const useStore = create<StoreState>((set, get) => ({
     const { user } = get();
     if (!user) return;
 
-    const config = { ...get().streamDeckConfig };
+    const previousConfig = get().streamDeckConfig;
+    const config = { ...previousConfig };
     config.buttons = [...config.buttons];
     config.buttons[index] = button;
     set({ streamDeckConfig: config });
@@ -944,10 +952,11 @@ export const useStore = create<StoreState>((set, get) => ({
         body: JSON.stringify(config),
       });
       if (!response.ok) {
-        console.error(`Failed to save Stream Deck config: ${response.status} ${response.statusText}`);
+        throw new Error(`Failed to save Stream Deck config: ${response.status} ${response.statusText}`);
       }
     } catch (error) {
       console.error("Failed to save Stream Deck config:", error);
+      set({ streamDeckConfig: previousConfig });
     }
   },
 

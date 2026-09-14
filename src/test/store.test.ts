@@ -263,6 +263,18 @@ describe("store", () => {
     expect(fetchMock).toHaveBeenCalled();
   });
 
+  it("rolls back an optimistic shortcut update if the server save fails", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500, statusText: "Server Error" });
+    vi.stubGlobal("fetch", fetchMock);
+    const { useStore } = await import("../store");
+
+    useStore.setState({ user: mockUser as any });
+    const previousShortcuts = useStore.getState().keyboardShortcuts;
+    const shortcut: KeyboardShortcut = { key: "Z", action: "toggleClock", description: "Toggle Clock" };
+    await useStore.getState().updateShortcut(0, shortcut);
+    expect(useStore.getState().keyboardShortcuts).toEqual(previousShortcuts);
+  });
+
   it("loads shortcuts and fills missing defaults", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       json: () =>
@@ -335,6 +347,18 @@ describe("store", () => {
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/streamdeck"), expect.objectContaining({ method: "POST" }));
   });
 
+  it("rolls back an optimistic streamdeck button update if the server save fails", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500, statusText: "Server Error" });
+    vi.stubGlobal("fetch", fetchMock);
+    const { useStore } = await import("../store");
+    useStore.setState({ user: mockUser as any });
+
+    const previousConfig = useStore.getState().streamDeckConfig;
+    const button = { id: "btn-0", label: "NEW", action: "homeScoreUp" as ShortcutAction, backgroundColor: "#000", textColor: "#fff" };
+    await useStore.getState().updateStreamDeckButton(0, button);
+    expect(useStore.getState().streamDeckConfig).toEqual(previousConfig);
+  });
+
   it("resets shortcuts", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal("fetch", fetchMock);
@@ -343,6 +367,17 @@ describe("store", () => {
 
     await useStore.getState().resetShortcuts();
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/shortcuts"), expect.objectContaining({ method: "POST" }));
+  });
+
+  it("rolls back an optimistic shortcuts reset if the server save fails", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500, statusText: "Server Error" });
+    vi.stubGlobal("fetch", fetchMock);
+    const { useStore } = await import("../store");
+    const customShortcuts: KeyboardShortcut[] = [{ key: "Q", action: "toggleClock", description: "Toggle Clock" }];
+    useStore.setState({ user: mockUser as any, keyboardShortcuts: customShortcuts });
+
+    await useStore.getState().resetShortcuts();
+    expect(useStore.getState().keyboardShortcuts).toEqual(customShortcuts);
   });
 
   it("performs full cleanup on logout, including the undo stack", async () => {
