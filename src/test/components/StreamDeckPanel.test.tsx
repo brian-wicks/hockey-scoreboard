@@ -95,4 +95,31 @@ describe("StreamDeckPanel Component", () => {
     expect(await screen.findByText(/Edit Button 1/i)).toBeInTheDocument();
     expect(screen.getByDisplayValue("Goal Home")).toBeInTheDocument();
   });
+
+  it("closes the editor when clicking outside it, like other modals in the app", async () => {
+    vi.mocked(useStore).mockReturnValue({
+      gameState: mockGameState,
+      streamDeckConfig: mockConfig,
+      loadStreamDeckConfig: vi.fn(),
+      updateStreamDeckButton: vi.fn(),
+      ensureInitialized: vi.fn(),
+    } as any);
+
+    vi.mocked(useSharedActions).mockReturnValue({
+      handleAction: vi.fn(),
+    } as any);
+
+    render(<StreamDeckPanel />);
+
+    const settingsButtons = screen.getAllByRole("button").filter(b => b.querySelector("svg.lucide-settings"));
+    fireEvent.click(settingsButtons[0]);
+    const heading = await screen.findByText(/Edit Button 1/i);
+
+    // The backdrop is the first child of the modal's outer fixed-position wrapper —
+    // clicking the wrapper itself wouldn't trigger it, since onClick doesn't bubble down.
+    const wrapper = heading.closest(".fixed.inset-0");
+    fireEvent.click(wrapper!.firstElementChild!);
+
+    expect(screen.queryByText(/Edit Button 1/i)).not.toBeInTheDocument();
+  });
 });

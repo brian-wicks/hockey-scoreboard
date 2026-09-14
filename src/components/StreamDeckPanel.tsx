@@ -26,7 +26,7 @@ import Overlay from "./Overlay";
 import GoalReviewPanel from "./control-panel/GoalReviewPanel";
 import PenaltyItem from "./control-panel/PenaltyItem";
 import { ColorPicker } from "./control-panel/ui/ColorPicker";
-import { glassInputClass } from "./control-panel/ui/glass";
+import { GlassButton, glassInputClass } from "./control-panel/ui/glass";
 import { getReadableTextColor } from "../utils/color";
 
 // Custom Ice Hockey Icons
@@ -168,8 +168,9 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
   const [edited, setEdited] = useState<StreamDeckButton>({ ...button });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-md">
-      <div className="w-full max-w-md bg-zinc-950/90 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-md animate-in fade-in duration-200" onClick={onClose} />
+      <div className="relative w-full max-w-md bg-zinc-950/90 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
         <div className="flex items-center justify-between p-4 border-b border-white/10">
           <h3 className="text-lg font-bold">Edit Button {index + 1}</h3>
           <button onClick={onClose} className="p-1 hover:bg-white/[0.08] rounded-lg transition-colors">
@@ -280,18 +281,12 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
         </div>
 
         <div className="p-4 bg-white/[0.03] border-t border-white/10 flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-2 rounded-xl border border-white/10 hover:bg-white/[0.08] font-medium transition-colors"
-          >
+          <GlassButton onClick={onClose} variant="secondary" className="flex-1">
             Cancel
-          </button>
-          <button
-            onClick={() => onSave(edited)}
-            className="flex-1 px-4 py-2 rounded-xl bg-indigo-500/80 hover:bg-indigo-500 border border-indigo-400/40 text-white font-medium transition-colors shadow-[0_0_20px_rgba(99,102,241,0.35)]"
-          >
+          </GlassButton>
+          <GlassButton onClick={() => onSave(edited)} variant="primary" className="flex-1">
             Save Changes
-          </button>
+          </GlassButton>
         </div>
       </div>
     </div>
