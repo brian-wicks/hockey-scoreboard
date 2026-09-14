@@ -67,6 +67,7 @@ export default function TeamEditModal({ entry, onClose }: TeamEditModalProps) {
             onRosterChange={setRoster}
             rosterExpandedDefault={roster.length > 0}
             framed={false}
+            logoInput="upload"
           />
           {error && <p className="text-sm text-red-400">{error}</p>}
           <div className="flex justify-end gap-2 pt-2 border-t border-white/10">

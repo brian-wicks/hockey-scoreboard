@@ -23,9 +23,10 @@ interface TeamEditorFieldsProps {
    * this component's own outer glass panel so blur/border don't stack on top of the parent's. */
   framed?: boolean;
   /** "url" (default) shows the raw Logo URL text field alongside a small upload button —
-   * used by the Edit Team modal and Settings, where someone may already have a URL to paste.
+   * used by Settings, where someone may already have a URL to paste while a game is live.
    * "upload" replaces it with a single drag-and-drop/click-to-browse dropzone and no URL
-   * field — used by the New Game wizard's team creation step. */
+   * field — used by the Edit Team modal and the New Game wizard's team creation step, so
+   * both "create/edit a team" entry points share the same logo experience. */
   logoInput?: "url" | "upload";
 }
 
