@@ -26,6 +26,7 @@ import Overlay from "./Overlay";
 import GoalReviewPanel from "./control-panel/GoalReviewPanel";
 import PenaltyItem from "./control-panel/PenaltyItem";
 import { ColorPicker } from "./control-panel/ui/ColorPicker";
+import { glassInputClass } from "./control-panel/ui/glass";
 import { getReadableTextColor } from "../utils/color";
 
 // Custom Ice Hockey Icons
@@ -183,7 +184,7 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
               type="text"
               value={edited.label}
               onChange={(e) => setEdited({ ...edited, label: e.target.value })}
-              className="w-full bg-white/[0.05] border border-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              className={`w-full ${glassInputClass}`}
             />
           </div>
 
@@ -192,7 +193,7 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
             <select
               value={edited.action}
               onChange={(e) => setEdited({ ...edited, action: e.target.value as ShortcutAction | "none" })}
-              className="control-panel-select w-full bg-white/[0.05] border border-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              className={`control-panel-select w-full ${glassInputClass}`}
             >
               {ACTION_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -273,7 +274,7 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
               placeholder="https://example.com/icon.png"
               value={edited.image || ""}
               onChange={(e) => setEdited({ ...edited, image: e.target.value })}
-              className="w-full bg-white/[0.05] border border-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              className={`w-full ${glassInputClass}`}
             />
           </div>
         </div>

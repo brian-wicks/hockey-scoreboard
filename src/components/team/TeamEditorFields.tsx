@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Upload } from "lucide-react";
 import { PlayerPosition, TeamPlayer, useStore } from "../../store";
 import { ColorPicker } from "../control-panel/ui/ColorPicker";
+import { glassInputClass } from "../control-panel/ui/glass";
 import { LogoUploadError, uploadTeamLogo } from "../../lib/uploadTeamLogo";
 
 export interface TeamIdentityDraft {
@@ -212,7 +213,7 @@ export default function TeamEditorFields({
                 (e.target as HTMLInputElement).blur();
               }
             }}
-            className="w-full bg-white/[0.05] border border-white/10 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none"
+            className={`w-full ${glassInputClass}`}
           />
         </div>
         <div>
@@ -230,7 +231,7 @@ export default function TeamEditorFields({
                 (e.target as HTMLInputElement).blur();
               }
             }}
-            className="w-full bg-white/[0.05] border border-white/10 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none font-mono"
+            className={`w-full ${glassInputClass} font-mono`}
           />
         </div>
         <div>
@@ -294,7 +295,7 @@ export default function TeamEditorFields({
                     }
                   }}
                   placeholder="https://example.com/logo.png"
-                  className="w-full bg-white/[0.05] border border-white/10 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none"
+                  className={`w-full ${glassInputClass}`}
                 />
                 <div className="flex items-center gap-2">
                   <button
@@ -362,7 +363,7 @@ export default function TeamEditorFields({
                         (e.target as HTMLInputElement).blur();
                       }
                     }}
-                    className="bg-white/[0.05] border border-white/10 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none font-mono"
+                    className={`${glassInputClass} font-mono`}
                     placeholder="#"
                   />
                   <input
@@ -377,13 +378,13 @@ export default function TeamEditorFields({
                         (e.target as HTMLInputElement).blur();
                       }
                     }}
-                    className="bg-white/[0.05] border border-white/10 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                    className={glassInputClass}
                     placeholder="Player name"
                   />
                   <select
                     value={player.position ?? ""}
                     onChange={(e) => commitDraftPlayer(player.id, { position: e.target.value as PlayerPosition }, false)}
-                    className="control-panel-select bg-white/[0.05] border border-white/10 rounded-lg px-2 py-2 text-white focus:border-indigo-500 focus:outline-none"
+                    className={`control-panel-select ${glassInputClass}`}
                   >
                     <option value="">-</option>
                     <option value="NM">NM</option>

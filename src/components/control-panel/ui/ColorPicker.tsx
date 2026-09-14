@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { HexColorInput, HexColorPicker } from "react-colorful";
 import { cn } from "../../../utils/cn";
 import { useDropdownPlacement } from "../DropdownInputs";
+import { glassInputClass } from "./glass";
 
 interface ColorPickerProps {
   value: string;
@@ -53,7 +54,7 @@ export function ColorPicker({ value, onChange, className, label = "Color" }: Col
         onChange={onChange}
         prefixed
         aria-label={label}
-        className="flex-1 bg-white/[0.05] border border-white/10 rounded-lg p-3 text-white focus:border-indigo-500 focus:outline-none font-mono uppercase"
+        className={`flex-1 ${glassInputClass} font-mono uppercase`}
       />
       {open &&
         coords &&
