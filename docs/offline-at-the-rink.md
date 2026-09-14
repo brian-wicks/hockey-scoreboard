@@ -62,6 +62,36 @@ Back that folder up if a season's games matter to you.
 - `npm run electron:dev` runs the desktop shell against the repo without
   packaging. `npm run build:electron` just produces the bundles it needs.
 - The server is bundled to `dist-electron/server.mjs` by
-  `scripts/build-electron.mjs` because `tsx` isn't available inside a
-  packaged app. `better-sqlite3` stays external and is rebuilt for Electron's ABI
-  by electron-builder.
+  `scripts/build-electron.mjs` because `tsx` isn't available inside a packaged
+  app. Nothing in that bundle is left as a bare import — Contents/Resources/
+  server/ has no node_modules to resolve one from once installed. Cloud-only
+  deps (firebase-admin, @sentry/node) are stubbed out at bundle time
+  (`electron/stubs/`); `better-sqlite3` is native, so it's rebuilt for
+  Electron's ABI by electron-builder and resolved by absolute path from inside
+  `electron/main.cjs` instead.
+
+## Cutting a release
+
+Pushing a version tag builds installers for macOS, Windows, and Linux and
+publishes them to the repo's GitHub Releases page automatically
+(`.github/workflows/release.yml`). To cut one:
+
+1. Bump `version` in `package.json` and add the changelog entry, as usual.
+2. Commit and push that to `main`.
+3. Tag it and push the tag — the tag must be `v` + the exact `package.json`
+   version, or CI fails before building anything:
+   ```
+   git tag v1.12.0
+   git push origin v1.12.0
+   ```
+4. Watch the "Release desktop app" workflow in the repo's Actions tab. Once it
+   finishes, the release is live on the Releases page with a `.dmg`, `.exe`,
+   and `.AppImage` attached — no manual step.
+
+Neither build is code-signed (no Apple/Microsoft certificate is configured),
+so macOS will show a Gatekeeper "can't be opened" warning and Windows will
+show a SmartScreen warning on first launch of a downloaded copy. Right-click →
+Open on macOS, or "More info" → "Run anyway" on Windows, gets past it. Setting
+up real signing needs a paid Apple Developer account and/or a code-signing
+certificate — worth doing before handing this to non-technical users at scale,
+out of scope for now.

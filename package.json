@@ -2,6 +2,11 @@
   "name": "hockey-scoreboard",
   "private": true,
   "version": "1.12.0",
+  "description": "Live game control for ice hockey broadcasts \u2014 score, clock, and penalties synced to an overlay, jumbotron, and viewer share links.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/brian-wicks/hockey-scoreboard.git"
+  },
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -118,6 +123,12 @@
         "AppImage"
       ],
       "category": "Utility"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "brian-wicks",
+      "repo": "hockey-scoreboard",
+      "releaseType": "release"
     }
   }
 }

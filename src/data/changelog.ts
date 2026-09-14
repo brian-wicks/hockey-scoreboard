@@ -25,6 +25,7 @@ export const changelogEntries: ChangelogEntry[] = [
         'Add an installable desktop app that runs the scoreboard offline, for rinks with no usable wifi.',
         'Store team logos and gamesheet templates on the machine when running offline.',
         'Open the overlay, jumbotron, results, and share preview links in their own app window instead of the system browser, in the desktop app.',
+        'Publish downloadable desktop app installers to GitHub Releases for each version.',
       ],
       changed: [
         'Games now save automatically from the moment they are created, replacing the manual Save button.',

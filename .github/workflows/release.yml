@@ -1,0 +1,66 @@
+name: Release desktop app
+
+# Fires only on an explicit version tag (e.g. `git tag v1.12.0 && git push origin
+# v1.12.0`) — not on ordinary pushes to main. A GitHub Release with public
+# download links is a visible, external action, so it only happens from a
+# deliberate, separate step. See docs/offline-at-the-rink.md for the operator-
+# facing side of this build.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+# To create the release and upload build artifacts to it.
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+          cache: npm
+      - run: npm ci
+      - name: Check tag matches package.json version
+        # electron-builder names artifacts after package.json's version regardless
+        # of which tag triggered the build. If they drift, the release ends up
+        # labeled v1.12.0 but containing files named for 1.11.1 (or vice versa) —
+        # fail loudly here instead of publishing that silently.
+        run: |
+          PKG_VERSION="v$(node -p "require('./package.json').version")"
+          TAG_VERSION="${GITHUB_REF#refs/tags/}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "Tag $TAG_VERSION does not match package.json version ($PKG_VERSION)." >&2
+            echo "Bump package.json and retag, or delete/retag to match." >&2
+            exit 1
+          fi
+      - run: npm run lint
+      - run: npx vitest run
+
+  build:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+          cache: npm
+      - run: npm ci
+      - run: npm run build:electron
+      # electron-builder both packages this OS's installer and uploads it to the
+      # GitHub Release for the pushed tag (creating the release on whichever
+      # matrix job gets there first). Unsigned: there's no Apple/Microsoft
+      # signing certificate configured, so macOS Gatekeeper and Windows
+      # SmartScreen will both warn on first launch of a downloaded copy — see
+      # docs/offline-at-the-rink.md.
+      - run: npx electron-builder --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
