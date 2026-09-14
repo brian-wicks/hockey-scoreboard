@@ -171,6 +171,18 @@ export default function TeamEditorFields({
     if (file) void uploadLogoFile(file);
   };
 
+  const commitName = () => {
+    const trimmed = name.trim();
+    if (trimmed) {
+      onIdentityCommit({ name: trimmed });
+    } else {
+      // Team name is required everywhere it's edited — revert rather than commit a blank,
+      // which would otherwise broadcast instantly to viewers when this is wired to a live
+      // socket update (e.g. SettingsPanel), unlike the draft-only wizard/modal flows.
+      setName(identity.name);
+    }
+  };
+
   const handleLogoDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDraggingLogo(false);
@@ -192,11 +204,11 @@ export default function TeamEditorFields({
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            onBlur={() => onIdentityCommit({ name })}
+            onBlur={commitName}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
-                onIdentityCommit({ name });
+                commitName();
                 (e.target as HTMLInputElement).blur();
               }
             }}

@@ -76,6 +76,20 @@ describe("SettingsPanel", () => {
     }));
   });
 
+  it("does not broadcast a blank team name", async () => {
+    render(<SettingsPanel gameState={baseGameState as any} updateState={mockUpdateState} />);
+    await act(flushMicrotasks);
+
+    const homeNameInput = screen.getByDisplayValue("Home Team");
+    await act(async () => {
+      fireEvent.change(homeNameInput, { target: { value: "   " } });
+      fireEvent.blur(homeNameInput);
+    });
+
+    expect(mockUpdateState).not.toHaveBeenCalled();
+    expect((homeNameInput as HTMLInputElement).value).toBe("Home Team");
+  });
+
   it("handles team color changes", async () => {
     render(<SettingsPanel gameState={baseGameState as any} updateState={mockUpdateState} />);
     await act(flushMicrotasks);
