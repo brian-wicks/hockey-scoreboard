@@ -45,7 +45,6 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
   const [settingsTab, setSettingsTab] = useState<"teams" | "shortcuts" | "pdf">("teams");
 
   const baseUrl = (() => {
-    // @ts-ignore
     const envBase = getBaseUrl();
     return envBase.replace(/\/+$/, "");
   })();

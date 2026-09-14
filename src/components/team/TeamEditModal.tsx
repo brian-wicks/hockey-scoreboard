@@ -71,7 +71,7 @@ export default function TeamEditModal({ entry, onClose }: TeamEditModalProps) {
           />
           {error && <p className="text-sm text-red-400">{error}</p>}
           <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
-            <GlassButton onClick={onClose} variant="ghost" disabled={saving}>
+            <GlassButton onClick={onClose} variant="secondary" disabled={saving}>
               Cancel
             </GlassButton>
             <GlassButton onClick={handleSave} disabled={saving || !identity.name.trim()} variant="primary">
