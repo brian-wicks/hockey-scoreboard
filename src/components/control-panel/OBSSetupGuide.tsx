@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Cast, Check, ChevronLeft, ChevronRight, Copy, ExternalLink, X } from "lucide-react";
 import { useStore } from "../../store";
+import { getBaseUrl } from "../../lib/localMode";
 import { GlassButton, glassInsetClass } from "./ui/glass";
 
 interface OBSSetupGuideProps {
@@ -18,7 +19,7 @@ export default function OBSSetupGuide({ isOpen, onClose }: OBSSetupGuideProps) {
   const hasMarkedSeenRef = useRef(false);
 
   // @ts-ignore
-  const baseUrl = (import.meta.env.VITE_BASE_URL || window.location.origin).replace(/\/+$/, "");
+  const baseUrl = getBaseUrl().replace(/\/+$/, "");
   const overlayUrl = `${baseUrl}/overlay`;
 
   useEffect(() => {

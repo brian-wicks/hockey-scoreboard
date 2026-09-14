@@ -8,7 +8,10 @@ import type { SavedGame } from "./types.ts";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const dbDir = join(__dirname, "../../data");
+// Packaged builds (Electron) run from a read-only app bundle, so the database
+// location has to be overridable — electron/main.cjs points this at the user's
+// own application-data directory. Unset, it keeps the repo-relative default.
+const dbDir = process.env.SCOREBOARD_DATA_DIR || join(__dirname, "../../data");
 if (!existsSync(dbDir)) {
   mkdirSync(dbDir, { recursive: true });
 }

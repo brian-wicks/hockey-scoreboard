@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Share2, Copy, Check, ExternalLink, X, QrCode, AlertTriangle } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useStore } from "../../store";
+import { getBaseUrl } from "../../lib/localMode";
 import { GlassButton } from "./ui/glass";
 
 interface ShareModalProps {
@@ -16,7 +17,7 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
   const hasLoadedShareRef = useRef(false);
 
   // @ts-ignore
-  const baseUrl = (import.meta.env.VITE_BASE_URL || window.location.origin).replace(/\/+$/, "");
+  const baseUrl = getBaseUrl().replace(/\/+$/, "");
 
   const loadShareId = async () => {
     const { user } = useStore.getState();

@@ -1,5 +1,7 @@
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { storage } from "./firebase";
+import { isLocalMode } from "./localMode";
+import { uploadLocalFile } from "./uploadLocalFile";
 
 export const MAX_TEMPLATE_BYTES = 10 * 1024 * 1024;
 
@@ -18,6 +20,15 @@ export async function uploadGamesheetTemplate(userId: string, file: File): Promi
   }
   if (file.size > MAX_TEMPLATE_BYTES) {
     throw new TemplateUploadError("Template must be under 10MB.");
+  }
+
+  // Offline: the local server stores it and serves it back from /uploads.
+  if (isLocalMode() || !storage) {
+    try {
+      return await uploadLocalFile(file, "application/pdf");
+    } catch (error) {
+      throw new TemplateUploadError(error instanceof Error ? error.message : "Could not save the template.");
+    }
   }
 
   const path = `gamesheet-templates/${userId}/${crypto.randomUUID()}.pdf`;

@@ -7,7 +7,8 @@ import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
 import AppFooter from './components/AppFooter';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, type User } from 'firebase/auth';
+import { createLocalUser, isLocalMode } from './lib/localMode';
 import { auth } from './lib/firebase';
 import { useStore } from './store';
 import { Login } from './components/Login';
@@ -36,6 +37,13 @@ function AppRoutes() {
   }, [ensureInitialized, user]);
 
   useEffect(() => {
+    // Local mode has no Firebase to listen to: adopt the local operator once so
+    // the app lands on the Dashboard exactly as a signed-in user would.
+    if (isLocalMode() || !auth) {
+      setUser(createLocalUser() as unknown as User);
+      setAuthLoading(false);
+      return;
+    }
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setAuthLoading(false);

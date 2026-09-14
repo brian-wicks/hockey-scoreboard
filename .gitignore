@@ -16,3 +16,5 @@ src/test/.tmp
 data/scoreboard.db
 data/scoreboard.db-shm
 data/scoreboard.db-wal
+dist-electron/
+release/

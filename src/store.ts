@@ -2,11 +2,10 @@ import { create } from "zustand";
 import { io, Socket } from "socket.io-client";
 import { User, signInWithPopup, signOut } from "firebase/auth";
 import { auth, googleProvider } from "./lib/firebase";
+import { getBaseUrl, isLocalMode } from "./lib/localMode";
 
 const normalizeBaseUrl = (url: string) => url.replace(/\/+$/, "");
-// @ts-ignore
-const baseUrl = import.meta.env.VITE_BASE_URL || window.location.origin;
-const BASE_URL = normalizeBaseUrl(baseUrl);
+const BASE_URL = normalizeBaseUrl(getBaseUrl());
 
 export interface Penalty {
   id: string;
@@ -445,6 +444,8 @@ export const useStore = create<StoreState>((set, get) => ({
   setAuthError: (authError) => set({ authError, authLoading: false }),
 
   login: async () => {
+    // Local mode is already "signed in" as the local operator (see App.tsx).
+    if (isLocalMode() || !auth || !googleProvider) return;
     try {
       set({ authError: null });
       await signInWithPopup(auth, googleProvider);
@@ -455,12 +456,15 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   logout: async () => {
+    // Signing out of local mode would strand the operator on a sign-in screen
+    // that cannot complete without internet.
+    if (isLocalMode()) return;
     try {
       const { socket } = get();
       if (socket) {
         socket.disconnect();
       }
-      await signOut(auth);
+      if (auth) await signOut(auth);
       hasInitialized = false;
       set({ user: null, gameState: null, socket: null, isViewer: false, shareId: null, authError: null, savedGames: [], teamLibrary: [], undoStack: [], activeGameId: undefined });
     } catch (error) {

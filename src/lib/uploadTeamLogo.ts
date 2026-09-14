@@ -1,5 +1,7 @@
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { storage } from "./firebase";
+import { isLocalMode } from "./localMode";
+import { uploadLocalFile } from "./uploadLocalFile";
 
 export const MAX_LOGO_BYTES = 3 * 1024 * 1024;
 
@@ -24,6 +26,15 @@ export async function uploadTeamLogo(userId: string, file: File): Promise<string
   }
   if (file.size > MAX_LOGO_BYTES) {
     throw new LogoUploadError("Image must be under 3MB.");
+  }
+
+  // Offline: the local server stores it and serves it back from /uploads.
+  if (isLocalMode() || !storage) {
+    try {
+      return await uploadLocalFile(file, file.type);
+    } catch (error) {
+      throw new LogoUploadError(error instanceof Error ? error.message : "Could not save the logo.");
+    }
   }
 
   const path = `team-logos/${userId}/${crypto.randomUUID()}.${extensionFor(file)}`;

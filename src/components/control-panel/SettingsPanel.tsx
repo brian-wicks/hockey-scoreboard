@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Keyboard, Users, FileText } from "lucide-react";
 import { GameState, TeamState, useStore } from "../../store";
+import { getBaseUrl } from "../../lib/localMode";
 import { UpdateGameState } from "./types";
 import ShortcutEditor from "./ShortcutEditor";
 import PdfLayoutSettings from "./PdfLayoutSettings";
@@ -45,7 +46,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
 
   const baseUrl = (() => {
     // @ts-ignore
-    const envBase = import.meta.env.VITE_BASE_URL || window.location.origin;
+    const envBase = getBaseUrl();
     return envBase.replace(/\/+$/, "");
   })();
 

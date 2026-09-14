@@ -3,8 +3,8 @@ import { createServer } from "http";
 import { randomUUID } from "crypto";
 import { Server, Socket } from "socket.io";
 import { fileURLToPath } from "url";
-import { dirname, join } from "path";
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { dirname, join, resolve } from "path";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { initializeApp, cert } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import cors from "cors";
@@ -13,6 +13,7 @@ import rateLimit from "express-rate-limit";
 import pino from "pino";
 import pinoHttp from "pino-http";
 import * as Sentry from "@sentry/node";
+import { isLocalModeEnv, LOCAL_USER_ID } from "./src/lib/localMode.ts";
 import {
   getUserConfig, 
   setUserConfig, 
@@ -56,7 +57,8 @@ if (serviceAccount) {
   initializeApp({
     credential: cert(serviceAccount)
   });
-} else {
+} else if (!isLocalModeEnv(process.env)) {
+  // Expected in local mode, which never authenticates against Firebase at all.
   logger.warn("FIREBASE_SERVICE_ACCOUNT not found in environment variables. Authentication will fail.");
 }
 
@@ -184,14 +186,24 @@ interface GameState {
 
 export interface ScoreboardServerOptions {
   dataDir?: string;
+  /** Where the built client lives. Packaged builds serve it from outside the app bundle. */
+  clientDir?: string;
   now?: () => number;
   randomId?: () => string;
 }
 
 export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   const dataDir = options.dataDir ?? __dirname;
+  // Resolved to absolute: res.sendFile below rejects a relative path outright,
+  // which would 500 every client route rather than serving index.html.
+  const clientDir = resolve(options.clientDir ?? join(__dirname, "dist"));
   const now = options.now ?? Date.now;
   const randomId = options.randomId ?? (() => randomUUID());
+  // Offline single-operator mode — see src/lib/localMode.ts for what it trades away.
+  const localMode = isLocalModeEnv(process.env);
+  if (localMode) {
+    logger.warn("[Local mode] Authentication is disabled; every request runs as the local operator.");
+  }
 
   const SHORTCUTS_FILE = join(dataDir, "shortcuts.json");
   const STREAMDECK_FILE = join(dataDir, "streamdeck.json");
@@ -1070,6 +1082,12 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       return next(new Error("Authentication error: Invalid share link"));
     }
 
+    if (localMode) {
+      socket.data.userId = LOCAL_USER_ID;
+      socket.data.isViewer = false;
+      return next();
+    }
+
     if (!token) {
       logger.warn({ socketId: socket.id }, "[Socket] Auth failed: no token provided");
       return next(new Error("Authentication error: Token required"));
@@ -1087,6 +1105,15 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
 
   // Authentication Middleware for Express
   const authenticateExpress = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    // Local mode runs offline, where Firebase can verify nothing — every request
+    // is the single local operator. server.ts refuses to start in this mode under
+    // NODE_ENV=production, so it can't silently open up a real deployment.
+    if (localMode) {
+      (req as any).user = { uid: LOCAL_USER_ID };
+      next();
+      return;
+    }
+
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith("Bearer ")) {
       logger.warn({ method: req.method, url: req.url }, "[Express] Auth failed: missing or invalid Authorization header");
@@ -1394,6 +1421,70 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   });
 
+  // Offline file storage. Firebase Storage is unreachable in local mode, so team
+  // logos and gamesheet templates are written next to the local database and
+  // served back over the loopback interface instead.
+  //
+  // Registered only in local mode: this accepts a file from whoever can reach it,
+  // and in local mode that's restricted to this machine (start() binds 127.0.0.1).
+  // In a normal deployment it must not exist at all.
+  if (localMode) {
+    const UPLOADS_DIR = join(dataDir, "uploads");
+
+    // Extensions come from this map, never from the client's filename — a name
+    // like "../../x.js" or "logo.png.html" must not be able to pick the path or
+    // the type the file is later served as.
+    const ALLOWED_UPLOAD_TYPES: Record<string, { ext: string; maxBytes: number }> = {
+      "image/png": { ext: "png", maxBytes: 3 * 1024 * 1024 },
+      "image/jpeg": { ext: "jpg", maxBytes: 3 * 1024 * 1024 },
+      "image/webp": { ext: "webp", maxBytes: 3 * 1024 * 1024 },
+      "image/gif": { ext: "gif", maxBytes: 3 * 1024 * 1024 },
+      "application/pdf": { ext: "pdf", maxBytes: 10 * 1024 * 1024 },
+    };
+    // SVG is deliberately absent: it can carry script, and these are served from
+    // the app's own origin.
+
+    app.post(
+      "/api/local-upload",
+      authenticateExpress,
+      express.raw({ type: Object.keys(ALLOWED_UPLOAD_TYPES), limit: "10mb" }),
+      async (req, res) => {
+        const userId = (req as any).user.uid;
+        const contentType = (req.headers["content-type"] || "").split(";")[0].trim();
+        const allowed = ALLOWED_UPLOAD_TYPES[contentType];
+
+        if (!allowed) {
+          res.status(415).json({ error: "Unsupported file type" });
+          return;
+        }
+        if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+          res.status(400).json({ error: "Empty upload" });
+          return;
+        }
+        if (req.body.length > allowed.maxBytes) {
+          res.status(413).json({ error: "File too large" });
+          return;
+        }
+
+        try {
+          // The uid is server-side (local mode pins it), but keep the path
+          // component to a known-safe shape regardless.
+          const safeUserId = userId.replace(/[^a-zA-Z0-9_-]/g, "") || "local";
+          const dir = join(UPLOADS_DIR, safeUserId);
+          mkdirSync(dir, { recursive: true });
+          const fileName = `${randomId()}.${allowed.ext}`;
+          writeFileSync(join(dir, fileName), req.body);
+          res.json({ url: `/uploads/${safeUserId}/${fileName}` });
+        } catch (error) {
+          logError("Error saving local upload", error, { userId });
+          res.status(500).json({ error: "Failed to save file" });
+        }
+      },
+    );
+
+    app.use("/uploads", express.static(UPLOADS_DIR));
+  }
+
   app.get("/api/streamdeck", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
     try {
@@ -1665,17 +1756,32 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   // to Sentry before falling through to Express's default error response.
   Sentry.setupExpressErrorHandler(app);
 
-  app.use(express.static(join(__dirname, "dist")));
+  app.use(express.static(clientDir));
 
   app.get("*path", (req, res) => {
-    res.sendFile(join(__dirname, "dist", "index.html"));
+    res.sendFile(join(clientDir, "index.html"));
   });
 
   function start(port: number) {
+    // Local mode serves an app with authentication disabled, so it stays on the
+    // loopback interface — binding 0.0.0.0 there would hand anyone on the rink's
+    // network full control of the game.
+    const host = localMode ? "127.0.0.1" : "0.0.0.0";
     return new Promise<number>((resolve) => {
-      httpServer.listen(port, "0.0.0.0", () => {
+      httpServer.listen(port, host, () => {
         const address = httpServer.address();
         const selectedPort = typeof address === "object" && address ? address.port : port;
+
+        // Local mode is given port 0 (see electron/main.cjs) so the OS picks a
+        // free port each launch — a stray process already on the "usual" port
+        // can't block startup. That means the exact origin the browser window
+        // will report can't be known until now, so it's added to the CORS
+        // allowlist here rather than baked into allowedOrigins above.
+        if (localMode) {
+          allowedOrigins.add(`http://localhost:${selectedPort}`);
+          allowedOrigins.add(`http://127.0.0.1:${selectedPort}`);
+        }
+
         logger.info({ port: selectedPort }, "[Server] Listening");
         resolve(selectedPort);
       });
