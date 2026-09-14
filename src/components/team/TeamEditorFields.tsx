@@ -1,16 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Upload } from "lucide-react";
-import { PlayerPosition, TeamPlayer, useStore } from "../../store";
+import { PlayerPosition, TeamIdentity, TeamPlayer, useStore } from "../../store";
 import { ColorPicker } from "../control-panel/ui/ColorPicker";
 import { glassInputClass } from "../control-panel/ui/glass";
 import { LogoUploadError, uploadTeamLogo } from "../../lib/uploadTeamLogo";
+import { sortPlayersByJersey } from "../../utils/roster";
 
-export interface TeamIdentityDraft {
-  name: string;
-  abbreviation: string;
-  logo: string;
-  color: string;
-}
+/** A team's identity fields while being edited in a form — same shape as the
+ * persisted TeamIdentity, kept as a distinct alias since call sites read better
+ * naming it for what it is here: in-progress draft state, not saved data. */
+export type TeamIdentityDraft = TeamIdentity;
 
 interface TeamEditorFieldsProps {
   title?: string;
@@ -47,18 +46,6 @@ const rostersEqual = (a: TeamPlayer[], b: TeamPlayer[]) =>
   });
 
 const sanitizeJerseyNumber = (value: string) => value.replace(/\D/g, "").slice(0, 2);
-
-const sortPlayersByJersey = (players: TeamPlayer[]) =>
-  players.slice().sort((a, b) => {
-    const aNumber = Number.parseInt(a.jerseyNumber, 10);
-    const bNumber = Number.parseInt(b.jerseyNumber, 10);
-    const aValid = Number.isFinite(aNumber);
-    const bValid = Number.isFinite(bNumber);
-    if (aValid && bValid) return aNumber - bNumber;
-    if (aValid) return -1;
-    if (bValid) return 1;
-    return a.jerseyNumber.localeCompare(b.jerseyNumber);
-  });
 
 /**
  * Team identity + roster editor. Owns its own text-input draft state so typing stays

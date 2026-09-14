@@ -3,7 +3,9 @@ import { Save } from "lucide-react";
 import { GameState, SavedTeam, TeamPresetTeam, TeamState, useStore } from "../../store";
 import { UpdateGameState } from "./types";
 import { GlassButton, GlassPanel, glassInsetClass } from "./ui/glass";
+import { ConfirmDialog } from "./ui/ConfirmDialog";
 import TeamLibraryGrid from "../team/TeamLibraryGrid";
+import { sortPlayersByJersey } from "../../utils/roster";
 
 interface PresetsPanelProps {
   gameState: GameState;
@@ -32,18 +34,7 @@ function mapTeamToPreset(team: TeamState): TeamPresetTeam {
     abbreviation: team.abbreviation,
     logo: team.logo,
     color: team.color,
-    players: (team.players ?? [])
-      .map((player) => ({ ...player }))
-      .sort((a, b) => {
-        const aNumber = Number.parseInt(a.jerseyNumber, 10);
-        const bNumber = Number.parseInt(b.jerseyNumber, 10);
-        const aValid = Number.isFinite(aNumber);
-        const bValid = Number.isFinite(bNumber);
-        if (aValid && bValid) return aNumber - bNumber;
-        if (aValid) return -1;
-        if (bValid) return 1;
-        return a.jerseyNumber.localeCompare(b.jerseyNumber);
-      }),
+    players: sortPlayersByJersey((team.players ?? []).map((player) => ({ ...player }))),
   };
 }
 
@@ -162,24 +153,15 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
         <TeamLibraryGrid renderActions={renderCardActions} />
       </GlassPanel>
 
-      {saveConflict && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-zinc-950/95 backdrop-blur-xl border border-white/15 rounded-2xl p-5">
-            <h3 className="text-lg font-semibold text-zinc-100">Team Name Already Exists</h3>
-            <p className="text-sm text-zinc-400 mt-2">
-              A team named "{saveConflict.preferredName}" already exists. Overwrite it?
-            </p>
-            <div className="mt-5 flex justify-end gap-2">
-              <GlassButton type="button" onClick={() => setSaveConflict(null)} variant="secondary">
-                Cancel
-              </GlassButton>
-              <GlassButton type="button" onClick={confirmOverwriteSave} variant="success">
-                Overwrite
-              </GlassButton>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={saveConflict !== null}
+        title="Team Name Already Exists"
+        message={`A team named "${saveConflict?.preferredName}" already exists. Overwrite it?`}
+        confirmLabel="Overwrite"
+        confirmVariant="success"
+        onConfirm={confirmOverwriteSave}
+        onCancel={() => setSaveConflict(null)}
+      />
     </div>
   );
 }
