@@ -20,6 +20,7 @@ vi.mock("../components/Overlay", () => ({ default: () => <div>Overlay</div> }));
 vi.mock("../components/JumbotronScoreboard", () => ({ default: () => <div>Jumbotron</div> }));
 vi.mock("../components/Login", () => ({ Login: () => <div>Login Screen</div> }));
 vi.mock("../components/ResultsPage", () => ({ default: () => <div>Results Page</div> }));
+vi.mock("../components/ChangelogPage", () => ({ default: () => <div>Changelog Page</div> }));
 
 describe("App Component", () => {
   beforeEach(() => {
@@ -202,6 +203,27 @@ describe("App Component", () => {
     render(<App />);
 
     expect(await screen.findByText("Results Page")).toBeInTheDocument();
+  });
+
+  it("renders the changelog when signed out, instead of gating it behind login", async () => {
+    window.history.pushState({}, "Changelog", "/changelog");
+    vi.mocked(useStore).mockImplementation((selector: any) => {
+      const state = {
+        user: null,
+        isViewer: false,
+        authLoading: false,
+        authError: null,
+        setUser: vi.fn(),
+        setAuthLoading: vi.fn(),
+        ensureInitialized: vi.fn(),
+      };
+      return selector(state);
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText("Changelog Page")).toBeInTheDocument();
+    expect(screen.queryByText("Login Screen")).not.toBeInTheDocument();
   });
 
   it("handles sharing route", async () => {

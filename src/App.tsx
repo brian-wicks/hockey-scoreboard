@@ -104,6 +104,19 @@ function AppRoutes() {
   }
 
   if (!user && !isViewer) {
+    // The footer's version badge links here even when signed out, so it has to
+    // work without an account — it's static data, nothing behind it needs auth.
+    if (location.pathname === '/changelog') {
+      return (
+        <>
+          <Suspense fallback={<div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">Loading...</div>}>
+            <ChangelogPage />
+          </Suspense>
+          <AppFooter />
+        </>
+      );
+    }
+
     return (
       <>
         <Login />
