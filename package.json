@@ -1,7 +1,7 @@
 {
   "name": "hockey-scoreboard",
   "private": true,
-  "version": "1.12.0",
+  "version": "1.13.0",
   "description": "Live game control for ice hockey broadcasts \u2014 score, clock, and penalties synced to an overlay, jumbotron, and viewer share links.",
   "repository": {
     "type": "git",

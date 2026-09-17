@@ -11,6 +11,33 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.13.0',
+    date: '2026-09-17',
+    sections: {
+      added: [
+        'Upload your own blank gamesheet PDF to be filled in with game data.',
+        'Position gamesheet fields by dragging them on the page instead of typing coordinates.',
+        'Add a sample-data toggle for checking a gamesheet layout against a full game.',
+        'Add an installable desktop app that runs the scoreboard offline, for rinks with no usable wifi.',
+        'Store team logos and gamesheet templates on the machine when running offline.',
+        'Open the overlay, jumbotron, results, and share preview links in their own app window instead of the system browser, in the desktop app.',
+        'Publish downloadable desktop app installers to GitHub Releases for each version.',
+      ],
+      changed: [
+        'Match the Team Manager\'s team logo upload to the New Game wizard\'s drag-and-drop style.',
+      ],
+      fixed: [
+        'Fix the OBS setup guide opening unprompted on first visit instead of only when requested.',
+        'Fix a blank team name being broadcast to a live game when the field is cleared.',
+        'Fix keyboard shortcut and Stream Deck button changes appearing saved when they had actually failed to save.',
+        'Fix the Stream Deck button editor not closing when clicking outside it.',
+      ],
+      removed: [
+        'Remove the Event Log\'s JSON import/export and debug PDF export actions.',
+      ],
+    },
+  },
+  {
     version: '1.12.0',
     date: '2026-09-13',
     sections: {
@@ -19,13 +46,6 @@ export const changelogEntries: ChangelogEntry[] = [
         'Add team logo uploads.',
         'Add a Close action to the Control Panel for finishing a game.',
         'Add a home page for signed-out visitors.',
-        'Upload your own blank gamesheet PDF to be filled in with game data.',
-        'Position gamesheet fields by dragging them on the page instead of typing coordinates.',
-        'Add a sample-data toggle for checking a gamesheet layout against a full game.',
-        'Add an installable desktop app that runs the scoreboard offline, for rinks with no usable wifi.',
-        'Store team logos and gamesheet templates on the machine when running offline.',
-        'Open the overlay, jumbotron, results, and share preview links in their own app window instead of the system browser, in the desktop app.',
-        'Publish downloadable desktop app installers to GitHub Releases for each version.',
       ],
       changed: [
         'Games now save automatically from the moment they are created, replacing the manual Save button.',
