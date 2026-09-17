@@ -88,10 +88,18 @@ publishes them to the repo's GitHub Releases page automatically
    finishes, the release is live on the Releases page with a `.dmg`, `.exe`,
    and `.AppImage` attached — no manual step.
 
-Neither build is code-signed (no Apple/Microsoft certificate is configured),
-so macOS will show a Gatekeeper "can't be opened" warning and Windows will
-show a SmartScreen warning on first launch of a downloaded copy. Right-click →
-Open on macOS, or "More info" → "Run anyway" on Windows, gets past it. Setting
-up real signing needs a paid Apple Developer account and/or a code-signing
-certificate — worth doing before handing this to non-technical users at scale,
-out of scope for now.
+Neither build is code-signed (no Apple/Microsoft certificate is configured).
+Windows will show a SmartScreen warning on first launch of a downloaded
+copy — "More info" → "Run anyway" gets past it. macOS is worse: since the
+app has no signature at all (not even ad-hoc), Gatekeeper doesn't show the
+usual "unidentified developer" prompt that right-click → Open bypasses —
+it shows **"[App] is damaged and can't be opened"** instead, because a
+fully unsigned app downloaded through a browser gets quarantined and macOS
+won't assess it. The app isn't actually damaged; strip the quarantine flag
+instead:
+```
+xattr -cr "/Applications/Hockey Scoreboard.app"
+```
+Setting up real signing needs a paid Apple Developer account and/or a
+code-signing certificate — worth doing before handing this to
+non-technical users at scale, out of scope for now.
