@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useStore } from "../store";
 import {
   Bookmark,
@@ -13,6 +13,9 @@ import {
 } from "lucide-react";
 import { GlassPanel, glassInsetClass } from "./control-panel/ui/glass";
 import OBSSetupGuide from "./control-panel/OBSSetupGuide";
+import controlPanelScreenshot from "../assets/screenshots/control-panel.png";
+import overlayScreenshot from "../assets/screenshots/overlay.png";
+import jumbotronScreenshot from "../assets/screenshots/jumbotron.jpg";
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -49,34 +52,58 @@ function SignInButton({ onClick, className }: { onClick: () => void; className?:
   );
 }
 
-// A static stand-in for the actual overlay bar, not a live preview — just
-// something concrete to look at instead of another row of icon cards.
-function ScoreboardPreview() {
+const SCREENSHOTS = [
+  { src: controlPanelScreenshot, label: "Control Panel", alt: "The Control Panel, mid-game: score, shots, and clock for both teams" },
+  { src: overlayScreenshot, label: "Overlay", alt: "The broadcast overlay bar, meant to sit in an OBS browser source" },
+  { src: jumbotronScreenshot, label: "Jumbotron", alt: "The full-screen jumbotron display" },
+];
+
+const CAROUSEL_INTERVAL_MS = 4000;
+
+// Real screenshots of the actual screens, not a mockup — cycles on its own,
+// or jump straight to one with the dots.
+function ScreenshotCarousel() {
+  const [index, setIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+
+  useEffect(() => {
+    if (isPaused) return;
+    const id = setInterval(() => setIndex((i) => (i + 1) % SCREENSHOTS.length), CAROUSEL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [isPaused]);
+
   return (
-    <GlassPanel className="p-4 w-full max-w-sm">
-      <div className="flex items-center justify-between text-xs text-zinc-500 px-1 pb-3 mb-3 border-b border-white/[0.06]">
-        <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-400">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          LIVE
-        </span>
-        <span className="font-mono">2nd &middot; 12:34</span>
-      </div>
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between pl-3 border-l-2 border-sky-400">
-          <span className="text-sm font-semibold text-white">River Falls</span>
-          <span className="text-lg font-bold text-white font-mono">3</span>
-        </div>
-        <div className="flex items-center justify-between pl-3 border-l-2 border-red-400">
-          <span className="text-sm font-semibold text-white">Granite City</span>
-          <span className="text-lg font-bold text-white font-mono">2</span>
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-1.5 mt-4 pt-3 border-t border-white/[0.06]">
-        {["Overlay", "Jumbotron", "Share link"].map((label) => (
-          <span key={label} className="text-[10px] font-medium text-zinc-400 bg-white/[0.05] rounded-full px-2 py-0.5">
-            {label}
-          </span>
+    <GlassPanel
+      className="p-3 w-full max-w-md"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
+      <div className="relative rounded-xl overflow-hidden bg-black/30 aspect-[16/10] flex items-center justify-center">
+        {SCREENSHOTS.map((shot, i) => (
+          <img
+            key={shot.label}
+            src={shot.src}
+            alt={shot.alt}
+            className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-300 ${
+              i === index ? "opacity-100" : "opacity-0"
+            }`}
+          />
         ))}
+      </div>
+      <div className="flex items-center justify-between mt-3 px-1">
+        <span className="text-xs font-medium text-zinc-400">{SCREENSHOTS[index].label}</span>
+        <div className="flex gap-1.5">
+          {SCREENSHOTS.map((shot, i) => (
+            <button
+              key={shot.label}
+              onClick={() => setIndex(i)}
+              aria-label={`Show the ${shot.label} screenshot`}
+              className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                i === index ? "bg-indigo-400" : "bg-white/20 hover:bg-white/35"
+              }`}
+            />
+          ))}
+        </div>
       </div>
     </GlassPanel>
   );
@@ -181,7 +208,7 @@ export const Login: React.FC = () => {
               </div>
             </div>
             <div className="flex justify-center lg:justify-end">
-              <ScoreboardPreview />
+              <ScreenshotCarousel />
             </div>
           </section>
 
