@@ -38,6 +38,7 @@ jobs:
             exit 1
           fi
       - run: npm run lint
+      - run: npm run build
       - run: npx vitest run
 
   build:
