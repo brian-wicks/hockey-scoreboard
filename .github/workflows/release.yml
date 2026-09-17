@@ -38,7 +38,11 @@ jobs:
             exit 1
           fi
       - run: npm run lint
-      - run: npm run build
+      # Plain `npm run build` requires real Firebase client config, which this repo
+      # has no CI secrets for. Build in local mode instead (same as the desktop
+      # app build below) — it only needs to produce dist/index.html for the static-
+      # file-serving tests, not a deployable production bundle.
+      - run: VITE_LOCAL_MODE=true npm run build
       - run: npx vitest run
 
   build:
