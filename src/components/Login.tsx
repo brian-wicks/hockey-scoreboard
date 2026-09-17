@@ -49,72 +49,79 @@ function SignInButton({ onClick, className }: { onClick: () => void; className?:
   );
 }
 
-const FEATURES = [
+// A static stand-in for the actual overlay bar, not a live preview — just
+// something concrete to look at instead of another row of icon cards.
+function ScoreboardPreview() {
+  return (
+    <GlassPanel className="p-4 w-full max-w-sm">
+      <div className="flex items-center justify-between text-xs text-zinc-500 px-1 pb-3 mb-3 border-b border-white/[0.06]">
+        <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-400">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          LIVE
+        </span>
+        <span className="font-mono">2nd &middot; 12:34</span>
+      </div>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between pl-3 border-l-2 border-sky-400">
+          <span className="text-sm font-semibold text-white">River Falls</span>
+          <span className="text-lg font-bold text-white font-mono">3</span>
+        </div>
+        <div className="flex items-center justify-between pl-3 border-l-2 border-red-400">
+          <span className="text-sm font-semibold text-white">Granite City</span>
+          <span className="text-lg font-bold text-white font-mono">2</span>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-1.5 mt-4 pt-3 border-t border-white/[0.06]">
+        {["Overlay", "Jumbotron", "Share link"].map((label) => (
+          <span key={label} className="text-[10px] font-medium text-zinc-400 bg-white/[0.05] rounded-full px-2 py-0.5">
+            {label}
+          </span>
+        ))}
+      </div>
+    </GlassPanel>
+  );
+}
+
+const CAPABILITIES = [
   {
     icon: Radio,
-    color: "text-indigo-400 bg-indigo-500/15 border-indigo-400/30",
-    title: "Real-Time Sync",
-    description: "Score, clock, and penalty changes reach your overlay, jumbotron, and viewers the instant you make them.",
+    title: "Score, clock, and penalties in one place",
+    description: "Every change reaches the overlay, jumbotron, and any open viewer links right away.",
   },
   {
     icon: MonitorPlay,
-    color: "text-amber-400 bg-amber-500/15 border-amber-400/30",
-    title: "Broadcast Overlay",
-    description: "A clean scoreboard bar built to capture straight into OBS, vMix, or any streaming setup.",
+    title: "Overlay for OBS, vMix, or any capture setup",
+    description: "A plain scoreboard bar meant to sit in a browser source, not a full graphics package.",
   },
   {
     icon: Presentation,
-    color: "text-sky-400 bg-sky-500/15 border-sky-400/30",
-    title: "Jumbotron Display",
-    description: "A full-screen scoreboard for the big screen at the rink, with goal highlights built in.",
+    title: "Jumbotron view for the rink",
+    description: "Full-screen scoreboard with goal highlights, for whatever screen is hanging above the ice.",
   },
   {
     icon: Share2,
-    color: "text-emerald-400 bg-emerald-500/15 border-emerald-400/30",
-    title: "Shareable Viewer Links",
-    description: "Send a read-only link so anyone can follow the game live — no account required on their end.",
+    title: "Read-only links for anyone following along",
+    description: "Send a link — no account or app needed on the other end.",
   },
   {
     icon: Bookmark,
-    color: "text-fuchsia-400 bg-fuchsia-500/15 border-fuchsia-400/30",
-    title: "Team & Roster Library",
-    description: "Save teams and rosters once, then reuse them for every matchup instead of re-typing lineups.",
+    title: "Teams and rosters saved for next time",
+    description: "Build a lineup once, reuse it for the next matchup instead of retyping it.",
   },
   {
     icon: LayoutGrid,
-    color: "text-rose-400 bg-rose-500/15 border-rose-400/30",
-    title: "Stream Deck Controls",
-    description: "A customizable button grid for one-tap goals, shots, and penalties while you're focused on the game.",
+    title: "Stream Deck-style button grid",
+    description: "One-tap goals, shots, and penalties for when you're watching the play, not the screen.",
   },
   {
     icon: RotateCcw,
-    color: "text-cyan-400 bg-cyan-500/15 border-cyan-400/30",
-    title: "Full Undo History",
-    description: "Made a mistake mid-play? Step back through score, shots, and penalty edits without losing your place.",
+    title: "Undo that actually goes back",
+    description: "Step back through score, shots, and penalty edits, not just the last one.",
   },
   {
     icon: FileText,
-    color: "text-violet-400 bg-violet-500/15 border-violet-400/30",
-    title: "Gamesheet Export",
-    description: "Generate a PDF gamesheet straight from the event log when the final horn sounds.",
-  },
-];
-
-const STEPS = [
-  {
-    step: "1",
-    title: "Sign in & set up your teams",
-    description: "Pick teams from your library or create new ones with full rosters, in a guided setup.",
-  },
-  {
-    step: "2",
-    title: "Run the game",
-    description: "Control score, clock, and penalties live from the Control Panel — every game autosaves as you go.",
-  },
-  {
-    step: "3",
-    title: "Broadcast it",
-    description: "Your overlay, jumbotron, and any shareable viewer links update in real time, automatically.",
+    title: "Gamesheet PDF at the final horn",
+    description: "Export straight from the event log — positioned to match your league's sheet.",
   },
 ];
 
@@ -126,7 +133,7 @@ export const Login: React.FC = () => {
     <div className="relative min-h-screen text-zinc-100 font-sans">
       <div className="control-panel-ambient-bg" />
       <div className="relative z-10 flex flex-col min-h-screen">
-        <header className="px-4 sm:px-6 py-4 flex items-center justify-between max-w-6xl mx-auto w-full">
+        <header className="px-4 sm:px-6 py-4 flex items-center justify-between max-w-5xl mx-auto w-full">
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded-full bg-indigo-500/15 border border-indigo-400/30 flex items-center justify-center text-indigo-400">
               <Radio size={18} />
@@ -141,73 +148,72 @@ export const Login: React.FC = () => {
               <Cast size={16} />
               How OBS setup works
             </button>
-            <SignInButton onClick={login} className="!py-2 !px-4 text-sm hidden sm:inline-flex" />
+            <SignInButton onClick={login} className="!py-2 !px-4 text-sm" />
           </div>
         </header>
 
         <OBSSetupGuide isOpen={isOBSGuideOpen} onClose={() => setIsOBSGuideOpen(false)} />
 
-        <main className="flex-1 px-4 sm:px-6 max-w-6xl mx-auto w-full flex flex-col gap-16 sm:gap-24 pb-20">
+        <main className="flex-1 px-4 sm:px-6 max-w-5xl mx-auto w-full flex flex-col gap-14 pb-20">
           {/* Hero */}
-          <section className="pt-8 sm:pt-16 flex flex-col items-center text-center gap-6">
-            <span className="text-xs font-bold uppercase tracking-widest text-indigo-400 bg-indigo-500/10 border border-indigo-400/30 rounded-full px-3 py-1">
-              Live game control for ice hockey broadcasts
-            </span>
-            <h1 className="text-4xl sm:text-6xl font-bold text-white max-w-3xl leading-tight">
-              Run the scoreboard.
-              <br />
-              Everything else updates itself.
-            </h1>
-            <p className="text-base sm:text-lg text-zinc-400 max-w-xl">
-              One control panel drives your score, clock, and penalties — and instantly syncs them to your stream
-              overlay, jumbotron display, and shareable viewer links.
-            </p>
-            <SignInButton onClick={login} className="mt-2" />
-            <p className="text-xs text-zinc-500">Sign in with Google — no install, no setup.</p>
+          <section className="pt-6 sm:pt-12 grid lg:grid-cols-[1.1fr_0.9fr] gap-8 lg:gap-12 items-center">
+            <div className="flex flex-col gap-5">
+              <h1 className="text-3xl sm:text-4xl font-bold text-white leading-tight">
+                Run the game from one screen.
+              </h1>
+              <p className="text-base text-zinc-400 max-w-lg">
+                Track score, clock, and penalties from a single control panel. It's the same data behind
+                your stream overlay, the rink jumbotron, and any share links you hand out — you edit it
+                once and everything else just reflects it.
+              </p>
+              <div>
+                <SignInButton onClick={login} />
+                <p className="text-xs text-zinc-500 mt-2">
+                  Or grab the{" "}
+                  <a
+                    href="https://github.com/brian-wicks/hockey-scoreboard/releases/latest"
+                    className="underline hover:text-zinc-300"
+                  >
+                    offline desktop app
+                  </a>{" "}
+                  for rinks with no usable wifi.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-center lg:justify-end">
+              <ScoreboardPreview />
+            </div>
           </section>
 
-          {/* Feature grid */}
-          <section className="flex flex-col gap-8">
-            <div className="text-center">
-              <h2 className="text-2xl sm:text-3xl font-bold text-white">Built for running a live broadcast</h2>
-              <p className="text-zinc-400 mt-2">Everything you need to operate a game, from puck drop to gamesheet.</p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {FEATURES.map(({ icon: Icon, color, title, description }) => (
-                <GlassPanel key={title} className="p-5 flex flex-col gap-3">
-                  <div className={`w-10 h-10 rounded-full border flex items-center justify-center shrink-0 ${color}`}>
-                    <Icon size={18} />
+          {/* Capabilities */}
+          <section className="flex flex-col gap-5">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">What it does</h2>
+            <div className={`overflow-hidden ${glassInsetClass}`}>
+              <div className="grid sm:grid-cols-2">
+                {CAPABILITIES.map(({ icon: Icon, title, description }, i) => (
+                  <div
+                    key={title}
+                    className={`flex items-start gap-3 p-4 sm:p-5 ${
+                      i % 2 === 0 ? "sm:border-r sm:border-white/[0.06]" : ""
+                    } ${i > 0 ? "border-t border-white/[0.06] sm:border-t-0" : ""} ${
+                      i >= 2 ? "sm:border-t sm:border-white/[0.06]" : ""
+                    }`}
+                  >
+                    <Icon size={16} className="text-indigo-400 mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-semibold text-white">{title}</h3>
+                      <p className="text-xs text-zinc-400 mt-1 leading-relaxed">{description}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-white">{title}</h3>
-                    <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">{description}</p>
-                  </div>
-                </GlassPanel>
-              ))}
+                ))}
+              </div>
             </div>
           </section>
 
-          {/* How it works */}
-          <section className="flex flex-col gap-8">
-            <div className="text-center">
-              <h2 className="text-2xl sm:text-3xl font-bold text-white">How it works</h2>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {STEPS.map(({ step, title, description }) => (
-                <div key={step} className={`p-5 flex flex-col gap-2 ${glassInsetClass}`}>
-                  <span className="text-2xl font-bold text-indigo-400">{step}</span>
-                  <h3 className="text-sm font-semibold text-white">{title}</h3>
-                  <p className="text-xs text-zinc-400 leading-relaxed">{description}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Final CTA */}
-          <section className="flex flex-col items-center text-center gap-4 py-8">
-            <h2 className="text-2xl sm:text-3xl font-bold text-white">Ready to run your next game?</h2>
-            <SignInButton onClick={login} />
-            <p className="text-xs text-zinc-500">Sign in with your Google account to get started.</p>
+          {/* Closer */}
+          <section className="flex items-center justify-between gap-4 flex-wrap border-t border-white/[0.06] pt-8">
+            <p className="text-sm text-zinc-400">Sign in with your Google account to get started.</p>
+            <SignInButton onClick={login} className="!py-2.5 !px-5 text-sm" />
           </section>
         </main>
       </div>

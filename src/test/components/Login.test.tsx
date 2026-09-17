@@ -17,7 +17,7 @@ describe("Login Component", () => {
     expect(screen.getByText("Hockey Scoreboard")).toBeInTheDocument();
     expect(screen.getByText(/Sign in with your Google account/i)).toBeInTheDocument();
 
-    // The landing page repeats the sign-in CTA (header, hero, final section).
+    // The header and the closer both offer a sign-in button.
     const buttons = screen.getAllByRole("button", { name: /Sign in with Google/i });
     expect(buttons.length).toBeGreaterThan(1);
     fireEvent.click(buttons[0]);
@@ -25,14 +25,14 @@ describe("Login Component", () => {
     expect(mockLogin).toHaveBeenCalled();
   });
 
-  it("highlights the app's real-time broadcast features", () => {
+  it("highlights the app's real-time broadcast capabilities", () => {
     vi.mocked(useStore).mockReturnValue(vi.fn());
 
     render(<Login />);
 
-    expect(screen.getByText("Real-Time Sync")).toBeInTheDocument();
-    expect(screen.getByText("Broadcast Overlay")).toBeInTheDocument();
-    expect(screen.getByText("Jumbotron Display")).toBeInTheDocument();
-    expect(screen.getByText("Shareable Viewer Links")).toBeInTheDocument();
+    expect(screen.getByText("Score, clock, and penalties in one place")).toBeInTheDocument();
+    expect(screen.getByText("Overlay for OBS, vMix, or any capture setup")).toBeInTheDocument();
+    expect(screen.getByText("Jumbotron view for the rink")).toBeInTheDocument();
+    expect(screen.getByText("Read-only links for anyone following along")).toBeInTheDocument();
   });
 });
