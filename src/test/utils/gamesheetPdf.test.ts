@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { buildGamesheetPdfBytes, getDefaultGamesheetPdfLayout } from "../../utils/gamesheetPdf";
 
 // Mock pdf-lib
@@ -55,6 +56,11 @@ describe("Gamesheet PDF Utility", () => {
     const layout = getDefaultGamesheetPdfLayout();
     expect(layout).toBeDefined();
     expect(layout.version).toBe(2);
+  });
+
+  it("default layout matches the tuned gamesheet-layout.json", () => {
+    const tuned = JSON.parse(readFileSync(`${process.cwd()}/gamesheet-layout.json`, "utf-8"));
+    expect(getDefaultGamesheetPdfLayout()).toEqual(tuned);
   });
 
   it("builds PDF bytes", async () => {
