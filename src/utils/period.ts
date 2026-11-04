@@ -8,6 +8,14 @@ export const PERIOD_CLOCKS_MS: Record<string, number> = {
   OT: 5 * 60 * 1000,
 };
 
+export const PERIOD_ORDER = ["1st", "2nd", "3rd", "OT"];
+
+// The period after this one, or null once overtime is over.
+export function getNextPeriod(period: string): string | null {
+  const index = PERIOD_ORDER.indexOf(period);
+  return index >= 0 && index < PERIOD_ORDER.length - 1 ? PERIOD_ORDER[index + 1] : null;
+}
+
 // Transitions the game to nextPeriod: logs a period_end event for the period
 // being left (unless it already ended — clock at 0, or the last event already
 // recorded that period's end), then resets the clock to nextPeriod's length.

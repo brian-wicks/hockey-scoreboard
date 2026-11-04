@@ -1,9 +1,7 @@
 import { useStore } from "../store";
 import { buildShotEvent } from "../utils/eventLog";
-import { transitionToPeriod } from "../utils/period";
+import { PERIOD_ORDER, getNextPeriod, transitionToPeriod } from "../utils/period";
 import { createBlankPenalty } from "../utils/penalty";
-
-const PERIODS = ["1st", "2nd", "3rd", "OT"];
 
 export function useSharedActions() {
   const { gameState, startClock, stopClock, clockIncrease, clockDecrease, updateState, setClock } = useStore();
@@ -110,16 +108,16 @@ export function useSharedActions() {
         });
         break;
       case "nextPeriod": {
-        const currentIndex = PERIODS.indexOf(gameState.period);
-        if (currentIndex < PERIODS.length - 1) {
-          updatePeriod(PERIODS[currentIndex + 1]);
+        const next = getNextPeriod(gameState.period);
+        if (next) {
+          updatePeriod(next);
         }
         break;
       }
       case "prevPeriod": {
-        const currentIndex = PERIODS.indexOf(gameState.period);
+        const currentIndex = PERIOD_ORDER.indexOf(gameState.period);
         if (currentIndex > 0) {
-          updatePeriod(PERIODS[currentIndex - 1]);
+          updatePeriod(PERIOD_ORDER[currentIndex - 1]);
         }
         break;
       }

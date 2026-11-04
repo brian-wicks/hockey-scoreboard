@@ -84,4 +84,27 @@ describe("GoalReviewPanel", () => {
       }),
     );
   });
+
+  it("collapses and expands the list of goals", () => {
+    const eventLog = [
+      { id: "g1", type: "goal", team: "home", period: "1st", clockTime: "18:00", scorer: "" },
+      { id: "g2", type: "goal", team: "home", period: "1st", clockTime: "18:30", scorer: "" },
+    ] as GameEvent[];
+    render(
+      <GoalReviewPanel team="home" gameState={baseState} eventLog={eventLog} rosterPlayers={[]} updateState={vi.fn()} />,
+    );
+
+    const toggle = screen.getByRole("button", { name: /Goal review/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getAllByPlaceholderText("Scorer")[0]).toBeVisible();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveTextContent("2");
+    const scorer = screen.getAllByPlaceholderText("Scorer")[0];
+    expect(scorer).not.toBeVisible();
+
+    fireEvent.click(toggle);
+    expect(scorer).toBeVisible();
+  });
 });

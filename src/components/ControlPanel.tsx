@@ -102,6 +102,7 @@ export default function ControlPanel() {
                       startClock={startClock}
                       stopClock={stopClock}
                       setClock={setClock}
+                      updateState={updateState}
                       serverTimeOffsetMs={serverTimeOffsetMs}
                     />
                     <GameActionsPanel period={period} updateState={updateState} setClock={setClock} />

@@ -1,10 +1,15 @@
-import { useState } from "react";
-import { Play, Square } from "lucide-react";
-import { ClockState } from "../../store";
+import { useEffect, useRef, useState } from "react";
+import { ChevronRight, Play, Square } from "lucide-react";
+import { ClockState, useStore } from "../../store";
 import { useClockDisplay } from "../../hooks/useClockDisplay";
 import { parseTimeInputMs } from "../../utils/clock";
+import { getNextPeriod, transitionToPeriod } from "../../utils/period";
+import { UpdateGameState } from "./types";
 import { Button, Panel } from "./ui/primitives";
 
+// How long the next-period button ignores clicks after the clock runs out. It appears
+// where Stop was, and a Stop click that lands late shouldn't skip to the next period.
+const NEXT_PERIOD_ARM_DELAY_MS = 1000;
 
 interface ClockControlProps {
   clock: ClockState;
@@ -12,6 +17,7 @@ interface ClockControlProps {
   startClock: () => void;
   stopClock: () => void;
   setClock: (timeMs: number) => void;
+  updateState: UpdateGameState;
   serverTimeOffsetMs: number;
 }
 
@@ -21,11 +27,33 @@ export default function ClockControl({
   startClock,
   stopClock,
   setClock,
+  updateState,
   serverTimeOffsetMs,
 }: ClockControlProps) {
   const displayTime = useClockDisplay(clock, serverTimeOffsetMs);
   const [editMode, setEditMode] = useState(false);
   const [editValue, setEditValue] = useState("20:00");
+
+  const nextPeriod = getNextPeriod(period);
+  const clockExpired = !clock.isRunning && clock.timeRemaining <= 0;
+
+  const wasRunningRef = useRef(clock.isRunning);
+  const [nextPeriodArmed, setNextPeriodArmed] = useState(true);
+
+  useEffect(() => {
+    const justExpired = clockExpired && wasRunningRef.current;
+    wasRunningRef.current = clock.isRunning;
+    if (!justExpired) return;
+    setNextPeriodArmed(false);
+    const timer = setTimeout(() => setNextPeriodArmed(true), NEXT_PERIOD_ARM_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [clock.isRunning, clockExpired]);
+
+  const goToNextPeriod = () => {
+    const gameState = useStore.getState().gameState;
+    if (!gameState || !nextPeriod) return;
+    transitionToPeriod(gameState, period, nextPeriod, updateState, setClock);
+  };
 
   const handleSetClock = () => {
     const timeMs = parseTimeInputMs(editValue);
@@ -72,6 +100,16 @@ export default function ClockControl({
         {clock.isRunning ? (
           <Button onClick={stopClock} variant="destructive" className="flex-1 py-4 text-lg">
             <Square fill="currentColor" size={20} /> Stop
+          </Button>
+        ) : clockExpired && nextPeriod ? (
+          <Button
+            onClick={goToNextPeriod}
+            disabled={!nextPeriodArmed}
+            variant="primary"
+            className="flex-1 py-4 text-lg"
+          >
+            {nextPeriod === "OT" ? "Go to overtime" : `Go to ${nextPeriod} period`}
+            <ChevronRight size={20} />
           </Button>
         ) : (
           <Button

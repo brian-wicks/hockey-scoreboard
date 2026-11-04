@@ -1,8 +1,10 @@
+import { useId, useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { GameEvent, GameState, TeamPlayer } from "../../store";
 import { toSkaterLabel } from "../../utils/roster";
 import { SearchDropdownInput, SearchOption } from "./DropdownInputs";
 import { UpdateGameState } from "./types";
-import { Button, Panel, SectionLabel, inputClass } from "./ui/primitives";
+import { Button, Panel, inputClass } from "./ui/primitives";
 
 interface GoalReviewPanelProps {
   team: "home" | "away";
@@ -29,6 +31,9 @@ export default function GoalReviewPanel({
   updateState,
   className = "",
 }: GoalReviewPanelProps) {
+  const [expanded, setExpanded] = useState(true);
+  const listId = useId();
+
   const skaterOptions: SearchOption[] = Array.from(
     new Map(
       rosterPlayers
@@ -62,10 +67,20 @@ export default function GoalReviewPanel({
 
   return (
     <Panel className={`p-3 ${className}`}>
-      <div className="flex items-center justify-between mb-3">
-        <SectionLabel>Goal review</SectionLabel>
-      </div>
-      <div className="flex flex-col gap-3">
+      <button
+        type="button"
+        onClick={() => setExpanded((prev) => !prev)}
+        aria-expanded={expanded}
+        aria-controls={listId}
+        className={`w-full flex items-center justify-between gap-2 rounded-sm text-xs text-muted hover:text-ink transition-colors pointer-coarse:min-h-11 ${expanded ? "mb-3" : ""}`}
+      >
+        <span>Goal review</span>
+        <span className="flex items-center gap-1">
+          <span className="tabular-nums">{goalReviewItems.length}</span>
+          {expanded ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}
+        </span>
+      </button>
+      <div id={listId} hidden={!expanded} className={expanded ? "flex flex-col gap-3" : undefined}>
         {goalReviewItems.map((event) => (
           <div key={event.id} className="pt-3 border-t border-line">
             {(() => {

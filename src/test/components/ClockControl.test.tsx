@@ -1,10 +1,12 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { act, render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import ClockControl from "../../components/control-panel/ClockControl";
+import { useStore } from "../../store";
 
 const mockStart = vi.fn();
 const mockStop = vi.fn();
 const mockSet = vi.fn();
+const mockUpdate = vi.fn();
 
 const baseClock = { timeRemaining: 1200000, isRunning: false, lastUpdate: 0 };
 
@@ -20,7 +22,8 @@ describe("ClockControl Component", () => {
         period="1st" 
         startClock={mockStart} 
         stopClock={mockStop} 
-        setClock={mockSet} 
+        setClock={mockSet}
+        updateState={mockUpdate} 
         serverTimeOffsetMs={0} 
       />
     );
@@ -41,7 +44,8 @@ describe("ClockControl Component", () => {
         period="1st" 
         startClock={mockStart} 
         stopClock={mockStop} 
-        setClock={mockSet} 
+        setClock={mockSet}
+        updateState={mockUpdate} 
         serverTimeOffsetMs={0} 
       />
     );
@@ -59,7 +63,8 @@ describe("ClockControl Component", () => {
           period="1st" 
           startClock={mockStart} 
           stopClock={mockStop} 
-          setClock={mockSet} 
+          setClock={mockSet}
+          updateState={mockUpdate} 
           serverTimeOffsetMs={0} 
         />
       );
@@ -77,7 +82,8 @@ describe("ClockControl Component", () => {
         period="1st" 
         startClock={mockStart} 
         stopClock={mockStop} 
-        setClock={mockSet} 
+        setClock={mockSet}
+        updateState={mockUpdate} 
         serverTimeOffsetMs={0} 
       />
     );
@@ -101,7 +107,8 @@ describe("ClockControl Component", () => {
         period="1st" 
         startClock={mockStart} 
         stopClock={mockStop} 
-        setClock={mockSet} 
+        setClock={mockSet}
+        updateState={mockUpdate} 
         serverTimeOffsetMs={0} 
       />
     );
@@ -124,6 +131,7 @@ describe("ClockControl Component", () => {
         startClock={mockStart}
         stopClock={mockStop}
         setClock={mockSet}
+        updateState={mockUpdate}
         serverTimeOffsetMs={0}
       />
     );
@@ -134,5 +142,64 @@ describe("ClockControl Component", () => {
 
     expect(cafSpy).toHaveBeenCalled();
     cafSpy.mockRestore();
+  });
+
+  describe("when the clock reaches zero", () => {
+    const zeroClock = { ...baseClock, timeRemaining: 0 };
+    const renderClock = (clock: typeof baseClock, period = "1st") => (
+      <ClockControl
+        clock={clock}
+        period={period}
+        startClock={mockStart}
+        stopClock={mockStop}
+        setClock={mockSet}
+        updateState={mockUpdate}
+        serverTimeOffsetMs={0}
+      />
+    );
+
+    beforeEach(() => {
+      useStore.setState({ gameState: { clock: zeroClock, eventLog: [] } as any });
+    });
+
+    it.each([
+      ["1st", "Go to 2nd period", "2nd", 20 * 60 * 1000],
+      ["2nd", "Go to 3rd period", "3rd", 20 * 60 * 1000],
+      ["3rd", "Go to overtime", "OT", 5 * 60 * 1000],
+    ])("moves on from the %s period", (period, label, next, nextClock) => {
+      render(renderClock(zeroClock, period));
+
+      expect(screen.queryByRole("button", { name: /^Start/ })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: label }));
+
+      expect(mockUpdate).toHaveBeenCalledWith({ period: next });
+      expect(mockSet).toHaveBeenCalledWith(nextClock);
+      expect(mockStart).not.toHaveBeenCalled();
+    });
+
+    it("keeps a disabled Start button after overtime, with no period to move on to", () => {
+      render(renderClock(zeroClock, "OT"));
+
+      expect(screen.getByRole("button", { name: /Start/ })).toBeDisabled();
+      expect(screen.queryByRole("button", { name: /^Go to/ })).not.toBeInTheDocument();
+    });
+
+    it("ignores clicks just after the clock runs out, so a late Stop can't skip the period", () => {
+      vi.useFakeTimers();
+      try {
+        const { rerender } = render(renderClock({ ...baseClock, isRunning: true, timeRemaining: 500 }));
+        rerender(renderClock(zeroClock));
+
+        const next = screen.getByRole("button", { name: "Go to 2nd period" });
+        expect(next).toBeDisabled();
+
+        act(() => {
+          vi.advanceTimersByTime(1500);
+        });
+        expect(next).toBeEnabled();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 });
