@@ -5,7 +5,7 @@ import { toSkaterLabel } from "../../utils/roster";
 import { PenaltyReasonInput, SearchDropdownInput } from "./DropdownInputs";
 import { UpdateGameState } from "./types";
 import { loadPdfLayout } from "./PdfLayoutSettings";
-import { GlassButton, GlassPanel } from "./ui/glass";
+import { Button, Panel } from "./ui/primitives";
 
 interface EventLogPanelProps {
   eventLog: GameEvent[];
@@ -73,11 +73,11 @@ export default function EventLogPanel({
     );
 
     return (
-      <div key={event.id} className="p-3 border border-white/[0.07] bg-white/[0.03] rounded-xl">
+      <div key={event.id} className="py-3 border-b border-line">
         {event.readOnly ? (
           <div className="flex items-center justify-between gap-3">
-            <div className="text-sm text-zinc-200 font-medium">{event.note ?? "Penalty is over"}</div>
-            <div className="text-xs text-zinc-400 font-mono">
+            <div className="text-sm text-ink font-semibold">{event.note ?? "Penalty is over"}</div>
+            <div className="text-xs text-muted tabular-nums">
               {event.period} {event.clockTime}
             </div>
           </div>
@@ -87,7 +87,7 @@ export default function EventLogPanel({
               <select
                 value={event.type}
                 onChange={(e) => updateEvent(event.id, { type: e.target.value as GameEvent["type"] })}
-                className="control-panel-select bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-sm"
+                className="control-panel-select bg-canvas border border-line focus:border-ink focus:outline-none text-ink rounded-sm px-2 py-1 text-sm"
               >
                 <option value="goal">Goal</option>
                 <option value="goal_revoked">Goal revoked</option>
@@ -100,7 +100,7 @@ export default function EventLogPanel({
               <select
                 value={event.team}
                 onChange={(e) => updateEvent(event.id, { team: e.target.value as GameEvent["team"] })}
-                className="control-panel-select bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-sm"
+                className="control-panel-select bg-canvas border border-line focus:border-ink focus:outline-none text-ink rounded-sm px-2 py-1 text-sm"
               >
                 <option value="home">Home</option>
                 <option value="away">Away</option>
@@ -108,13 +108,13 @@ export default function EventLogPanel({
               <input
                 value={event.period}
                 onChange={(e) => updateEvent(event.id, { period: e.target.value })}
-                className="bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-sm"
+                className="bg-canvas border border-line focus:border-ink focus:outline-none text-ink rounded-sm px-2 py-1 text-sm"
                 placeholder="Period"
               />
               <input
                 value={event.clockTime}
                 onChange={(e) => updateEvent(event.id, { clockTime: e.target.value })}
-                className="bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-sm font-mono"
+                className="bg-canvas border border-line focus:border-ink focus:outline-none text-ink rounded-sm px-2 py-1 text-sm tabular-nums"
                 placeholder="M:SS"
               />
             </div>
@@ -124,21 +124,21 @@ export default function EventLogPanel({
                 <SearchDropdownInput
                   value={event.scorer ?? ""}
                   onChange={(nextValue) => updateEvent(event.id, { scorer: nextValue })}
-                  inputClassName="bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-sm w-full"
+                  inputClassName="bg-canvas border border-line focus:border-ink focus:outline-none text-ink rounded-sm px-2 py-1 text-sm w-full"
                   placeholder="Scorer"
                   options={uniqueSkaterOptions}
                 />
                 <SearchDropdownInput
                   value={event.assist1 ?? ""}
                   onChange={(nextValue) => updateEvent(event.id, { assist1: nextValue })}
-                  inputClassName="bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-sm w-full"
+                  inputClassName="bg-canvas border border-line focus:border-ink focus:outline-none text-ink rounded-sm px-2 py-1 text-sm w-full"
                   placeholder="Assist 1"
                   options={uniqueSkaterOptions}
                 />
                 <SearchDropdownInput
                   value={event.assist2 ?? ""}
                   onChange={(nextValue) => updateEvent(event.id, { assist2: nextValue })}
-                  inputClassName="bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-sm w-full"
+                  inputClassName="bg-canvas border border-line focus:border-ink focus:outline-none text-ink rounded-sm px-2 py-1 text-sm w-full"
                   placeholder="Assist 2"
                   options={uniqueSkaterOptions}
                 />
@@ -148,19 +148,19 @@ export default function EventLogPanel({
                 <SearchDropdownInput
                   value={event.playerNumber ?? ""}
                   onChange={(nextValue) => updateEvent(event.id, { playerNumber: nextValue })}
-                  inputClassName="bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-sm w-full"
+                  inputClassName="bg-canvas border border-line focus:border-ink focus:outline-none text-ink rounded-sm px-2 py-1 text-sm w-full"
                   placeholder="Player #"
                   options={uniquePenaltyPlayerOptions}
                 />
                 <PenaltyReasonInput
                   value={event.infraction ?? ""}
                   onChange={(nextValue) => updateEvent(event.id, { infraction: nextValue })}
-                  inputClassName="bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-sm w-full"
+                  inputClassName="bg-canvas border border-line focus:border-ink focus:outline-none text-ink rounded-sm px-2 py-1 text-sm w-full"
                 />
                 <input
                   value={event.endClockTime ?? ""}
                   onChange={(e) => updateEvent(event.id, { endClockTime: e.target.value })}
-                  className="bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-sm font-mono"
+                  className="bg-canvas border border-line focus:border-ink focus:outline-none text-ink rounded-sm px-2 py-1 text-sm tabular-nums"
                   placeholder="End time"
                 />
                 <input
@@ -170,7 +170,7 @@ export default function EventLogPanel({
                       removalReason: (e.target.value || undefined) as GameEvent["removalReason"],
                     })
                   }
-                  className="bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-sm"
+                  className="bg-canvas border border-line focus:border-ink focus:outline-none text-ink rounded-sm px-2 py-1 text-sm"
                   placeholder="Removal reason"
                 />
               </div>
@@ -179,27 +179,27 @@ export default function EventLogPanel({
                 <select
                   value={event.shotDelta ?? 1}
                   onChange={(e) => updateEvent(event.id, { shotDelta: Number(e.target.value) })}
-                  className="control-panel-select bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-sm"
+                  className="control-panel-select bg-canvas border border-line focus:border-ink focus:outline-none text-ink rounded-sm px-2 py-1 text-sm"
                 >
                   <option value={1}>+1 shot</option>
                   <option value={-1}>-1 shot</option>
                 </select>
-                <div className="text-xs text-zinc-500 flex items-center">Logged for {event.team} shots</div>
+                <div className="text-xs text-muted flex items-center">Logged for {event.team} shots</div>
               </div>
             ) : event.type === "period_end" ? (
               <div className="grid grid-cols-1 @[280px]:grid-cols-2 gap-2 mt-2">
-                <div className="text-xs text-zinc-500 flex items-center">End of period marker</div>
+                <div className="text-xs text-muted flex items-center">End of period marker</div>
               </div>
             ) : (
               <div className="grid grid-cols-1 @[280px]:grid-cols-2 gap-2 mt-2">
                 <SearchDropdownInput
                   value={event.goalie ?? ""}
                   onChange={(nextValue) => updateEvent(event.id, { goalie: nextValue })}
-                  inputClassName="bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-sm w-full"
+                  inputClassName="bg-canvas border border-line focus:border-ink focus:outline-none text-ink rounded-sm px-2 py-1 text-sm w-full"
                   placeholder="Goalie #"
                   options={goalieOptions}
                 />
-                <div className="text-xs text-zinc-500 flex items-center">Select roster NM</div>
+                <div className="text-xs text-muted flex items-center">Select roster NM</div>
               </div>
             )}
           </>
@@ -209,11 +209,11 @@ export default function EventLogPanel({
   };
 
   return (
-    <GlassPanel className="flex flex-col gap-4">
+    <Panel className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold text-zinc-300 uppercase tracking-wider">Event log</h2>
+          <h2 className="text-lg font-semibold">Event log</h2>
           <div className="flex items-center gap-2 flex-wrap">
-            <GlassButton
+            <Button
               type="button"
               onClick={() => exportGamesheetPdf({ homeTeam, awayTeam, eventLog }, { layout: loadPdfLayout() })}
               variant="secondary"
@@ -221,26 +221,26 @@ export default function EventLogPanel({
             >
               <Download size={16} />
               Export PDF
-            </GlassButton>
+            </Button>
           </div>
         </div>
 
       <div className="grid grid-cols-1 min-[760px]:grid-cols-2 gap-4">
         <div className="@container flex flex-col gap-2 min-w-0">
-          <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Home</div>
+          <div className="text-xs font-semibold text-muted ">Home</div>
           <div className="flex flex-col gap-3 max-h-[560px] overflow-auto pr-1">
-            {homeLog.length === 0 && <div className="text-zinc-500 text-sm italic">No home events logged yet.</div>}
+            {homeLog.length === 0 && <div className="text-muted text-sm">No home events logged yet.</div>}
             {homeLog.map(renderEventCard)}
           </div>
         </div>
-        <div className="@container flex flex-col gap-2 min-w-0 min-[760px]:border-l min-[760px]:border-white/10 min-[760px]:pl-4">
-          <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Away</div>
+        <div className="@container flex flex-col gap-2 min-w-0 min-[760px]:border-l min-[760px]:border-line min-[760px]:pl-4">
+          <div className="text-xs font-semibold text-muted ">Away</div>
           <div className="flex flex-col gap-3 max-h-[560px] overflow-auto pr-1">
-            {awayLog.length === 0 && <div className="text-zinc-500 text-sm italic">No away events logged yet.</div>}
+            {awayLog.length === 0 && <div className="text-muted text-sm">No away events logged yet.</div>}
             {awayLog.map(renderEventCard)}
           </div>
         </div>
       </div>
-    </GlassPanel>
+    </Panel>
   );
 }

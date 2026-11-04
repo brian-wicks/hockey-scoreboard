@@ -110,8 +110,8 @@ describe("EventLogPanel Component", () => {
       />
     );
 
-    const homeHeading = screen.getByText("Home", { selector: "div.uppercase" });
-    const awayHeading = screen.getByText("Away", { selector: "div.uppercase" });
+    const homeHeading = screen.getByText("Home", { selector: "div.text-xs" });
+    const awayHeading = screen.getByText("Away", { selector: "div.text-xs" });
     expect(homeHeading).toBeInTheDocument();
     expect(awayHeading).toBeInTheDocument();
     // Home column (and its goal event) must precede the Away column in document order.

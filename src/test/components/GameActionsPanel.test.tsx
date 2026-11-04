@@ -108,8 +108,8 @@ describe("GameActionsPanel Component", () => {
       />
     );
 
-    expect(screen.getByText("1st Period")).toHaveClass("bg-indigo-500/80");
-    expect(screen.getByText("2nd Period")).not.toHaveClass("bg-indigo-500/80");
+    expect(screen.getByText("1st Period")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("2nd Period")).toHaveAttribute("aria-pressed", "false");
 
     rerender(
       <GameActionsPanel
@@ -119,7 +119,7 @@ describe("GameActionsPanel Component", () => {
       />
     );
 
-    expect(screen.getByText("2nd Period")).toHaveClass("bg-indigo-500/80");
-    expect(screen.getByText("1st Period")).not.toHaveClass("bg-indigo-500/80");
+    expect(screen.getByText("2nd Period")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("1st Period")).toHaveAttribute("aria-pressed", "false");
   });
 });

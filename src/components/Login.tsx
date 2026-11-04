@@ -3,6 +3,7 @@ import { useStore } from "../store";
 import {
   Bookmark,
   Cast,
+  Check,
   FileText,
   LayoutGrid,
   MonitorPlay,
@@ -11,7 +12,7 @@ import {
   RotateCcw,
   Share2,
 } from "lucide-react";
-import { GlassPanel, glassInsetClass } from "./control-panel/ui/glass";
+import { Wordmark } from "./control-panel/ui/primitives";
 import OBSSetupGuide from "./control-panel/OBSSetupGuide";
 import controlPanelScreenshot from "../assets/screenshots/control-panel.png";
 import overlayScreenshot from "../assets/screenshots/overlay.png";
@@ -44,7 +45,7 @@ function SignInButton({ onClick, className }: { onClick: () => void; className?:
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center justify-center gap-3 bg-white text-zinc-950 hover:bg-zinc-200 font-semibold py-3 px-6 rounded-xl transition-colors ${className ?? ""}`}
+      className={`inline-flex items-center justify-center gap-3 bg-canvas text-ink hover:bg-surface border border-line text-sm font-semibold py-3 px-6 rounded-sm transition-colors ${className ?? ""}`}
     >
       <GoogleIcon className="w-5 h-5" />
       Sign in with Google
@@ -73,12 +74,8 @@ function ScreenshotCarousel() {
   }, [isPaused]);
 
   return (
-    <GlassPanel
-      className="p-3 w-full max-w-md"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-    >
-      <div className="relative rounded-xl overflow-hidden bg-black/30 aspect-[16/10] flex items-center justify-center">
+    <div className="w-full max-w-xl" onMouseEnter={() => setIsPaused(true)} onMouseLeave={() => setIsPaused(false)}>
+      <div className="relative rounded-sm overflow-hidden border border-line bg-canvas aspect-[16/10] flex items-center justify-center">
         {SCREENSHOTS.map((shot, i) => (
           <img
             key={shot.label}
@@ -90,22 +87,22 @@ function ScreenshotCarousel() {
           />
         ))}
       </div>
-      <div className="flex items-center justify-between mt-3 px-1">
-        <span className="text-xs font-medium text-zinc-400">{SCREENSHOTS[index].label}</span>
-        <div className="flex gap-1.5">
+      <div className="flex items-center justify-between mt-2">
+        <span className="text-xs text-muted">{SCREENSHOTS[index].label}</span>
+        <div className="flex">
           {SCREENSHOTS.map((shot, i) => (
             <button
               key={shot.label}
               onClick={() => setIndex(i)}
               aria-label={`Show the ${shot.label} screenshot`}
-              className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                i === index ? "bg-indigo-400" : "bg-white/20 hover:bg-white/35"
-              }`}
-            />
+              className="p-1.5 rounded-sm"
+            >
+              <span className={`block w-2 h-2 rounded-full transition-colors ${i === index ? "bg-ink" : "bg-line hover:bg-muted"}`} />
+            </button>
           ))}
         </div>
       </div>
-    </GlassPanel>
+    </div>
   );
 }
 
@@ -152,98 +149,89 @@ const CAPABILITIES = [
   },
 ];
 
+const CHECKLIST = [
+  "Score, clock and penalties in one place",
+  "Overlay, jumbotron and share links update as you go",
+  "Offline desktop app for rinks with no usable wifi",
+];
+
 export const Login: React.FC = () => {
   const login = useStore((state) => state.login);
   const [isOBSGuideOpen, setIsOBSGuideOpen] = useState(false);
 
   return (
-    <div className="relative min-h-screen text-zinc-100 font-sans">
-      <div className="control-panel-ambient-bg" />
-      <div className="relative z-10 flex flex-col min-h-screen">
-        <header className="px-4 sm:px-6 py-4 flex items-center justify-between max-w-5xl mx-auto w-full">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-full bg-indigo-500/15 border border-indigo-400/30 flex items-center justify-center text-indigo-400">
-              <Radio size={18} />
-            </div>
-            <span className="text-lg font-bold text-white">Hockey Scoreboard</span>
+    <div className="ui relative min-h-screen bg-canvas">
+      <div className="grid md:grid-cols-[2fr_3fr] md:min-h-screen">
+        <section className="ui-dark bg-ink text-canvas flex flex-col gap-10 p-6 md:p-12">
+          <Wordmark className="text-lg" />
+          <div className="flex flex-col gap-6 md:my-auto">
+            <h1 className="text-[2.5rem] leading-[1.1] tracking-[-0.01em] font-semibold text-balance">
+              Run your hockey scoreboard from one control panel
+            </h1>
+            <p className="max-w-md">
+              Enter goals, shots, penalties and clock changes as the game happens. Your stream overlay,
+              the rink jumbotron and any share links read from the same game, so they update as you go.
+            </p>
+            <ul className="flex flex-col gap-3">
+              {CHECKLIST.map((item) => (
+                <li key={item} className="flex items-start gap-3 text-sm">
+                  <Check size={18} className="shrink-0" aria-hidden="true" />
+                  {item}
+                </li>
+              ))}
+            </ul>
           </div>
-          <div className="flex items-center gap-2">
+        </section>
+
+        <section className="flex flex-col p-6 md:p-12 gap-8">
+          <div className="flex justify-end">
             <button
               onClick={() => setIsOBSGuideOpen(true)}
-              className="hidden sm:inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-zinc-300 hover:text-white border border-white/10 hover:border-white/20 rounded-xl transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold bg-canvas hover:bg-surface border border-line rounded-sm transition-colors"
             >
               <Cast size={16} />
               OBS setup guide
             </button>
-            <SignInButton onClick={login} className="!py-2 !px-4 text-sm" />
           </div>
-        </header>
-
-        <OBSSetupGuide isOpen={isOBSGuideOpen} onClose={() => setIsOBSGuideOpen(false)} />
-
-        <main className="flex-1 px-4 sm:px-6 max-w-5xl mx-auto w-full flex flex-col gap-14 pb-20">
-          {/* Hero */}
-          <section className="pt-6 sm:pt-12 grid lg:grid-cols-[1.1fr_0.9fr] gap-8 lg:gap-12 items-center">
-            <div className="flex flex-col gap-5">
-              <h1 className="text-3xl sm:text-4xl font-bold text-white leading-tight">
-                Run your hockey scoreboard from one control panel
-              </h1>
-              <p className="text-base text-zinc-400 max-w-lg">
-                Enter goals, shots, penalties and clock changes as the game happens. Your stream overlay,
-                the rink jumbotron and any share links read from the same game, so they update as you
-                go.
+          <div className="flex flex-col gap-8 w-full max-w-xl mx-auto md:my-auto">
+            <div className="flex flex-col gap-4">
+              <h2 className="text-[1.75rem] leading-[1.2] font-semibold">Sign in</h2>
+              <p className="text-muted">Sign in with your Google account to get started.</p>
+              <SignInButton onClick={login} className="w-full" />
+              <p className="text-sm text-muted">
+                Or grab the{" "}
+                <a
+                  href="https://github.com/brian-wicks/hockey-scoreboard/releases/latest"
+                  className="underline text-ink hover:no-underline rounded-sm"
+                >
+                  offline desktop app
+                </a>{" "}
+                for rinks with no usable wifi.
               </p>
-              <div>
-                <SignInButton onClick={login} />
-                <p className="text-xs text-zinc-500 mt-2">
-                  Or grab the{" "}
-                  <a
-                    href="https://github.com/brian-wicks/hockey-scoreboard/releases/latest"
-                    className="underline hover:text-zinc-300"
-                  >
-                    offline desktop app
-                  </a>{" "}
-                  for rinks with no usable wifi.
-                </p>
-              </div>
             </div>
-            <div className="flex justify-center lg:justify-end">
-              <ScreenshotCarousel />
-            </div>
-          </section>
-
-          {/* Capabilities */}
-          <section className="flex flex-col gap-5">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">Features</h2>
-            <div className={`overflow-hidden ${glassInsetClass}`}>
-              <div className="grid sm:grid-cols-2">
-                {CAPABILITIES.map(({ icon: Icon, title, description }, i) => (
-                  <div
-                    key={title}
-                    className={`flex items-start gap-3 p-4 sm:p-5 ${
-                      i % 2 === 0 ? "sm:border-r sm:border-white/[0.06]" : ""
-                    } ${i > 0 ? "border-t border-white/[0.06] sm:border-t-0" : ""} ${
-                      i >= 2 ? "sm:border-t sm:border-white/[0.06]" : ""
-                    }`}
-                  >
-                    <Icon size={16} className="text-indigo-400 mt-0.5 shrink-0" />
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-semibold text-white">{title}</h3>
-                      <p className="text-xs text-zinc-400 mt-1 leading-relaxed">{description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* Closer */}
-          <section className="flex items-center justify-between gap-4 flex-wrap border-t border-white/[0.06] pt-8">
-            <p className="text-sm text-zinc-400">Sign in with your Google account to get started.</p>
-            <SignInButton onClick={login} className="!py-2.5 !px-5 text-sm" />
-          </section>
-        </main>
+            <ScreenshotCarousel />
+          </div>
+        </section>
       </div>
+
+      <OBSSetupGuide isOpen={isOBSGuideOpen} onClose={() => setIsOBSGuideOpen(false)} />
+
+      <section className="border-t border-line px-6 py-16 md:px-12">
+        <div className="max-w-5xl mx-auto flex flex-col gap-8">
+          <h2 className="text-[1.75rem] leading-[1.2] font-semibold">Features</h2>
+          <ul className="grid sm:grid-cols-2 gap-x-12 border-t border-line">
+            {CAPABILITIES.map(({ icon: Icon, title, description }) => (
+              <li key={title} className="flex items-start gap-3 py-5 border-b border-line">
+                <Icon size={20} className="mt-0.5 shrink-0" aria-hidden="true" />
+                <div className="min-w-0">
+                  <h3 className="font-semibold">{title}</h3>
+                  <p className="text-sm text-muted mt-1">{description}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
     </div>
   );
 };

@@ -1,7 +1,7 @@
 import { ReactNode, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { SavedTeam } from "../../store";
-import { GlassButton, glassInsetClass } from "../control-panel/ui/glass";
+import { Button, insetClass } from "../control-panel/ui/primitives";
 
 interface TeamLibraryCardProps {
   entry: SavedTeam;
@@ -13,46 +13,43 @@ export default function TeamLibraryCard({ entry, onDeleteRequest, actions }: Tea
   const [rosterExpanded, setRosterExpanded] = useState(false);
 
   return (
-    <div className={`p-4 flex flex-col gap-4 relative ${glassInsetClass}`}>
-      <button
-        type="button"
-        onClick={onDeleteRequest}
-        className="absolute top-3 right-3 text-zinc-500 hover:text-red-400 transition-colors p-1 rounded-full hover:bg-red-500/10"
-        aria-label={`Delete preset ${entry.name}`}
-      >
-        <Trash2 className="w-4 h-4" />
-      </button>
-      <div className="flex flex-col items-center gap-2">
-        <div className="w-20 h-20 flex items-center justify-center overflow-hidden">
+    <div className={`p-6 flex flex-col gap-4 transition-colors hover:border-ink ${insetClass}`}>
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 shrink-0 flex items-center justify-center overflow-hidden">
           {entry.team.logo ? (
-            <img src={entry.team.logo} alt={entry.team.abbreviation} className="h-20 w-20 object-contain" />
+            <img src={entry.team.logo} alt={entry.team.abbreviation} loading="lazy" className="h-12 w-12 object-contain" />
           ) : (
-            <span className="text-sm font-bold text-zinc-400">{entry.team.abbreviation}</span>
+            <div className="w-full h-full rounded-sm border border-line" style={{ backgroundColor: entry.team.color }} />
           )}
         </div>
-        <div className="font-semibold text-zinc-100 text-center">{entry.team.name}</div>
-        <span className="text-xs font-mono text-zinc-400">{entry.team.abbreviation}</span>
+        <div className="min-w-0 flex-1">
+          <div className="font-semibold truncate">{entry.team.name}</div>
+          <div className="text-sm text-muted">{entry.team.abbreviation}</div>
+        </div>
+        <button
+          type="button"
+          onClick={onDeleteRequest}
+          className="shrink-0 text-muted hover:text-danger transition-colors p-1 rounded-sm hover:bg-surface"
+          aria-label={`Delete preset ${entry.name}`}
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
       </div>
       {actions}
-      <GlassButton
-        type="button"
-        onClick={() => setRosterExpanded((prev) => !prev)}
-        variant="ghost"
-        className="w-full text-xs border border-white/10"
-      >
+      <Button type="button" onClick={() => setRosterExpanded((prev) => !prev)} variant="ghost" className="w-full">
         {rosterExpanded ? "Hide roster" : `Show roster (${entry.team.players?.length ?? 0})`}
-      </GlassButton>
+      </Button>
       {rosterExpanded && (
-        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+        <div className="border-t border-line pt-3">
           {(entry.team.players ?? []).length === 0 ? (
-            <div className="text-xs text-zinc-500 italic">No players saved for this team.</div>
+            <div className="text-sm text-muted">No players saved for this team.</div>
           ) : (
             <div className="flex flex-col gap-1.5">
               {(entry.team.players ?? []).map((player) => (
-                <div key={player.id} className="grid grid-cols-[42px_1fr_30px] gap-2 text-xs text-zinc-300 items-center">
-                  <span className="font-mono text-zinc-400">{player.jerseyNumber || "-"}</span>
+                <div key={player.id} className="grid grid-cols-[42px_1fr_30px] gap-2 text-sm items-center">
+                  <span className="tabular-nums text-muted">{player.jerseyNumber || "-"}</span>
                   <span className="truncate">{player.name || "-"}</span>
-                  <span className="text-zinc-500 text-right">{player.position || "-"}</span>
+                  <span className="text-muted text-right">{player.position || "-"}</span>
                 </div>
               ))}
             </div>

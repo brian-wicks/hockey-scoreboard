@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Upload } from "lucide-react";
 import { PlayerPosition, TeamIdentity, TeamPlayer, useStore } from "../../store";
 import { ColorPicker } from "../control-panel/ui/ColorPicker";
-import { glassInputClass } from "../control-panel/ui/glass";
+import { inputClass } from "../control-panel/ui/primitives";
 import { LogoUploadError, uploadTeamLogo } from "../../lib/uploadTeamLogo";
 import { sortPlayersByJersey } from "../../utils/roster";
 
@@ -179,15 +179,15 @@ export default function TeamEditorFields({
   };
 
   return (
-    <div className={framed ? "bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl p-6" : undefined}>
+    <div className={framed ? "bg-canvas border border-line rounded-sm p-6" : undefined}>
       {title && (
-        <div className="mb-6 border-b border-white/10 pb-4">
-          <h2 className="text-xl font-bold">{title}</h2>
+        <div className="mb-6 border-b border-line pb-4">
+          <h2 className="text-xl font-semibold">{title}</h2>
         </div>
       )}
       <div className="flex flex-col gap-4">
         <div>
-          <label className="block text-sm font-medium text-zinc-400 mb-1">Team name</label>
+          <label className="block text-sm font-semibold text-muted mb-1">Team name</label>
           <input
             type="text"
             value={name}
@@ -200,11 +200,11 @@ export default function TeamEditorFields({
                 (e.target as HTMLInputElement).blur();
               }
             }}
-            className={`w-full ${glassInputClass}`}
+            className={`w-full ${inputClass}`}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-zinc-400 mb-1">Abbreviation (3 letters)</label>
+          <label className="block text-sm font-semibold text-muted mb-1">Abbreviation (3 letters)</label>
           <input
             type="text"
             maxLength={3}
@@ -218,11 +218,11 @@ export default function TeamEditorFields({
                 (e.target as HTMLInputElement).blur();
               }
             }}
-            className={`w-full ${glassInputClass} font-mono`}
+            className={`w-full ${inputClass} tabular-nums`}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-zinc-400 mb-1">Logo</label>
+          <label className="block text-sm font-semibold text-muted mb-1">Logo</label>
           {logoInput === "upload" ? (
             <div
               onClick={() => logoFileInputRef.current?.click()}
@@ -235,21 +235,21 @@ export default function TeamEditorFields({
               onDrop={handleLogoDrop}
               role="button"
               tabIndex={0}
-              className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 text-center cursor-pointer transition-colors ${
+              className={`flex flex-col items-center justify-center gap-2 rounded-sm border-2 border-dashed p-6 text-center cursor-pointer transition-colors ${
                 isDraggingLogo
-                  ? "border-indigo-400 bg-indigo-500/10"
-                  : "border-white/15 hover:border-white/25 bg-white/[0.03]"
+                  ? "border-ink bg-surface"
+                  : "border-line hover:border-ink bg-canvas"
               }`}
             >
               {logo ? (
-                <img src={logo} alt="" className="w-16 h-16 object-contain rounded-lg" />
+                <img src={logo} alt="" className="w-16 h-16 object-contain rounded-sm" />
               ) : (
-                <Upload size={20} className="text-zinc-500" />
+                <Upload size={20} className="text-muted" />
               )}
-              <span className="text-xs text-zinc-400">
+              <span className="text-xs text-muted">
                 {isUploadingLogo ? "Uploading..." : logo ? "Drag & drop, or click to replace" : "Drag & drop an image, or click to browse"}
               </span>
-              {logoUploadError && <span className="text-xs text-red-400">{logoUploadError}</span>}
+              {logoUploadError && <span className="text-xs text-danger">{logoUploadError}</span>}
               <input
                 ref={logoFileInputRef}
                 type="file"
@@ -261,11 +261,11 @@ export default function TeamEditorFields({
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 shrink-0 rounded-lg bg-white/[0.05] border border-white/10 flex items-center justify-center overflow-hidden">
+              <div className="w-12 h-12 shrink-0 rounded-sm bg-canvas border border-line flex items-center justify-center overflow-hidden">
                 {logo ? (
                   <img src={logo} alt="" className="w-full h-full object-contain" />
                 ) : (
-                  <Upload size={16} className="text-zinc-600" />
+                  <Upload size={16} className="text-muted" />
                 )}
               </div>
               <div className="flex-1 min-w-0 flex flex-col gap-1.5">
@@ -282,19 +282,19 @@ export default function TeamEditorFields({
                     }
                   }}
                   placeholder="https://example.com/logo.png"
-                  className={`w-full ${glassInputClass}`}
+                  className={`w-full ${inputClass}`}
                 />
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     disabled={isUploadingLogo || !user}
                     onClick={() => logoFileInputRef.current?.click()}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-medium text-zinc-100"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-canvas border border-line hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed rounded-sm text-xs font-semibold text-ink"
                   >
                     <Upload size={13} />
                     {isUploadingLogo ? "Uploading..." : "Upload image"}
                   </button>
-                  {logoUploadError && <span className="text-xs text-red-400">{logoUploadError}</span>}
+                  {logoUploadError && <span className="text-xs text-danger">{logoUploadError}</span>}
                 </div>
                 <input
                   ref={logoFileInputRef}
@@ -308,21 +308,21 @@ export default function TeamEditorFields({
           )}
         </div>
         <div>
-          <label className="block text-sm font-medium text-zinc-400 mb-1">Primary color</label>
+          <label className="block text-sm font-semibold text-muted mb-1">Primary color</label>
           <ColorPicker value={identity.color} onChange={(hex) => onIdentityCommit({ color: hex })} label={colorLabel} />
         </div>
-        <div className="pt-3 border-t border-white/10">
+        <div className="pt-3 border-t border-line">
           <div className="flex items-center justify-between mb-2">
-            <label className="block text-sm font-medium text-zinc-400">
+            <label className="block text-sm font-semibold text-muted">
               Roster
-              <span className="ml-2 inline-flex items-center rounded-full bg-white/[0.06] border border-white/10 px-2 py-0.5 text-[11px] font-mono text-zinc-300">
+              <span className="ml-2 inline-flex items-center rounded-full bg-canvas border border-line px-2 py-0.5 text-xs tabular-nums text-ink">
                 {rosterDraft.length} players
               </span>
             </label>
             <button
               type="button"
               onClick={() => setRosterExpanded((prev) => !prev)}
-              className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] text-zinc-200"
+              className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-canvas border border-line hover:bg-surface text-ink"
               aria-label={rosterExpanded ? "Collapse roster" : "Expand roster"}
             >
               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${rosterExpanded ? "rotate-180" : "rotate-0"}`} />
@@ -350,7 +350,7 @@ export default function TeamEditorFields({
                         (e.target as HTMLInputElement).blur();
                       }
                     }}
-                    className={`${glassInputClass} font-mono`}
+                    className={`${inputClass} tabular-nums`}
                     placeholder="#"
                   />
                   <input
@@ -365,13 +365,13 @@ export default function TeamEditorFields({
                         (e.target as HTMLInputElement).blur();
                       }
                     }}
-                    className={glassInputClass}
+                    className={inputClass}
                     placeholder="Player name"
                   />
                   <select
                     value={player.position ?? ""}
                     onChange={(e) => commitDraftPlayer(player.id, { position: e.target.value as PlayerPosition }, false)}
-                    className={`control-panel-select ${glassInputClass}`}
+                    className={`control-panel-select ${inputClass}`}
                   >
                     <option value="">-</option>
                     <option value="NM">NM</option>
@@ -383,17 +383,17 @@ export default function TeamEditorFields({
                     aria-label="Remove player"
                     title="Remove player"
                     onClick={() => removePlayer(player.id)}
-                    className="px-2 py-2 bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] rounded-lg text-xs font-medium"
+                    className="px-2 py-2 bg-canvas border border-line hover:bg-surface rounded-sm text-xs font-semibold"
                   >
                     Remove
                   </button>
                 </div>
               ))}
-              {rosterDraft.length === 0 && <div className="text-xs text-zinc-500 italic">No players added.</div>}
+              {rosterDraft.length === 0 && <div className="text-xs text-muted">No players added.</div>}
               <button
                 type="button"
                 onClick={addPlayer}
-                className="mt-2 w-full px-3 py-2 bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] rounded-lg text-xs font-medium text-zinc-100"
+                className="mt-2 w-full px-3 py-2 bg-canvas border border-line hover:bg-surface rounded-sm text-xs font-semibold text-ink"
               >
                 Add player
               </button>

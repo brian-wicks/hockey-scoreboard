@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X, PlayCircle } from "lucide-react";
+import { X } from "lucide-react";
 import { TeamState, useStore } from "../../store";
 import TeamSelectStep, { TeamDraft } from "./TeamSelectStep";
 import ReviewStep from "./ReviewStep";
@@ -70,17 +70,16 @@ export default function NewGameWizard({ isOpen, onClose, onStarted }: NewGameWiz
       {/* No backdrop-click-to-close here — this is a multi-step form, and an accidental
        * click outside shouldn't silently discard progress the way it's fine to for the
        * single-screen ShareModal. */}
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" />
+      <div className="absolute inset-0 bg-ink/60" />
 
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-zinc-950/90 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl animate-in zoom-in-95 fade-in duration-200">
-        <div className="sticky top-0 z-10 flex items-center justify-between p-4 sm:p-6 border-b border-white/10 bg-zinc-950 backdrop-blur-2xl">
-          <h2 className="text-xl font-bold flex items-center gap-2 text-white">
-            <PlayCircle className="text-indigo-400" size={24} />
+      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-canvas border border-line rounded-sm">
+        <div className="sticky top-0 z-10 flex items-center justify-between p-4 sm:p-6 border-b border-line bg-canvas">
+          <h2 className="text-xl font-semibold">
             New game
           </h2>
           <button
             onClick={onClose}
-            className="p-2 text-zinc-400 hover:text-white hover:bg-white/[0.08] rounded-lg transition-colors"
+            className="p-2 text-muted hover:text-ink hover:bg-surface rounded-sm transition-colors"
             aria-label="Close"
           >
             <X size={20} />

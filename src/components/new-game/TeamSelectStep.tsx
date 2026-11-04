@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { SavedTeam, TeamPlayer } from "../../store";
-import { GlassButton, glassInsetClass } from "../control-panel/ui/glass";
+import { Button, insetClass } from "../control-panel/ui/primitives";
 import TeamEditorFields, { TeamIdentityDraft } from "../team/TeamEditorFields";
 import TeamLibraryGrid from "../team/TeamLibraryGrid";
 
@@ -58,13 +59,13 @@ export default function TeamSelectStep({ side, onConfirm, onBack, otherSelection
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h3 className="text-lg font-bold text-white">{sideLabel} team</h3>
-        <p className="text-sm text-zinc-400 mt-0.5">Pick a team from your library, or create a new one.</p>
+        <h3 className="text-[1.75rem] leading-[1.2] font-semibold">{sideLabel} team</h3>
+        <p className="text-sm text-muted mt-0.5">Pick a team from your library, or create a new one.</p>
       </div>
 
       {otherSelection && (
-        <div className={`flex items-center gap-3 p-3 ${glassInsetClass}`}>
-          <div className="w-8 h-8 rounded-full border border-white/20 overflow-hidden flex items-center justify-center shrink-0 bg-white/[0.04]">
+        <div className={`flex items-center gap-3 p-3 ${insetClass}`}>
+          <div className="w-8 h-8 rounded-sm border border-line overflow-hidden flex items-center justify-center shrink-0 bg-canvas">
             {otherSelection.draft.identity.logo ? (
               <img
                 src={otherSelection.draft.identity.logo}
@@ -76,24 +77,23 @@ export default function TeamSelectStep({ side, onConfirm, onBack, otherSelection
             )}
           </div>
           <div className="min-w-0">
-            <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-medium">
+            <div className="text-xs text-muted">
               {otherSelection.label} team selected
             </div>
-            <div className="text-sm font-semibold text-white truncate">
+            <div className="text-sm font-semibold text-ink truncate">
               {otherSelection.draft.identity.name || "Unnamed team"}
             </div>
           </div>
         </div>
       )}
 
-      <div className="inline-flex self-start rounded-xl border border-white/10 bg-white/[0.03] p-1 gap-1">
+      <div className="inline-flex self-start rounded-sm border border-line overflow-hidden">
         <button
           type="button"
           onClick={() => setMode("library")}
-          className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-            mode === "library"
-              ? "bg-indigo-500/20 border border-indigo-400/30 text-white"
-              : "border border-transparent text-zinc-400 hover:text-zinc-200"
+          aria-pressed={mode === "library"}
+          className={`px-3 py-2 text-sm font-semibold transition-colors ${
+            mode === "library" ? "bg-ink text-canvas" : "bg-canvas text-ink hover:bg-surface"
           }`}
         >
           Pick from library
@@ -101,10 +101,9 @@ export default function TeamSelectStep({ side, onConfirm, onBack, otherSelection
         <button
           type="button"
           onClick={() => setMode("create")}
-          className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-            mode === "create"
-              ? "bg-indigo-500/20 border border-indigo-400/30 text-white"
-              : "border border-transparent text-zinc-400 hover:text-zinc-200"
+          aria-pressed={mode === "create"}
+          className={`px-3 py-2 text-sm font-semibold transition-colors ${
+            mode === "create" ? "bg-ink text-canvas" : "bg-canvas text-ink hover:bg-surface"
           }`}
         >
           Create new
@@ -115,9 +114,10 @@ export default function TeamSelectStep({ side, onConfirm, onBack, otherSelection
         <TeamLibraryGrid
           emptyMessage="No saved teams yet. Switch to Create new to add one."
           renderActions={(entry) => (
-            <GlassButton onClick={() => handleLibrarySelect(entry)} variant="primary" className="w-full text-sm">
+            <Button onClick={() => handleLibrarySelect(entry)} variant="primary" className="w-full justify-between">
               Select
-            </GlassButton>
+              <ChevronRight size={16} />
+            </Button>
           )}
         />
       ) : (
@@ -132,18 +132,19 @@ export default function TeamSelectStep({ side, onConfirm, onBack, otherSelection
             framed={false}
             logoInput="upload"
           />
-          <p className="text-xs text-zinc-500 italic">Roster is optional. You can add players later in Settings.</p>
-          <GlassButton onClick={handleCreateContinue} disabled={!identity.name.trim()} variant="primary" className="self-end">
+          <p className="text-xs text-muted">Roster is optional. You can add players later in Settings.</p>
+          <Button onClick={handleCreateContinue} disabled={!identity.name.trim()} variant="primary" className="self-end">
             Continue
-          </GlassButton>
+            <ChevronRight size={16} />
+          </Button>
         </div>
       )}
 
       {onBack && (
-        <div className="pt-2 border-t border-white/10">
-          <GlassButton onClick={onBack} variant="ghost">
+        <div className="pt-2 border-t border-line">
+          <Button onClick={onBack} variant="ghost">
             Back
-          </GlassButton>
+          </Button>
         </div>
       )}
     </div>

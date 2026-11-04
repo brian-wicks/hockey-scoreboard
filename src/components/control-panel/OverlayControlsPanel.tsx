@@ -1,5 +1,5 @@
 import { UpdateGameState } from "./types";
-import { GlassButton, GlassPanel, glassInputClass } from "./ui/glass";
+import { Button, Panel, inputClass } from "./ui/primitives";
 
 interface OverlayControlsPanelProps {
   overlayVisible: boolean;
@@ -20,30 +20,30 @@ export default function OverlayControlsPanel({
 }: OverlayControlsPanelProps) {
   const currentLowerThird = lowerThird ?? { active: false, title: "", subtitle: "" };
   return (
-    <GlassPanel className="flex flex-col gap-4">
+    <Panel className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-zinc-200 uppercase tracking-wider">Overlay</h2>
-          <p className="text-sm text-zinc-500">Show/hide the overlay and toggle presentation options.</p>
+          <h2 className="text-lg font-semibold">Overlay</h2>
+          <p className="text-sm text-muted">Show/hide the overlay and toggle presentation options.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <GlassButton onClick={() => updateState({overlayVisible: !overlayVisible})} variant="secondary">
+          <Button onClick={() => updateState({overlayVisible: !overlayVisible})} variant="secondary">
             {overlayVisible ? "Hide overlay" : "Show overlay"}
-          </GlassButton>
-          <GlassButton
+          </Button>
+          <Button
             onClick={() => updateState({jumbotronGradientsEnabled: !jumbotronGradientsEnabled})}
             variant="secondary"
           >
             {jumbotronGradientsEnabled ? "Disable jumbotron gradients" : "Enable jumbotron gradients"}
-          </GlassButton>
+          </Button>
         </div>
       </div>
-      <div className="border-t border-white/10 pt-4">
+      <div className="border-t border-line pt-4">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h3 className="text-sm font-semibold text-zinc-200 uppercase tracking-wider">Lower third</h3>
+            <h3 className="text-sm font-semibold">Lower third</h3>
           </div>
-          <GlassButton
+          <Button
             type="button"
             onClick={() =>
               updateState({ lowerThird: { ...currentLowerThird, active: !currentLowerThird.active } })
@@ -52,7 +52,7 @@ export default function OverlayControlsPanel({
             className="px-3 py-1.5 text-xs font-semibold"
           >
             {currentLowerThird.active ? "Hide" : "Show"}
-          </GlassButton>
+          </Button>
         </div>
         <div className="grid grid-cols-1 gap-2">
           <input
@@ -61,7 +61,7 @@ export default function OverlayControlsPanel({
               updateState({ lowerThird: { ...currentLowerThird, title: e.target.value } })
             }
             placeholder="Title"
-            className={`${glassInputClass} w-full`}
+            className={`${inputClass} w-full`}
           />
           <input
             value={currentLowerThird.subtitle ?? ""}
@@ -69,20 +69,20 @@ export default function OverlayControlsPanel({
               updateState({ lowerThird: { ...currentLowerThird, subtitle: e.target.value } })
             }
             placeholder="Subtitle"
-            className={`${glassInputClass} w-full`}
+            className={`${inputClass} w-full`}
           />
         </div>
         <div className="flex flex-wrap gap-2 mt-3">
-          <GlassButton
+          <Button
             type="button"
             onClick={() => updateState({ lowerThird: { active: false, title: "", subtitle: "" } })}
             variant="secondary"
             className="px-3 py-2 text-xs font-semibold"
           >
             Clear
-          </GlassButton>
+          </Button>
         </div>
       </div>
-    </GlassPanel>
+    </Panel>
   );
 }

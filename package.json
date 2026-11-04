@@ -2,7 +2,7 @@
   "name": "hockey-scoreboard",
   "private": true,
   "version": "1.13.2",
-  "description": "Live game control for ice hockey broadcasts \u2014 score, clock, and penalties synced to an overlay, jumbotron, and viewer share links.",
+  "description": "Live game control for ice hockey broadcasts — score, clock, and penalties synced to an overlay, jumbotron, and viewer share links.",
   "repository": {
     "type": "git",
     "url": "https://github.com/brian-wicks/hockey-scoreboard.git"
@@ -24,6 +24,7 @@
     "electron:build": "npm run build:electron && electron-builder"
   },
   "dependencies": {
+    "@fontsource/outfit": "^5.3.0",
     "@sentry/node": "^10.70.0",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^6.0.2",

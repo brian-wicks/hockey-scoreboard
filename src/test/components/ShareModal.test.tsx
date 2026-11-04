@@ -101,7 +101,7 @@ describe("ShareModal Component", () => {
     const { container } = render(<ShareModal isOpen={true} onClose={mockOnClose} />);
     
     // Find backdrop by its class
-    const backdrop = container.querySelector(".bg-black\\/80");
+    const backdrop = container.querySelector(".bg-ink\\/60");
     fireEvent.click(backdrop!);
     
     expect(mockOnClose).toHaveBeenCalled();

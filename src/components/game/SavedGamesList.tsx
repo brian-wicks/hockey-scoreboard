@@ -38,46 +38,41 @@ export default function SavedGamesList({ onOpened }: SavedGamesListProps) {
 
   return (
     <>
-      <div className="bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-white/10 flex items-center justify-between">
+      <div className="bg-canvas border border-line rounded-sm overflow-hidden">
+        <div className="p-4 border-b border-line flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/10 flex items-center justify-center text-zinc-400">
-              <History size={18} />
-            </div>
             <div>
-              <h2 className="text-sm font-semibold text-white">Your games</h2>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Autosaved &middot; open any game</p>
+              <h2 className="font-semibold">Your games</h2>
+              <p className="text-xs text-muted">Autosaved &middot; open any game</p>
             </div>
           </div>
           <button
             onClick={() => loadSavedGames()}
-            className="text-[10px] font-bold text-zinc-500 hover:text-white uppercase tracking-widest transition-colors flex items-center gap-1.5"
+            className="text-sm font-semibold underline rounded-sm hover:no-underline"
           >
-            <div className="w-1.5 h-1.5 rounded-full bg-zinc-700" />
             Refresh list
           </button>
         </div>
-        <div className="divide-y divide-white/10 max-h-[500px] overflow-y-auto">
+        <div className="divide-y divide-line max-h-[500px] overflow-y-auto">
           {games.length === 0 ? (
             <div className="p-8 text-center">
-              <History size={32} className="mx-auto mb-3 text-zinc-700" />
-              <p className="text-sm text-zinc-500">No saved games yet.</p>
+                            <p className="text-sm text-muted">No saved games yet.</p>
             </div>
           ) : (
             games.map((game) => {
               const isActive = game.id === activeGameId;
               return (
-                <div key={game.id} className="p-4 flex items-center justify-between hover:bg-white/[0.03] transition-colors group">
+                <div key={game.id} className="p-4 flex items-center justify-between hover:bg-surface transition-colors group">
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-sm font-medium text-white flex items-center gap-2">
+                    <span className="text-sm font-semibold text-ink flex items-center gap-2">
                       {game.name}
                       {isActive && (
-                        <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 rounded-full px-1.5 py-0.5">
+                        <span className="text-xs font-semibold text-canvas bg-ink rounded-sm px-1.5 py-0.5">
                           Open
                         </span>
                       )}
                     </span>
-                    <span className="text-[10px] text-zinc-500">{formatDate(game.updatedAt)}</span>
+                    <span className="text-xs text-muted">{formatDate(game.updatedAt)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -85,15 +80,17 @@ export default function SavedGamesList({ onOpened }: SavedGamesListProps) {
                         openGame(game.id);
                         onOpened?.();
                       }}
-                      className="p-2 text-zinc-400 hover:text-white hover:bg-indigo-500/80 rounded-lg transition-all"
+                      className="p-2 text-ink hover:text-canvas hover:bg-action-hover rounded-sm transition-colors"
                       title="Open game"
+                      aria-label={`Open ${game.name}`}
                     >
                       <Play size={16} fill="currentColor" />
                     </button>
                     <button
                       onClick={() => setPendingDelete({ id: game.id, name: game.name })}
-                      className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                      className="p-2 text-muted hover:text-danger hover:bg-surface rounded-sm transition-colors"
                       title="Delete game"
+                      aria-label={`Delete ${game.name}`}
                     >
                       <Trash2 size={16} />
                     </button>

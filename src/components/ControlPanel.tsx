@@ -51,7 +51,7 @@ export default function ControlPanel() {
   }, [isViewer, activeGameId, navigate]);
 
   if (!gameState) {
-    return <div className="flex items-center justify-center h-screen bg-zinc-950 text-white">Connecting...</div>;
+    return <div className="ui flex items-center justify-center h-screen bg-canvas">Connecting...</div>;
   }
 
   if (!isViewer && activeGameId === null) {
@@ -70,8 +70,7 @@ export default function ControlPanel() {
   } = gameState;
 
   return (
-    <div className={`relative min-h-screen text-zinc-100 font-sans ${isViewer ? 'select-none pointer-events-none' : ''}`}>
-      <div className="control-panel-ambient-bg" />
+    <div className={`ui relative min-h-screen bg-canvas ${isViewer ? 'select-none pointer-events-none' : ''}`}>
       <div className="relative z-10 flex flex-col min-h-screen">
         <ControlPanelHeader
           isConnected={isConnected}
@@ -82,8 +81,8 @@ export default function ControlPanel() {
         />
 
         {isViewer && (
-          <div className="bg-amber-900/40 border-b border-amber-800 py-1.5 px-4 text-center">
-            <p className="text-xs font-medium text-amber-200 uppercase tracking-widest">Viewer mode: read only</p>
+          <div className="bg-ink py-1.5 px-4 text-center">
+            <p className="text-xs font-semibold text-canvas">Viewer mode: read only</p>
           </div>
         )}
 

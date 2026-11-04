@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Save } from "lucide-react";
 import { GameState, SavedTeam, TeamPresetTeam, TeamState, useStore } from "../../store";
 import { UpdateGameState } from "./types";
-import { GlassButton, GlassPanel, glassInsetClass } from "./ui/glass";
+import { Button, Panel, insetClass } from "./ui/primitives";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import TeamLibraryGrid from "../team/TeamLibraryGrid";
 import { sortPlayersByJersey } from "../../utils/roster";
@@ -96,32 +96,32 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
 
   const renderCardActions = (entry: SavedTeam) => (
     <div className="flex gap-2">
-      <GlassButton onClick={() => loadPresetTeamIntoSide(entry.team, "home")} variant="success" className="flex-1 text-sm">
+      <Button onClick={() => loadPresetTeamIntoSide(entry.team, "home")} variant="primary" className="flex-1 text-sm">
         To home
-      </GlassButton>
-      <GlassButton onClick={() => loadPresetTeamIntoSide(entry.team, "away")} variant="primary" className="flex-1 text-sm">
+      </Button>
+      <Button onClick={() => loadPresetTeamIntoSide(entry.team, "away")} variant="primary" className="flex-1 text-sm">
         To away
-      </GlassButton>
+      </Button>
     </div>
   );
 
   return (
     <div className="flex flex-col gap-6">
-      <GlassPanel>
-        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+      <Panel>
+        <div className="flex items-center justify-between border-b border-line pb-4">
           <div>
-            <h2 className="text-xl font-bold text-zinc-100">Teams</h2>
-            <p className="text-sm text-zinc-400 mt-1">Save the current teams to your library, or load a saved team into Home or Away.</p>
+            <h2 className="text-xl font-semibold text-ink">Teams</h2>
+            <p className="text-sm text-muted mt-1">Save the current teams to your library, or load a saved team into Home or Away.</p>
           </div>
         </div>
 
         <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className={`p-4 flex items-center justify-between gap-3 ${glassInsetClass}`}>
+          <div className={`p-4 flex items-center justify-between gap-3 ${insetClass}`}>
             <div className="min-w-0">
-              <div className="font-semibold text-zinc-100 truncate">{gameState.homeTeam.name || "Home team"}</div>
-              {homeSaveStatus && <div className="text-xs text-zinc-500 mt-0.5">{homeSaveStatus}</div>}
+              <div className="font-semibold text-ink truncate">{gameState.homeTeam.name || "Home team"}</div>
+              {homeSaveStatus && <div className="text-xs text-muted mt-0.5">{homeSaveStatus}</div>}
             </div>
-            <GlassButton
+            <Button
               type="button"
               onClick={() => saveTeam("home")}
               disabled={savingHomeTeam}
@@ -129,14 +129,14 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
               className="shrink-0"
             >
               <Save className="w-4 h-4" /> Save home
-            </GlassButton>
+            </Button>
           </div>
-          <div className={`p-4 flex items-center justify-between gap-3 ${glassInsetClass}`}>
+          <div className={`p-4 flex items-center justify-between gap-3 ${insetClass}`}>
             <div className="min-w-0">
-              <div className="font-semibold text-zinc-100 truncate">{gameState.awayTeam.name || "Away team"}</div>
-              {awaySaveStatus && <div className="text-xs text-zinc-500 mt-0.5">{awaySaveStatus}</div>}
+              <div className="font-semibold text-ink truncate">{gameState.awayTeam.name || "Away team"}</div>
+              {awaySaveStatus && <div className="text-xs text-muted mt-0.5">{awaySaveStatus}</div>}
             </div>
-            <GlassButton
+            <Button
               type="button"
               onClick={() => saveTeam("away")}
               disabled={savingAwayTeam}
@@ -144,21 +144,19 @@ export default function PresetsPanel({ gameState, updateState }: PresetsPanelPro
               className="shrink-0"
             >
               <Save className="w-4 h-4" /> Save away
-            </GlassButton>
+            </Button>
           </div>
         </div>
-      </GlassPanel>
+      </Panel>
 
-      <GlassPanel>
-        <TeamLibraryGrid renderActions={renderCardActions} />
-      </GlassPanel>
+      <TeamLibraryGrid renderActions={renderCardActions} />
 
       <ConfirmDialog
         open={saveConflict !== null}
         title="Team name already exists"
         message={`A team named "${saveConflict?.preferredName}" already exists. Overwrite it?`}
         confirmLabel="Overwrite"
-        confirmVariant="success"
+        confirmVariant="primary"
         onConfirm={confirmOverwriteSave}
         onCancel={() => setSaveConflict(null)}
       />

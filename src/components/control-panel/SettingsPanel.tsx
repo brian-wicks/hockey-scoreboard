@@ -61,14 +61,14 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="inline-flex self-start rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-1 gap-1">
+      <div className="inline-flex self-start rounded-sm border border-line bg-canvas p-1 gap-1">
         <button
           type="button"
           onClick={() => setSettingsTab("teams")}
-          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+          className={`flex items-center gap-2 rounded-sm px-3 py-2 text-sm font-semibold transition-colors ${
             settingsTab === "teams"
-              ? "bg-indigo-500/20 border border-indigo-400/30 text-white"
-              : "border border-transparent text-zinc-400 hover:text-zinc-200"
+              ? "bg-ink border border-ink text-canvas"
+              : "border border-transparent text-muted hover:text-ink"
           }`}
         >
           <Users size={15} /> Teams and rosters
@@ -76,10 +76,10 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
         <button
           type="button"
           onClick={() => setSettingsTab("shortcuts")}
-          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+          className={`flex items-center gap-2 rounded-sm px-3 py-2 text-sm font-semibold transition-colors ${
             settingsTab === "shortcuts"
-              ? "bg-indigo-500/20 border border-indigo-400/30 text-white"
-              : "border border-transparent text-zinc-400 hover:text-zinc-200"
+              ? "bg-ink border border-ink text-canvas"
+              : "border border-transparent text-muted hover:text-ink"
           }`}
         >
           <Keyboard size={15} /> Keyboard shortcuts
@@ -87,10 +87,10 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
         <button
           type="button"
           onClick={() => setSettingsTab("pdf")}
-          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+          className={`flex items-center gap-2 rounded-sm px-3 py-2 text-sm font-semibold transition-colors ${
             settingsTab === "pdf"
-              ? "bg-indigo-500/20 border border-indigo-400/30 text-white"
-              : "border border-transparent text-zinc-400 hover:text-zinc-200"
+              ? "bg-ink border border-ink text-canvas"
+              : "border border-transparent text-muted hover:text-ink"
           }`}
         >
           <FileText size={15} /> Gamesheet PDF
@@ -129,31 +129,31 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
       )}
 
       {settingsTab === "shortcuts" && (
-      <div className="bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-        <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
-          <h2 className="text-xl font-bold flex items-center gap-2">
+      <div className="bg-canvas border border-line rounded-sm p-6">
+        <div className="flex items-center justify-between mb-6 border-b border-line pb-4">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
             <Keyboard size={24} />
             Keyboard shortcuts
           </h2>
           <button
             onClick={resetShortcuts}
-            className="px-4 py-2 bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] rounded-lg text-sm font-medium transition-colors"
+            className="px-4 py-2 bg-canvas border border-line hover:bg-surface rounded-sm text-sm font-semibold transition-colors"
           >
             Reset to defaults
           </button>
         </div>
-        <div className="text-sm text-zinc-500 mb-4 italic">
+        <div className="text-sm text-muted mb-4">
           Note: Keyboard shortcuts only work on the Controls tab, not in Settings.
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-x-8 gap-y-6">
           {SHORTCUT_GROUPS.map((group) => (
-            <section key={group.title} className="border border-white/10 rounded-lg bg-white/[0.03] p-4">
+            <section key={group.title}>
               <div className="mb-3">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-200">{group.title}</h3>
-                <p className="text-xs text-zinc-500 mt-1">{group.description}</p>
+                <h3 className="text-sm font-semibold text-ink">{group.title}</h3>
+                <p className="text-xs text-muted mt-1">{group.description}</p>
               </div>
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col border-t border-line">
                 {group.actions.map((action) => {
                   const entry = shortcutsByAction.get(action);
                   if (!entry) return null;
@@ -171,12 +171,12 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
         </div>
 
       {ungroupedShortcuts.length > 0 && (
-        <section className="bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+        <section className="bg-canvas border border-line rounded-sm p-6">
           <div className="mb-3">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-200">Other</h3>
-            <p className="text-xs text-zinc-500 mt-1">Shortcuts not assigned to a standard group.</p>
+            <h3 className="text-sm font-semibold text-ink">Other</h3>
+            <p className="text-xs text-muted mt-1">Shortcuts not assigned to a standard group.</p>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col border-t border-line">
             {ungroupedShortcuts.map(({ shortcut, index }) => (
               <ShortcutEditor key={index} shortcut={shortcut} onUpdate={(updated) => updateShortcut(index, updated)} />
             ))}

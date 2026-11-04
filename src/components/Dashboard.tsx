@@ -6,7 +6,7 @@ import DashboardHeader from "./dashboard/DashboardHeader";
 import DashboardHero from "./dashboard/DashboardHero";
 import SavedGamesList from "./game/SavedGamesList";
 import NewGameWizard from "./new-game/NewGameWizard";
-import { GlassButton } from "./control-panel/ui/glass";
+import { Button } from "./control-panel/ui/primitives";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -19,8 +19,7 @@ export default function Dashboard() {
   if (isViewer || !user) return null;
 
   return (
-    <div className="relative min-h-screen text-zinc-100 font-sans">
-      <div className="control-panel-ambient-bg" />
+    <div className="ui relative min-h-screen bg-canvas">
       <div className="relative z-10 flex flex-col min-h-screen">
         <DashboardHeader />
 
@@ -28,15 +27,15 @@ export default function Dashboard() {
           <DashboardHero />
 
           <div className="flex flex-col sm:flex-row gap-3">
-            <GlassButton onClick={() => setIsWizardOpen(true)} variant="primary" className="flex-1 py-3">
+            <Button onClick={() => setIsWizardOpen(true)} variant="primary" className="flex-1 py-3">
               <PlusCircle size={18} />
               New game
-            </GlassButton>
+            </Button>
             <Link to="/teams" className="flex-1">
-              <GlassButton variant="secondary" className="w-full py-3">
+              <Button variant="secondary" className="w-full py-3">
                 <Users2 size={18} />
                 Manage teams
-              </GlassButton>
+              </Button>
             </Link>
           </div>
 

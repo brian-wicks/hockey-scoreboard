@@ -5,7 +5,7 @@ import { getSampleGamesheetInput } from "../../utils/gamesheetSampleData";
 import { ANCHOR_GROUPS } from "../../utils/gamesheetAnchors";
 import { TemplateUploadError, uploadGamesheetTemplate } from "../../lib/uploadGamesheetTemplate";
 import PdfLayoutCanvas from "./PdfLayoutCanvas";
-import { GlassPanel } from "./ui/glass";
+import { Panel } from "./ui/primitives";
 
 const PDF_LAYOUT_STORAGE_KEY = "gamesheetPdfLayoutV1";
 
@@ -20,7 +20,7 @@ function AlignSelect({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value as "left" | "center" | "right")}
-      className="control-panel-select bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-xs"
+      className="control-panel-select bg-canvas border border-line focus:border-ink focus:outline-none text-ink rounded-sm px-2 py-1 text-xs"
     >
       <option value="left">Left</option>
       <option value="center">Center</option>
@@ -44,13 +44,13 @@ function NumberField({
 }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className={small ? "text-[11px] text-zinc-400" : "text-xs text-zinc-400"}>{label}</span>
+      <span className={small ? "text-xs text-muted" : "text-xs text-muted"}>{label}</span>
       <input
         type="number"
         step={step}
         value={value}
         onChange={onChange}
-        className={`bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded px-2 py-1 ${small ? "text-xs" : "text-sm"} font-mono`}
+        className={`bg-canvas border border-line focus:border-ink focus:outline-none text-ink rounded-sm px-2 py-1 ${small ? "text-xs" : "text-sm"} tabular-nums`}
       />
     </label>
   );
@@ -69,7 +69,7 @@ function AlignField({
 }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className={small ? "text-[11px] text-zinc-400" : "text-xs text-zinc-400"}>{label}</span>
+      <span className={small ? "text-xs text-muted" : "text-xs text-muted"}>{label}</span>
       <AlignSelect value={value} onChange={onChange} />
     </label>
   );
@@ -373,11 +373,11 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
   };
 
   return (
-    <GlassPanel className="p-4 space-y-4">
+    <Panel className="p-4 space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <div className="text-sm text-zinc-200 font-semibold">Gamesheet layout</div>
-              <div className="text-xs text-zinc-500">
+              <div className="text-sm text-ink font-semibold">Gamesheet layout</div>
+              <div className="text-xs text-muted">
                 Drag each field onto your blank template to line it up with the printed boxes.
               </div>
             </div>
@@ -408,7 +408,7 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
                     setTimeout(() => setFileLayoutStatus("idle"), 2000);
                   }
                 }}
-                className="px-2 py-1 text-xs rounded bg-indigo-500/80 hover:bg-indigo-500 border border-indigo-400/40 text-white"
+                className="px-2 py-1 text-xs rounded-sm bg-action hover:bg-action-hover border border-ink text-canvas"
               >
                 Save layout
               </button>
@@ -435,18 +435,18 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
                     setTimeout(() => setFileLayoutStatus("idle"), 2000);
                   }
                 }}
-                className="px-2 py-1 text-xs rounded bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] text-zinc-200"
+                className="px-2 py-1 text-xs rounded-sm bg-canvas border border-line hover:bg-surface text-ink"
               >
                 Revert to saved
               </button>
               <button
                 type="button"
                 onClick={() => setPdfLayout(getDefaultGamesheetPdfLayout())}
-                className="px-2 py-1 text-xs rounded bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] text-zinc-200"
+                className="px-2 py-1 text-xs rounded-sm bg-canvas border border-line hover:bg-surface text-ink"
               >
                 Reset defaults
               </button>
-              <div className="text-xs text-zinc-500 min-w-[90px] text-right">
+              <div className="text-xs text-muted min-w-[90px] text-right">
                 {fileLayoutStatus === "saving"
                   ? "Saving..."
                   : fileLayoutStatus === "saved"
@@ -463,36 +463,36 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
           </div>
 
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            <label className="flex items-center gap-2 text-xs text-zinc-300">
+            <label className="flex items-center gap-2 text-xs text-ink">
               <input
                 type="checkbox"
                 checked={showPdfPreview}
                 onChange={(e) => setShowPdfPreview(e.target.checked)}
-                className="accent-indigo-500"
+                className="accent-ink"
               />
               Live preview
             </label>
-            <label className="flex items-center gap-2 text-xs text-zinc-300">
+            <label className="flex items-center gap-2 text-xs text-ink">
               <input
                 type="checkbox"
                 checked={previewDebug}
                 onChange={(e) => setPreviewDebug(e.target.checked)}
-                className="accent-indigo-500"
+                className="accent-ink"
                 disabled={!showPdfPreview}
               />
               Debug grid
             </label>
-            <label className="flex items-center gap-2 text-xs text-zinc-300">
+            <label className="flex items-center gap-2 text-xs text-ink">
               <input
                 type="checkbox"
                 checked={useSampleData}
                 onChange={(e) => setUseSampleData(e.target.checked)}
-                className="accent-indigo-500"
+                className="accent-ink"
                 disabled={!showPdfPreview}
               />
               Show sample data
             </label>
-            <div className="ml-auto text-xs text-zinc-500">
+            <div className="ml-auto text-xs text-muted">
               {showPdfPreview ? (isGeneratingPreview ? "Updating preview..." : "Preview ready") : "Preview off"}
             </div>
           </div>
@@ -508,23 +508,23 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
               setIsDropTarget(false);
               void handleTemplateFile(e.dataTransfer.files?.[0]);
             }}
-            className={`rounded-lg border border-dashed p-3 text-xs transition-colors ${
-              isDropTarget ? "border-indigo-400 bg-indigo-500/10" : "border-white/15 bg-white/[0.03]"
+            className={`rounded-sm border border-dashed p-3 text-xs transition-colors ${
+              isDropTarget ? "border-ink bg-surface" : "border-line bg-canvas"
             }`}
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <div className="text-zinc-300">
+                <div className="text-ink">
                   {templateStatus === "uploading"
                     ? "Uploading template..."
                     : pdfLayout.templateUrl
                       ? "Using your uploaded blank template"
                       : "Using the built-in blank template"}
                 </div>
-                <div className="text-zinc-500">Drop a blank gamesheet PDF here to use your own.</div>
+                <div className="text-muted">Drop a blank gamesheet PDF here to use your own.</div>
               </div>
               <div className="flex items-center gap-2">
-                <label className="px-2 py-1 rounded bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] text-zinc-200 cursor-pointer">
+                <label className="px-2 py-1 rounded-sm bg-canvas border border-line hover:bg-surface text-ink cursor-pointer">
                   Choose PDF
                   <input
                     type="file"
@@ -540,7 +540,7 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
                   <button
                     type="button"
                     onClick={() => setPdfLayout((prev) => ({ ...prev, templateUrl: undefined }))}
-                    className="px-2 py-1 rounded bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] text-zinc-200"
+                    className="px-2 py-1 rounded-sm bg-canvas border border-line hover:bg-surface text-ink"
                   >
                     Use built-in
                   </button>
@@ -548,7 +548,7 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
               </div>
             </div>
             {templateError && (
-              <div className="mt-2 rounded border border-red-400/30 bg-red-500/10 px-2 py-1 text-red-200">
+              <div className="mt-2 rounded-sm border border-danger bg-canvas px-2 py-1 text-danger">
                 {templateError}
               </div>
             )}
@@ -556,15 +556,15 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
 
           {showPdfPreview && (
             <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] p-2">
-                <span className="text-[11px] font-medium text-zinc-400 mr-1">Show handles for</span>
+              <div className="flex flex-wrap items-center gap-1.5 rounded-sm border border-line bg-canvas p-2">
+                <span className="text-xs font-semibold text-muted mr-1">Show handles for</span>
                 <button
                   type="button"
                   onClick={() => setVisibleGroups([])}
-                  className={`px-2 py-0.5 rounded text-[11px] border ${
+                  className={`px-2 py-0.5 rounded-sm text-xs border ${
                     visibleGroups.length === 0
-                      ? "bg-indigo-500/80 border-indigo-400/40 text-white"
-                      : "bg-white/[0.06] border-white/10 text-zinc-300 hover:bg-white/[0.1]"
+                      ? "bg-ink border-ink text-canvas"
+                      : "bg-canvas border-line text-ink hover:bg-surface"
                   }`}
                 >
                   All
@@ -580,10 +580,10 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
                           active ? prev.filter((g) => g !== group) : [...prev, group],
                         )
                       }
-                      className={`px-2 py-0.5 rounded text-[11px] border ${
+                      className={`px-2 py-0.5 rounded-sm text-xs border ${
                         active
-                          ? "bg-indigo-500/80 border-indigo-400/40 text-white"
-                          : "bg-white/[0.06] border-white/10 text-zinc-300 hover:bg-white/[0.1]"
+                          ? "bg-ink border-ink text-canvas"
+                          : "bg-canvas border-line text-ink hover:bg-surface"
                       }`}
                     >
                       {group}
@@ -591,7 +591,7 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
                   );
                 })}
               </div>
-              <div className="rounded-lg border border-white/10 bg-zinc-900 p-2">
+              <div className="rounded-sm border border-line bg-canvas p-2">
                 <PdfLayoutCanvas
                   pdfBytes={previewBytes}
                   layout={pdfLayout}
@@ -599,17 +599,17 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
                   visibleGroups={visibleGroups}
                 />
               </div>
-              <div className="text-[11px] text-zinc-500">
+              <div className="text-xs text-muted">
                 Drag a handle to move its column. Dragging up or down moves the whole row.
                 Arrow keys nudge by 1pt, Shift+arrow by 10pt.
               </div>
             </div>
           )}
 
-          <details className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
-          <summary className="cursor-pointer text-xs font-semibold text-zinc-300 select-none">
+          <details className="rounded-sm border border-line bg-canvas p-3">
+          <summary className="cursor-pointer text-xs font-semibold text-ink select-none">
             Fine-tune coordinates
-            <span className="ml-2 font-normal text-zinc-500">
+            <span className="ml-2 font-normal text-muted">
               every position as a number, for nudges the handles can't hit precisely
             </span>
           </summary>
@@ -621,8 +621,8 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
             <NumberField label="Offset Y" small={false} step="1" value={pdfLayout.offsetY} onChange={(e) => setPdfLayout((p) => ({ ...p, offsetY: Number(e.target.value) || 0 }))} />
           </div>
 
-          <div className="mt-4 border border-white/10 rounded p-3">
-            <div className="text-xs font-semibold text-zinc-300 mb-2">Team names</div>
+          <div className="mt-4 border border-line rounded-sm p-3">
+            <div className="text-xs font-semibold text-ink mb-2">Team names</div>
             <div className="grid grid-cols-1 min-[760px]:grid-cols-3 gap-3">
               <NumberField label="Home X" small={true} step="1" value={pdfLayout.teamNames.homeX} onChange={(e) =>
                     setPdfLayout((p) => ({ ...p, teamNames: { ...p.teamNames, homeX: Number(e.target.value) || p.teamNames.homeX } }))
@@ -650,8 +650,8 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
           </div>
 
           <div className="mt-4 grid grid-cols-1 min-[760px]:grid-cols-2 gap-4">
-            <div className="border border-white/10 rounded p-3">
-              <div className="text-xs font-semibold text-zinc-300 mb-2">Away roster</div>
+            <div className="border border-line rounded-sm p-3">
+              <div className="text-xs font-semibold text-ink mb-2">Away roster</div>
               <div className="grid grid-cols-2 gap-2">
                 <NumberField label="# X" small={true} value={pdfLayout.awayRoster.numX} onChange={(e) =>
                       setPdfLayout((p) => ({ ...p, awayRoster: { ...p.awayRoster, numX: Number(e.target.value) || 0 } }))
@@ -692,8 +692,8 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
               </div>
             </div>
 
-            <div className="border border-white/10 rounded p-3">
-              <div className="text-xs font-semibold text-zinc-300 mb-2">Home roster</div>
+            <div className="border border-line rounded-sm p-3">
+              <div className="text-xs font-semibold text-ink mb-2">Home roster</div>
               <div className="grid grid-cols-2 gap-2">
                 <NumberField label="# X" small={true} value={pdfLayout.homeRoster.numX} onChange={(e) =>
                       setPdfLayout((p) => ({ ...p, homeRoster: { ...p.homeRoster, numX: Number(e.target.value) || 0 } }))
@@ -736,8 +736,8 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
           </div>
 
           <div className="mt-4 grid grid-cols-1 min-[760px]:grid-cols-2 gap-4">
-            <div className="border border-white/10 rounded p-3">
-              <div className="text-xs font-semibold text-zinc-300 mb-2">Away goals</div>
+            <div className="border border-line rounded-sm p-3">
+              <div className="text-xs font-semibold text-ink mb-2">Away goals</div>
               <div className="grid grid-cols-2 gap-2">
                 <NumberField label="X" small={true} value={pdfLayout.awayGoals.cols.timeX} onChange={(e) =>
                       setPdfLayout((p) => ({ ...p, awayGoals: { ...p.awayGoals, cols: { ...p.awayGoals.cols, timeX: Number(e.target.value) || 0 } } }))
@@ -773,8 +773,8 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
               </div>
             </div>
 
-            <div className="border border-white/10 rounded p-3">
-              <div className="text-xs font-semibold text-zinc-300 mb-2">Home goals</div>
+            <div className="border border-line rounded-sm p-3">
+              <div className="text-xs font-semibold text-ink mb-2">Home goals</div>
               <div className="grid grid-cols-2 gap-2">
                 <NumberField label="X" small={true} value={pdfLayout.homeGoals.cols.timeX} onChange={(e) =>
                       setPdfLayout((p) => ({ ...p, homeGoals: { ...p.homeGoals, cols: { ...p.homeGoals.cols, timeX: Number(e.target.value) || 0 } } }))
@@ -812,8 +812,8 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
           </div>
 
           <div className="mt-4 grid grid-cols-1 min-[760px]:grid-cols-2 gap-4">
-            <div className="border border-white/10 rounded p-3">
-              <div className="text-xs font-semibold text-zinc-300 mb-2">Away penalties</div>
+            <div className="border border-line rounded-sm p-3">
+              <div className="text-xs font-semibold text-ink mb-2">Away penalties</div>
               <div className="grid grid-cols-2 gap-2">
                 <NumberField label="Player # X" small={true} value={pdfLayout.awayPenalties.cols.playerNumX} onChange={(e) =>
                       setPdfLayout((p) => ({
@@ -920,8 +920,8 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
               </div>
             </div>
 
-            <div className="border border-white/10 rounded p-3">
-              <div className="text-xs font-semibold text-zinc-300 mb-2">Home penalties</div>
+            <div className="border border-line rounded-sm p-3">
+              <div className="text-xs font-semibold text-ink mb-2">Home penalties</div>
               <div className="grid grid-cols-2 gap-2">
                 <NumberField label="Player # X" small={true} value={pdfLayout.homePenalties.cols.playerNumX} onChange={(e) =>
                       setPdfLayout((p) => ({
@@ -1030,8 +1030,8 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
           </div>
 
           <div className="mt-4 grid grid-cols-1 min-[760px]:grid-cols-2 gap-4">
-            <div className="border border-white/10 rounded p-3">
-              <div className="text-xs font-semibold text-zinc-300 mb-2">Shots on goal</div>
+            <div className="border border-line rounded-sm p-3">
+              <div className="text-xs font-semibold text-ink mb-2">Shots on goal</div>
               <div className="grid grid-cols-2 gap-2">
                 <NumberField label="Home X" small={true} step="1" value={pdfLayout.homeShots.x} onChange={(e) =>
                       setPdfLayout((p) => ({ ...p, homeShots: { ...p.homeShots, x: Number(e.target.value) || p.homeShots.x } }))
@@ -1062,8 +1062,8 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
           </div>
 
           <div className="mt-4 grid grid-cols-1 min-[760px]:grid-cols-2 gap-4">
-            <div className="border border-white/10 rounded p-3">
-              <div className="text-xs font-semibold text-zinc-300 mb-2">Away goals by period</div>
+            <div className="border border-line rounded-sm p-3">
+              <div className="text-xs font-semibold text-ink mb-2">Away goals by period</div>
               <div className="grid grid-cols-2 gap-2">
                 <NumberField label="Label X" small={true} value={pdfLayout.awayPeriodLabel.goalsX} onChange={(e) =>
                       setPdfLayout((p) => ({
@@ -1137,8 +1137,8 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
               </div>
             </div>
 
-            <div className="border border-white/10 rounded p-3">
-              <div className="text-xs font-semibold text-zinc-300 mb-2">Home goals by period</div>
+            <div className="border border-line rounded-sm p-3">
+              <div className="text-xs font-semibold text-ink mb-2">Home goals by period</div>
               <div className="grid grid-cols-2 gap-2">
                 <NumberField label="Label X" small={true} value={pdfLayout.homePeriodLabel.goalsX} onChange={(e) =>
                       setPdfLayout((p) => ({
@@ -1214,8 +1214,8 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
           </div>
 
           <div className="mt-4 grid grid-cols-1 min-[760px]:grid-cols-2 gap-4">
-            <div className="border border-white/10 rounded p-3">
-              <div className="text-xs font-semibold text-zinc-300 mb-2">Away PIM by period</div>
+            <div className="border border-line rounded-sm p-3">
+              <div className="text-xs font-semibold text-ink mb-2">Away PIM by period</div>
               <div className="grid grid-cols-2 gap-2">
                 <NumberField label="Label X" small={true} value={pdfLayout.awayPeriodLabel.pimX} onChange={(e) =>
                       setPdfLayout((p) => ({
@@ -1280,8 +1280,8 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
               </div>
             </div>
 
-            <div className="border border-white/10 rounded p-3">
-              <div className="text-xs font-semibold text-zinc-300 mb-2">Home PIM by period</div>
+            <div className="border border-line rounded-sm p-3">
+              <div className="text-xs font-semibold text-ink mb-2">Home PIM by period</div>
               <div className="grid grid-cols-2 gap-2">
                 <NumberField label="Label X" small={true} value={pdfLayout.homePeriodLabel.pimX} onChange={(e) =>
                       setPdfLayout((p) => ({
@@ -1348,8 +1348,8 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
           </div>
 
           <div className="mt-4 grid grid-cols-1 min-[760px]:grid-cols-2 gap-4">
-            <div className="border border-white/10 rounded p-3">
-              <div className="text-xs font-semibold text-zinc-300 mb-2">Away NM roster</div>
+            <div className="border border-line rounded-sm p-3">
+              <div className="text-xs font-semibold text-ink mb-2">Away NM roster</div>
               <div className="grid grid-cols-2 gap-2">
                 <NumberField label="Num X" small={true} value={pdfLayout.awayNmRoster.cols.numX} onChange={(e) =>
                       setPdfLayout((p) => ({
@@ -1450,8 +1450,8 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
               </div>
             </div>
 
-            <div className="border border-white/10 rounded p-3">
-              <div className="text-xs font-semibold text-zinc-300 mb-2">Home NM roster</div>
+            <div className="border border-line rounded-sm p-3">
+              <div className="text-xs font-semibold text-ink mb-2">Home NM roster</div>
               <div className="grid grid-cols-2 gap-2">
                 <NumberField label="Num X" small={true} value={pdfLayout.homeNmRoster.cols.numX} onChange={(e) =>
                       setPdfLayout((p) => ({
@@ -1554,8 +1554,8 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
           </div>
 
           <div className="mt-4 grid grid-cols-1 min-[760px]:grid-cols-2 gap-4">
-            <div className="border border-white/10 rounded p-3">
-              <div className="text-xs font-semibold text-zinc-300 mb-2">Advanced</div>
+            <div className="border border-line rounded-sm p-3">
+              <div className="text-xs font-semibold text-ink mb-2">Advanced</div>
               <div className="grid grid-cols-2 gap-2">
                 <NumberField label="Right column X ratio" small={true} step="0.01" value={pdfLayout.rightColumnXRatio} onChange={(e) =>
                       setPdfLayout((p) => ({ ...p, rightColumnXRatio: Number(e.target.value) || p.rightColumnXRatio }))
@@ -1565,13 +1565,13 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
             </div>
           </div>
 
-          <div className="mt-3 text-xs text-zinc-500">
-            Tip: turn on <span className="font-mono">Debug grid</span> above, then adjust scale/offset until the grid matches
+          <div className="mt-3 text-xs text-muted">
+            Tip: turn on <span className="tabular-nums">Debug grid</span> above, then adjust scale/offset until the grid matches
             the template boxes. Settings persist in this browser.
           </div>
 
           </div>
           </details>
-    </GlassPanel>
+    </Panel>
   );
 }

@@ -56,15 +56,15 @@ export default function ShortcutEditor({ shortcut, onUpdate }: ShortcutEditorPro
   };
 
   return (
-    <div className="flex items-center justify-between bg-white/[0.03] p-3 rounded-lg border border-white/[0.07]">
-      <span className="text-zinc-300 flex-1">{shortcut.description}</span>
+    <div className="flex items-center justify-between py-2 border-b border-line">
+      <span className="text-ink flex-1">{shortcut.description}</span>
       <div className="flex items-center gap-2">
         <button
           onClick={() => setIsRecording(true)}
-          className={`px-4 py-2 rounded-lg text-sm font-mono transition-colors ${
+          className={`px-4 py-2 rounded-sm text-sm tabular-nums transition-colors ${
             isRecording
-              ? "bg-indigo-500/80 text-white animate-pulse"
-              : "bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] text-zinc-300"
+              ? "bg-ink text-canvas"
+              : "bg-canvas border border-line hover:bg-surface text-ink"
           }`}
         >
           {isRecording ? "Press any key..." : formatKey(shortcut)}
@@ -81,7 +81,7 @@ export default function ShortcutEditor({ shortcut, onUpdate }: ShortcutEditorPro
         {isRecording && (
           <button
             onClick={() => setIsRecording(false)}
-            className="p-2 text-zinc-400 hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
+            className="p-2 text-muted hover:text-danger hover:bg-surface rounded-sm transition-colors"
           >
             <X size={16} />
           </button>

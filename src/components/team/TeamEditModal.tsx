@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { X, Save as SaveIcon } from "lucide-react";
 import { SavedTeam, TeamPlayer, useStore } from "../../store";
-import { GlassButton } from "../control-panel/ui/glass";
+import { Button } from "../control-panel/ui/primitives";
 import TeamEditorFields, { TeamIdentityDraft } from "./TeamEditorFields";
 
 interface TeamEditModalProps {
@@ -45,13 +45,13 @@ export default function TeamEditModal({ entry, onClose }: TeamEditModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
-      <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-zinc-950/90 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl animate-in zoom-in-95 fade-in duration-200">
-        <div className="sticky top-0 z-10 flex items-center justify-between p-4 sm:p-6 border-b border-white/10 bg-zinc-950 backdrop-blur-2xl">
-          <h2 className="text-xl font-bold text-white">{entry ? "Edit team" : "Create new team"}</h2>
+      <div className="absolute inset-0 bg-ink/60" onClick={onClose} />
+      <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-canvas border border-line rounded-sm">
+        <div className="sticky top-0 z-10 flex items-center justify-between p-4 sm:p-6 border-b border-line bg-canvas">
+          <h2 className="text-xl font-semibold text-ink">{entry ? "Edit team" : "Create new team"}</h2>
           <button
             onClick={onClose}
-            className="p-2 text-zinc-400 hover:text-white hover:bg-white/[0.08] rounded-lg transition-colors"
+            className="p-2 text-muted hover:text-ink hover:bg-surface rounded-sm transition-colors"
             aria-label="Close"
           >
             <X size={20} />
@@ -69,15 +69,15 @@ export default function TeamEditModal({ entry, onClose }: TeamEditModalProps) {
             framed={false}
             logoInput="upload"
           />
-          {error && <p className="text-sm text-red-400">{error}</p>}
-          <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
-            <GlassButton onClick={onClose} variant="secondary" disabled={saving}>
+          {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+          <div className="flex justify-end gap-2 pt-2 border-t border-line">
+            <Button onClick={onClose} variant="secondary" disabled={saving}>
               Cancel
-            </GlassButton>
-            <GlassButton onClick={handleSave} disabled={saving || !identity.name.trim()} variant="primary">
+            </Button>
+            <Button onClick={handleSave} disabled={saving || !identity.name.trim()} variant="primary">
               <SaveIcon className="w-4 h-4" />
               {saving ? "Saving..." : "Save team"}
-            </GlassButton>
+            </Button>
           </div>
         </div>
       </div>

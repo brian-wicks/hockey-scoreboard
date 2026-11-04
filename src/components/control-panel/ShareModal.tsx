@@ -3,7 +3,7 @@ import { Share2, Copy, Check, ExternalLink, X, QrCode, AlertTriangle } from "luc
 import { QRCodeSVG } from "qrcode.react";
 import { useStore } from "../../store";
 import { getBaseUrl } from "../../lib/localMode";
-import { GlassButton } from "./ui/glass";
+import { Button } from "./ui/primitives";
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -77,20 +77,20 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+        className="absolute inset-0 bg-ink/60 duration-200"
         onClick={onClose}
       />
       
       {/* Modal Content */}
-      <div className="relative w-full max-w-2xl bg-zinc-950/90 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl animate-in zoom-in-95 fade-in duration-200 overflow-hidden">
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-white/10">
-          <h2 className="text-xl font-bold flex items-center gap-2 text-white">
-            <Share2 className="text-indigo-400" size={24} />
+      <div className="relative w-full max-w-2xl bg-canvas border border-line rounded-sm duration-200 overflow-hidden">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-line">
+          <h2 className="text-xl font-semibold flex items-center gap-2 text-ink">
+            <Share2 className="text-ink" size={24} />
             Share scoreboard
           </h2>
           <button
             onClick={onClose}
-            className="p-2 text-zinc-400 hover:text-white hover:bg-white/[0.08] rounded-lg transition-colors"
+            className="p-2 text-muted hover:text-ink hover:bg-surface rounded-sm transition-colors"
           >
             <X size={20} />
           </button>
@@ -99,14 +99,14 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
         <div className="p-4 sm:p-6">
           {!shareId ? (
             <div className="py-12 text-center space-y-4">
-              <div className="w-16 h-16 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto">
-                <Share2 size={32} className="text-indigo-400" />
+              <div className="w-16 h-16 bg-surface rounded-full flex items-center justify-center mx-auto">
+                <Share2 size={32} className="text-ink" />
               </div>
               <div className="max-w-xs mx-auto">
-                <p className="text-zinc-300 font-medium">No share links yet.</p>
-                <p className="text-sm text-zinc-500 mt-1">Create a link so other people can follow the game.</p>
+                <p className="text-ink font-semibold">No share links yet.</p>
+                <p className="text-sm text-muted mt-1">Create a link so other people can follow the game.</p>
               </div>
-              <GlassButton
+              <Button
                 onClick={handleGenerateShare}
                 disabled={isGeneratingShare}
                 variant="primary"
@@ -118,16 +118,16 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
                   <Share2 size={18} />
                 )}
                 Create share links
-              </GlassButton>
+              </Button>
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="bg-amber-900/20 border border-amber-900/30 rounded-xl p-4 flex gap-3">
-                <div className="text-amber-500 pt-0.5">
+              <div className="bg-surface border border-ink rounded-sm p-4 flex gap-3">
+                <div className="text-ink pt-0.5">
                   <AlertTriangle size={18} />
                 </div>
-                <p className="text-sm text-amber-200/80 leading-relaxed italic">
-                  Anyone with these links can see the scoreboard and jumbotron without signing in. They <span className="text-amber-400 font-semibold underline decoration-amber-400/30">can't</span> control the game or change settings.
+                <p className="text-sm text-ink/80 leading-relaxed">
+                  Anyone with these links can see the scoreboard and jumbotron without signing in. They <span className="text-ink font-semibold underline decoration-amber-400/30">can't</span> control the game or change settings.
                 </p>
               </div>
 
@@ -137,24 +137,24 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
                   { label: "Overlay", path: `/share/${shareId}/overlay`, desc: "Add as a browser source in OBS" },
                   { label: "Jumbotron", path: `/share/${shareId}/jumbotron`, desc: "Full-screen display for the rink" },
                 ].map((link) => (
-                  <div key={link.path} className="group bg-white/[0.04] border border-white/10 hover:border-white/20 rounded-xl p-4 flex flex-col gap-3 transition-all">
+                  <div key={link.path} className="group bg-canvas border border-line hover:border-ink rounded-sm p-4 flex flex-col gap-3 transition-colors">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-zinc-100">{link.label}</span>
+                      <span className="text-sm font-semibold text-ink">{link.label}</span>
                       <a
                         href={link.path}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-zinc-500 hover:text-indigo-400 transition-colors"
+                        className="text-muted hover:text-ink transition-colors"
                         title="Open in new tab"
                       >
                         <ExternalLink size={16} />
                       </a>
                     </div>
                     
-                    <p className="text-[11px] text-zinc-500 -mt-2">{link.desc}</p>
+                    <p className="text-xs text-muted -mt-2">{link.desc}</p>
 
                     <div className="flex justify-center py-2">
-                      <div className="bg-white p-2 rounded-xl shadow-lg shadow-white/5 transition-transform group-hover:scale-105">
+                      <div className="bg-white p-2 rounded-sm shadow-white/5 transition-transform group-hover:scale-105">
                         <QRCodeSVG 
                           value={`${window.location.origin}${link.path}`}
                           size={110}
@@ -164,28 +164,28 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
                       </div>
                     </div>
 
-                    <div className="flex items-start gap-2 bg-white/[0.05] border border-white/10 rounded-lg px-2.5 py-2">
-                      <code className="text-[10px] text-zinc-400 break-all flex-1 font-mono leading-relaxed">
+                    <div className="flex items-start gap-2 bg-canvas border border-line rounded-sm px-2.5 py-2">
+                      <code className="text-xs text-muted break-all flex-1 tabular-nums leading-relaxed">
                         {window.location.origin}{link.path}
                       </code>
                       <button
                         onClick={() => handleCopyLink(link.path)}
-                        className="text-zinc-400 hover:text-white transition-colors p-1 shrink-0"
+                        className="text-muted hover:text-ink transition-colors p-1 shrink-0"
                         title="Copy to clipboard"
                       >
-                        {copiedLink === link.path ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                        {copiedLink === link.path ? <Check size={14} className="text-ink" /> : <Copy size={14} />}
                       </button>
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div className="pt-4 flex items-center justify-between border-t border-white/10">
-                <p className="text-[11px] text-zinc-500">Share ID: <span className="font-mono text-zinc-400">{shareId}</span></p>
+              <div className="pt-4 flex items-center justify-between border-t border-line">
+                <p className="text-xs text-muted">Share ID: <span className="tabular-nums text-muted">{shareId}</span></p>
                 <button
                   onClick={handleGenerateShare}
                   disabled={isGeneratingShare}
-                  className="text-xs text-zinc-500 hover:text-zinc-300 underline transition-colors decoration-zinc-700 underline-offset-4"
+                  className="text-xs text-muted hover:text-ink underline transition-colors decoration-zinc-700 underline-offset-4"
                 >
                   Replace with new links
                 </button>

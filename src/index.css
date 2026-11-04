@@ -1,9 +1,24 @@
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700;800&display=swap');
+@import "@fontsource/outfit/400.css";
+@import "@fontsource/outfit/600.css";
 @import "tailwindcss";
 
+/* --font-sans and --font-mono are used by the overlay, so they have to stay as they
+ * are. Everything the redesign adds uses its own name; see design.md. */
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-ui: "Outfit", ui-sans-serif, system-ui, sans-serif;
+
+  --color-ink: #000000;
+  --color-canvas: #ffffff;
+  --color-muted: #757575;
+  --color-surface: #f5f5f5;
+  --color-line: #d0d0d0;
+  --color-danger: #d32f2f;
+  --color-danger-hover: #b71c1c;
+  --color-action: #595959;
+  --color-action-hover: #3d3d3d;
 }
 
 .jumbotron-period-label {
@@ -966,53 +981,60 @@
 }
 
 /* ---------------------------------------------------------------------------
- * Control Panel (operator UI) only — glassmorphism ambient background.
- * Namespaced under `control-panel-*` and never referenced by the Overlay,
- * Jumbotron, or Results broadcast-facing views (those use the classes above).
+ * Operator screens. Everything here is scoped under .ui, which only the redesigned
+ * screens set, so the Overlay, Jumbotron and Results views never pick it up.
  * ------------------------------------------------------------------------- */
 
-.control-panel-ambient-bg {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse 900px 600px at 8% -5%, rgba(99, 102, 241, 0.16), transparent 60%),
-    radial-gradient(ellipse 800px 600px at 100% 0%, rgba(168, 85, 247, 0.12), transparent 55%),
-    radial-gradient(ellipse 1000px 700px at 50% 110%, rgba(56, 189, 248, 0.08), transparent 60%),
-    #09090b;
+.ui {
+  font-family: var(--font-ui);
+  color: var(--color-ink);
+  color-scheme: light;
 }
 
-.control-panel-sidebar-active-indicator {
-  transition: transform 300ms cubic-bezier(0.2, 0.85, 0.2, 1);
+.ui ::selection {
+  background-color: var(--color-ink);
+  color: var(--color-canvas);
 }
 
-/* Native <select> dropdown popups otherwise render with the OS's light-mode
- * listbox (white background) while inheriting our light option text color,
- * making the open dropdown unreadable. color-scheme opts the native popup
- * into a dark UA theme; the option colors reinforce it where support is
- * partial. Giving every option the same colors erases the browser's default
- * "currently selected" highlight, so :checked gets its own accent to keep
- * the selected option distinguishable. Firefox largely ignores background-
- * color/color set on <option> and instead paints the popup using the
- * <select>'s own background, so the select needs a solid (non-transparent)
- * color here rather than the translucent glass fill used everywhere else. */
+.ui :focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+.ui .ui-dark :focus-visible {
+  outline-color: var(--color-canvas);
+}
+
+.ui code,
+.ui pre,
+.ui kbd {
+  font-family: inherit;
+}
+
+.ui a {
+  text-underline-offset: 2px;
+}
+
+.ui * {
+  scrollbar-color: var(--color-line) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui * {
+    transition-duration: 0s !important;
+  }
+}
+
 .control-panel-select {
-  color-scheme: dark;
-  background-color: #18181b;
-}
-
-.control-panel-select option {
-  background-color: #18181b;
-  color: #f4f4f5;
+  background-color: var(--color-canvas);
 }
 
 .control-panel-select option:checked {
-  background-color: #6366f1;
-  color: #ffffff;
+  background-color: var(--color-ink);
+  color: var(--color-canvas);
 }
 
-/* react-colorful theming — the library ships unstyled-but-functional layout via
+/* react-colorful theming: the library ships unstyled-but-functional layout via
  * inline styles and exposes these classnames as the theming hook. Scoped under
  * the popover wrapper so it only ever affects the Control Panel's color picker. */
 .control-panel-color-popover .react-colorful {
@@ -1021,19 +1043,19 @@
 }
 
 .control-panel-color-popover .react-colorful__saturation {
-  border-radius: 0.75rem;
+  border-radius: 0.25rem;
   border-bottom: none;
   margin-bottom: 0.5rem;
 }
 
 .control-panel-color-popover .react-colorful__hue {
   height: 16px;
-  border-radius: 999px;
+  border-radius: 0.25rem;
 }
 
 .control-panel-color-popover .react-colorful__pointer {
   width: 18px;
   height: 18px;
   border: 2px solid #ffffff;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 1px #000000;
 }

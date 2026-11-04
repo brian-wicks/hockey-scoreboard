@@ -14,10 +14,8 @@ export function useDropdownPlacement(open: boolean) {
   const [maxHeight, setMaxHeight] = useState(224);
   // Viewport-relative coordinates for the popover, which is portalled to <body> (see
   // the callers below) rather than positioned with CSS `absolute` against this
-  // container — a plain `absolute` popover only paints above elements within its own
-  // stacking context, and every GlassPanel forms its own via backdrop-filter, so a
-  // dropdown opened inside one panel would render *underneath* any GlassPanel that
-  // happens to come later in the DOM (e.g. the Overlay panel after the team panels).
+  // container — a plain `absolute` popover can be clipped by a scrolling ancestor or painted
+  // underneath whatever comes later in the DOM (e.g. the Overlay panel after the team panels).
   const [coords, setCoords] = useState<DropdownCoords | null>(null);
 
   useLayoutEffect(() => {
@@ -218,7 +216,7 @@ export function ComboboxDropdown<T>({
 
   return createPortal(
     <div
-      className={`fixed z-50 ${widthClassName} overflow-auto rounded-md border border-white/10 bg-zinc-950/95 backdrop-blur-sm shadow-lg`}
+      className={`ui fixed z-50 ${widthClassName} overflow-auto rounded-sm border border-line bg-canvas`}
       style={{
         left: coords.left,
         maxHeight: `${maxHeight}px`,
@@ -226,7 +224,7 @@ export function ComboboxDropdown<T>({
       }}
     >
       {options.length === 0 ? (
-        <div className="px-2 py-1 text-xs text-zinc-500">{emptyLabel}</div>
+        <div className="px-2 py-1 text-xs text-muted">{emptyLabel}</div>
       ) : (
         options.map((option, index) => (
           <button
@@ -237,8 +235,8 @@ export function ComboboxDropdown<T>({
             }}
             onMouseDown={onOptionMouseDown(option)}
             onMouseEnter={() => onOptionMouseEnter(index)}
-            className={`w-full text-left px-2 py-1 text-xs text-zinc-200 hover:bg-white/[0.08] ${
-              index === activeIndex ? "bg-white/[0.08]" : ""
+            className={`w-full text-left px-2 py-1 text-xs text-ink hover:bg-surface ${
+              index === activeIndex ? "bg-canvas" : ""
             }`}
           >
             {renderOption(option)}
@@ -301,8 +299,8 @@ export function PenaltyReasonInput({ value, onChange, inputClassName, containerC
         getOptionKey={(option) => option.code}
         renderOption={(option) => (
           <>
-            <span className="font-mono">{option.code}</span>
-            <span className="text-zinc-400"> - {option.label}</span>
+            <span className="tabular-nums">{option.code}</span>
+            <span className="text-muted"> - {option.label}</span>
           </>
         )}
       />
@@ -374,8 +372,8 @@ export function SearchDropdownInput({
         getOptionKey={(option, index) => `${option.value}-${index}`}
         renderOption={(option) => (
           <>
-            <span className="font-mono">{option.value}</span>
-            {option.label ? <span className="text-zinc-400"> - {option.label}</span> : null}
+            <span className="tabular-nums">{option.value}</span>
+            {option.label ? <span className="text-muted"> - {option.label}</span> : null}
           </>
         )}
       />

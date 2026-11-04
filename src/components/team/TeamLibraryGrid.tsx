@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { SavedTeam, useStore } from "../../store";
-import { glassInputClass } from "../control-panel/ui/glass";
+import { inputClass } from "../control-panel/ui/primitives";
 import { ConfirmDialog } from "../control-panel/ui/ConfirmDialog";
 import TeamLibraryCard from "./TeamLibraryCard";
 
@@ -48,9 +48,9 @@ export default function TeamLibraryGrid({ renderActions, emptyMessage = "No save
   return (
     <div>
       {loading ? (
-        <div className="p-4 text-sm text-zinc-400">Loading teams...</div>
+        <div className="p-4 text-sm text-muted">Loading teams...</div>
       ) : teamLibrary.length === 0 ? (
-        <div className="p-4 text-sm text-zinc-500 italic">{emptyMessage}</div>
+        <div className="p-4 text-sm text-muted">{emptyMessage}</div>
       ) : (
         <>
           <div className="mb-4 flex items-center">
@@ -59,14 +59,14 @@ export default function TeamLibraryGrid({ renderActions, emptyMessage = "No save
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search teams..."
-              className={`w-full ${glassInputClass}`}
+              className={`w-full ${inputClass}`}
             />
           </div>
 
           {filteredTeams.length === 0 ? (
-            <div className="p-4 text-sm text-zinc-500 italic">No teams match your search.</div>
+            <div className="p-4 text-sm text-muted">No teams match your search.</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,18rem),1fr))] gap-3">
               {filteredTeams.map((entry) => (
                 <TeamLibraryCard
                   key={entry.name}

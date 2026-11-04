@@ -47,8 +47,7 @@ describe("PenaltyItem", () => {
     const onRemove = vi.fn();
     render(<PenaltyItem penalty={mockPenalty} onChange={() => {}} onRemove={onRemove} rosterPlayers={mockRoster} />);
     
-    const removeBtn = screen.getByRole("button", { name: "" }); // lucide-react icons don't always have names, but I'll find it by class or role
-    fireEvent.click(screen.getAllByRole("button").pop()!); // It's the last button
+    fireEvent.click(screen.getByRole("button", { name: "Remove penalty" }));
     
     expect(onRemove).toHaveBeenCalled();
   });

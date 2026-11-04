@@ -26,7 +26,7 @@ import Overlay from "./Overlay";
 import GoalReviewPanel from "./control-panel/GoalReviewPanel";
 import PenaltyItem from "./control-panel/PenaltyItem";
 import { ColorPicker } from "./control-panel/ui/ColorPicker";
-import { GlassButton, glassInputClass } from "./control-panel/ui/glass";
+import { Button, inputClass } from "./control-panel/ui/primitives";
 import { getReadableTextColor } from "../utils/color";
 
 // Custom Ice Hockey Icons
@@ -169,32 +169,32 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-md animate-in fade-in duration-200" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-zinc-950/90 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-        <div className="flex items-center justify-between p-4 border-b border-white/10">
-          <h3 className="text-lg font-bold">Edit button {index + 1}</h3>
-          <button onClick={onClose} className="p-1 hover:bg-white/[0.08] rounded-lg transition-colors">
+      <div className="absolute inset-0 bg-canvas duration-200" onClick={onClose} />
+      <div className="relative w-full max-w-md bg-canvas border border-line rounded-sm overflow-hidden zoom-in duration-200">
+        <div className="flex items-center justify-between p-4 border-b border-line">
+          <h3 className="text-lg font-semibold">Edit button {index + 1}</h3>
+          <button onClick={onClose} className="p-1 hover:bg-surface rounded-sm transition-colors">
             <X size={20} />
           </button>
         </div>
 
         <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
           <div>
-            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Label</label>
+            <label className="block text-xs font-semibold text-muted uppercase mb-1.5">Label</label>
             <input
               type="text"
               value={edited.label}
               onChange={(e) => setEdited({ ...edited, label: e.target.value })}
-              className={`w-full ${glassInputClass}`}
+              className={`w-full ${inputClass}`}
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Action</label>
+            <label className="block text-xs font-semibold text-muted uppercase mb-1.5">Action</label>
             <select
               value={edited.action}
               onChange={(e) => setEdited({ ...edited, action: e.target.value as ShortcutAction | "none" })}
-              className={`control-panel-select w-full ${glassInputClass}`}
+              className={`control-panel-select w-full ${inputClass}`}
             >
               {ACTION_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -205,16 +205,16 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Color source</label>
+            <label className="block text-xs font-semibold text-muted uppercase mb-1.5">Color source</label>
             <div className="grid grid-cols-3 gap-2">
               {(["custom", "home", "away"] as const).map((source) => (
                 <button
                   key={source}
                   onClick={() => setEdited({ ...edited, colorSource: source })}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all uppercase ${
+                  className={`px-3 py-2 rounded-sm text-xs font-semibold border transition-colors uppercase ${
                     (edited.colorSource || "custom") === source
-                      ? "bg-indigo-500/80 border-indigo-400/40 text-white shadow-[0_0_16px_rgba(99,102,241,0.3)]"
-                      : "bg-white/[0.05] border-white/10 text-zinc-500 hover:border-white/20"
+                      ? "bg-ink border-ink text-canvas"
+                      : "bg-canvas border-line text-muted hover:border-ink"
                   }`}
                 >
                   {source}
@@ -226,7 +226,7 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
           {(edited.colorSource === "custom" || !edited.colorSource) && (
             <div className="grid grid-cols-1 gap-4">
               <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Background</label>
+                <label className="block text-xs font-semibold text-muted uppercase mb-1.5">Background</label>
                 <ColorPicker
                   value={edited.backgroundColor}
                   onChange={(hex) => setEdited({ ...edited, backgroundColor: hex })}
@@ -234,7 +234,7 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Text color</label>
+                <label className="block text-xs font-semibold text-muted uppercase mb-1.5">Text color</label>
                 <ColorPicker
                   value={edited.textColor}
                   onChange={(hex) => setEdited({ ...edited, textColor: hex })}
@@ -245,7 +245,7 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
           )}
 
           <div>
-            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Icon</label>
+            <label className="block text-xs font-semibold text-muted uppercase mb-1.5">Icon</label>
             <div className="grid grid-cols-4 gap-2">
               {AVAILABLE_ICONS.map((item) => {
                 const Icon = item.icon;
@@ -254,14 +254,14 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
                   <button
                     key={item.name}
                     onClick={() => setEdited({ ...edited, icon: item.name === "None" ? undefined : item.name })}
-                    className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${
+                    className={`flex flex-col items-center justify-center p-2 rounded-sm border transition-colors ${
                       isSelected
-                        ? "bg-indigo-500/20 border-indigo-400/40 text-indigo-300"
-                        : "bg-white/[0.05] border-white/10 text-zinc-500 hover:border-white/20 hover:text-zinc-300"
+                        ? "bg-surface border-ink text-ink"
+                        : "bg-canvas border-line text-muted hover:border-ink hover:text-ink"
                     }`}
                   >
                     {Icon ? <Icon size={20} /> : <X size={20} />}
-                    <span className="text-[10px] mt-1 truncate w-full text-center">{item.name}</span>
+                    <span className="text-xs mt-1 truncate w-full text-center">{item.name}</span>
                   </button>
                 );
               })}
@@ -269,24 +269,24 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Image URL (Optional)</label>
+            <label className="block text-xs font-semibold text-muted uppercase mb-1.5">Image URL (Optional)</label>
             <input
               type="text"
               placeholder="https://example.com/icon.png"
               value={edited.image || ""}
               onChange={(e) => setEdited({ ...edited, image: e.target.value })}
-              className={`w-full ${glassInputClass}`}
+              className={`w-full ${inputClass}`}
             />
           </div>
         </div>
 
-        <div className="p-4 bg-white/[0.03] border-t border-white/10 flex gap-3">
-          <GlassButton onClick={onClose} variant="secondary" className="flex-1">
+        <div className="p-4 bg-canvas border-t border-line flex gap-3">
+          <Button onClick={onClose} variant="secondary" className="flex-1">
             Cancel
-          </GlassButton>
-          <GlassButton onClick={() => onSave(edited)} variant="primary" className="flex-1">
+          </Button>
+          <Button onClick={() => onSave(edited)} variant="primary" className="flex-1">
             Save changes
-          </GlassButton>
+          </Button>
         </div>
       </div>
     </div>
@@ -373,13 +373,17 @@ export default function StreamDeckPanel() {
   if (!gameState) return null;
 
   return (
-    <div className="flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto">
+    <>
+    {/* Goal reviews sit either side of the preview and deck from xl up. The side columns are
+     * always reserved there, so a goal arriving doesn't resize the buttons mid-game. */}
+    <div className="grid grid-cols-1 gap-y-6 md:grid-cols-2 md:gap-x-6 max-w-4xl mx-auto xl:max-w-none xl:justify-center xl:grid-cols-[220px_minmax(0,27.25rem)_minmax(0,27.25rem)_220px] xl:grid-rows-[auto_1fr]">
+      <div className="flex flex-col min-w-0 md:col-span-2 xl:col-start-2 xl:row-start-1">
       <div className="flex items-center justify-between mb-2 px-1">
-        <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Live preview</span>
+        <span className="text-xs font-semibold text-muted ">Live preview</span>
         <button
           type="button"
           onClick={() => updateState({ overlayVisible: !gameState.overlayVisible })}
-          className="p-2 rounded-lg bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] text-zinc-300 hover:text-white transition-colors"
+          className="p-2 rounded-sm bg-canvas border border-line hover:bg-surface text-ink hover:text-ink transition-colors"
           title={gameState.overlayVisible ? "Hide overlay" : "Show overlay"}
           aria-label={gameState.overlayVisible ? "Hide overlay" : "Show overlay"}
         >
@@ -388,7 +392,7 @@ export default function StreamDeckPanel() {
       </div>
       <ScoreboardPreview />
 
-      <div className="grid grid-cols-5 gap-2 sm:gap-4 p-2 sm:p-6 bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-3xl shadow-inner mb-8 mx-auto w-full max-w-2xl lg:max-w-3xl">
+      <div className="grid grid-cols-5 gap-2 sm:gap-4 p-2 sm:p-6 bg-canvas border border-line rounded-sm mx-auto w-full max-w-2xl lg:max-w-3xl">
         {streamDeckConfig.buttons.map((button, index) => {
           // Resolve icon component from AVAILABLE_ICONS first, then fallback to LucideIcons
           const iconItem = AVAILABLE_ICONS.find(i => i.name === button.icon);
@@ -404,25 +408,23 @@ export default function StreamDeckPanel() {
                   backgroundColor: bg,
                   color: text,
                 }}
-                className="w-full h-full rounded-lg sm:rounded-2xl flex flex-col items-center justify-center p-1 sm:p-2 shadow-lg transition-all active:scale-95 hover:brightness-110 group-hover:shadow-indigo-500/10 overflow-hidden relative border border-white/5"
+                className="w-full h-full rounded-sm sm:rounded-sm flex flex-col items-center justify-center p-1 sm:p-2 transition-colors active:scale-95 hover:brightness-110 group-hover: overflow-hidden relative border border-line"
               >
                 {button.image ? (
                   <img src={button.image} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
                 ) : null}
 
                 <div className="relative z-10 flex flex-col items-center gap-1 sm:gap-2">
-                  {IconComponent && <IconComponent size={20} className="sm:w-7 sm:h-7 drop-shadow-md" />}
-                  <span className="text-[8px] sm:text-xs font-bold text-center leading-tight drop-shadow-sm px-0.5">
+                  {IconComponent && <IconComponent size={20} className="sm:w-7 sm:h-7" />}
+                  <span className="text-[8px] sm:text-xs font-semibold text-center leading-tight px-0.5">
                     {button.label}
                   </span>
                 </div>
-
-                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
               </button>
 
               <button
                 onClick={() => setEditingIndex(index)}
-                className="absolute -top-1.5 -right-1.5 p-1.5 bg-white/[0.06] border border-white/10 text-zinc-400 rounded-full border border-white/15 opacity-0 group-hover:opacity-100 transition-opacity hover:text-white hover:bg-white/[0.1] z-20 shadow-xl"
+                className="absolute -top-1.5 -right-1.5 p-1.5 bg-canvas border border-line text-muted rounded-full border border-line opacity-0 group-hover:opacity-100 transition-opacity hover:text-ink hover:bg-surface z-20"
                 title={`Edit "${button.label}"`}
                 aria-label={`Edit "${button.label}"`}
               >
@@ -433,55 +435,56 @@ export default function StreamDeckPanel() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-         {/* Home Active Reviews */}
-         <div className="space-y-4">
-            <GoalReviewPanel 
-                team="home" 
-                gameState={gameState} 
-                eventLog={eventLog} 
-                rosterPlayers={homePlayers} 
-                updateState={updateState} 
-            />
-            <div className="space-y-2">
-                {gameState.homeTeam.penalties.map((p, i) => (
-                    <PenaltyItem
-                        key={p.id}
-                        penalty={p}
-                        onChange={(u) => handlePenaltyChange("home", i, u)}
-                        onRemove={() => handlePenaltyRemove("home", i)}
-                        rosterPlayers={homePlayers}
-                        autoFocusPlayer={p.id === focusPenaltyId}
-                        onAutoFocusHandled={() => setFocusPenaltyId(null)}
-                    />
-                ))}
-            </div>
-         </div>
-
-         {/* Away Active Reviews */}
-         <div className="space-y-4">
-            <GoalReviewPanel 
-                team="away" 
-                gameState={gameState} 
-                eventLog={eventLog} 
-                rosterPlayers={awayPlayers} 
-                updateState={updateState} 
-            />
-            <div className="space-y-2">
-                {gameState.awayTeam.penalties.map((p, i) => (
-                    <PenaltyItem
-                        key={p.id}
-                        penalty={p}
-                        onChange={(u) => handlePenaltyChange("away", i, u)}
-                        onRemove={() => handlePenaltyRemove("away", i)}
-                        rosterPlayers={awayPlayers}
-                        autoFocusPlayer={p.id === focusPenaltyId}
-                        onAutoFocusHandled={() => setFocusPenaltyId(null)}
-                    />
-                ))}
-            </div>
-         </div>
       </div>
+
+      <GoalReviewPanel
+        team="home"
+        gameState={gameState}
+        eventLog={eventLog}
+        rosterPlayers={homePlayers}
+        updateState={updateState}
+        className="self-start md:col-start-1 md:row-start-2 xl:col-start-1 xl:row-start-1 xl:row-span-2"
+      />
+      {gameState.homeTeam.penalties.length > 0 && (
+        <div className="space-y-2 md:col-start-1 md:row-start-3 xl:col-start-2 xl:row-start-2">
+          {gameState.homeTeam.penalties.map((p, i) => (
+            <PenaltyItem
+              key={p.id}
+              penalty={p}
+              onChange={(u) => handlePenaltyChange("home", i, u)}
+              onRemove={() => handlePenaltyRemove("home", i)}
+              rosterPlayers={homePlayers}
+              autoFocusPlayer={p.id === focusPenaltyId}
+              onAutoFocusHandled={() => setFocusPenaltyId(null)}
+            />
+          ))}
+        </div>
+      )}
+
+      <GoalReviewPanel
+        team="away"
+        gameState={gameState}
+        eventLog={eventLog}
+        rosterPlayers={awayPlayers}
+        updateState={updateState}
+        className="self-start md:col-start-2 md:row-start-2 xl:col-start-4 xl:row-start-1 xl:row-span-2"
+      />
+      {gameState.awayTeam.penalties.length > 0 && (
+        <div className="space-y-2 md:col-start-2 md:row-start-3 xl:col-start-3 xl:row-start-2">
+          {gameState.awayTeam.penalties.map((p, i) => (
+            <PenaltyItem
+              key={p.id}
+              penalty={p}
+              onChange={(u) => handlePenaltyChange("away", i, u)}
+              onRemove={() => handlePenaltyRemove("away", i)}
+              rosterPlayers={awayPlayers}
+              autoFocusPlayer={p.id === focusPenaltyId}
+              onAutoFocusHandled={() => setFocusPenaltyId(null)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
 
       {editingIndex !== null && (
         <EditModal
@@ -494,6 +497,6 @@ export default function StreamDeckPanel() {
           }}
         />
       )}
-    </div>
+    </>
   );
 }

@@ -3,7 +3,6 @@ import { Minus } from "lucide-react";
 import { Penalty, TeamPlayer } from "../../store";
 import { parseTimeInputMs } from "../../utils/clock";
 import { ComboboxDropdown, PenaltyReasonInput, useComboboxField } from "./DropdownInputs";
-import { glassInsetClass } from "./ui/glass";
 
 interface PenaltyItemProps {
   penalty: Penalty;
@@ -85,7 +84,7 @@ export default function PenaltyItem({
   };
 
   return (
-    <div className={`flex items-center gap-2 p-2 ${glassInsetClass}`}>
+    <div className="flex items-center gap-2 py-2 border-b border-line">
       <div ref={playerCombobox.containerRef} className="relative">
         <input
           ref={(el) => {
@@ -103,7 +102,7 @@ export default function PenaltyItem({
             playerCombobox.handleFocus();
           }}
           onBlur={playerCombobox.handleBlur}
-          className="w-16 bg-white/[0.05] border border-white/10 text-center rounded-md p-1 text-sm font-mono focus:border-indigo-400/60 focus:outline-none"
+          className="w-14 bg-canvas border border-line text-center rounded-sm p-1 text-sm tabular-nums focus:border-ink placeholder:text-muted"
           placeholder="#"
         />
         <ComboboxDropdown
@@ -122,8 +121,8 @@ export default function PenaltyItem({
             const labelParts = [player.name.trim(), player.position ? `(${player.position})` : ""].filter(Boolean);
             return (
               <>
-                <span className="font-mono">{player.jerseyNumber || "--"}</span>
-                {labelParts.length > 0 && <span className="text-zinc-400"> - {labelParts.join(" ")}</span>}
+                <span className="tabular-nums">{player.jerseyNumber || "--"}</span>
+                {labelParts.length > 0 && <span className="text-muted"> - {labelParts.join(" ")}</span>}
               </>
             );
           }}
@@ -132,7 +131,7 @@ export default function PenaltyItem({
       <PenaltyReasonInput
           value={penalty.infraction}
           onChange={(nextValue) => onChange({ ...penalty, infraction: nextValue })}
-          inputClassName="bg-white/[0.05] border border-white/10 text-zinc-200 rounded-md p-1 text-sm font-mono w-16 focus:border-indigo-400/60 focus:outline-none"
+          inputClassName="bg-canvas border border-line text-ink rounded-sm p-1 text-sm w-24 focus:border-ink"
       />
       {editMode ? (
         <input
@@ -141,23 +140,24 @@ export default function PenaltyItem({
           onChange={(e) => setEditValue(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleTimeChange((e.target as HTMLInputElement).value)}
           onBlur={(e) => handleTimeChange(e.target.value)}
-          className="bg-white/[0.05] border border-white/10 rounded-md p-1 text-sm font-mono flex-1 min-w-0 text-center focus:border-indigo-400/60 focus:outline-none"
+          className="bg-canvas border border-ink rounded-sm p-1 text-sm font-mono text-danger flex-1 min-w-0 text-center"
           autoFocus
           onFocus={(e) => e.currentTarget.select()}
           placeholder="M:SS"
         />
       ) : (
-        <div
-          className="bg-white/[0.05] border border-white/10 rounded-md p-1 text-sm flex-1 text-center font-mono cursor-pointer hover:bg-white/[0.09] transition-colors"
+        <button
+          type="button"
+          className="bg-canvas border border-line rounded-sm p-1 text-sm flex-1 min-w-0 text-center font-mono text-danger hover:bg-surface transition-colors"
           onClick={() => {
             setEditValue(formatPenaltyTime(penalty.timeRemaining));
             setEditMode(true);
           }}
         >
           {formatPenaltyTime(penalty.timeRemaining)}
-        </div>
+        </button>
       )}
-      <button onClick={onRemove} className="p-1.5 text-red-400 hover:bg-red-400/10 rounded-md shrink-0">
+      <button type="button" onClick={onRemove} aria-label="Remove penalty" className="p-1.5 text-danger hover:bg-surface rounded-sm shrink-0">
         <Minus size={16} />
       </button>
     </div>

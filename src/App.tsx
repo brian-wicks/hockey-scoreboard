@@ -51,6 +51,13 @@ function AppRoutes() {
     return () => unsubscribe();
   }, [setUser, setAuthLoading]);
 
+  // Overlay, Jumbotron and Results stay exactly as they were (see design.md), and that
+  // includes what they show while loading or failing to connect.
+  const isBroadcastRoute = /\/(overlay|jumbotron|results)$/.test(location.pathname);
+  const screenClass = isBroadcastRoute
+    ? 'min-h-screen bg-slate-900 flex items-center justify-center text-white'
+    : 'ui min-h-screen bg-canvas flex items-center justify-center';
+
   const isShareRoute = location.pathname.startsWith('/share/');
   const showFooter =
     !isShareRoute &&
@@ -63,15 +70,18 @@ function AppRoutes() {
     const isNotFound = err.includes("not found") || err.includes("invalid") || err.includes("expired") || err.includes("no shareid");
     
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white p-4">
-        <div className="max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-8 text-center shadow-2xl">
-          <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-            <AlertCircle size={32} className="text-red-500" />
+      <div className={`${screenClass} p-4`}>
+        <div className={isBroadcastRoute
+          ? "max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-8 text-center shadow-2xl"
+          : "max-w-md w-full bg-canvas border border-line rounded-sm p-8"}
+        >
+          <div className={isBroadcastRoute ? "w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4" : "mb-4"}>
+            <AlertCircle size={32} className={isBroadcastRoute ? "text-red-500" : "text-danger"} />
           </div>
-          <h2 className="text-xl font-bold text-white mb-2">
+          <h2 className={isBroadcastRoute ? "text-xl font-bold text-white mb-2" : "text-xl font-semibold mb-2"}>
             {isNotFound ? "Share link not found" : "Connection failed"}
           </h2>
-          <p className="text-zinc-400 mb-6">
+          <p className={isBroadcastRoute ? "text-zinc-400 mb-6" : "text-muted mb-6"}>
             {isNotFound 
               ? "This scoreboard doesn't exist, or the link has been replaced." 
               : authError}
@@ -80,11 +90,13 @@ function AppRoutes() {
             onClick={() => {
               window.location.href = '/';
             }}
-            className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold transition-all mb-3 shadow-lg shadow-indigo-500/20"
+            className={isBroadcastRoute
+              ? "w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold transition-all mb-3 shadow-lg shadow-indigo-500/20"
+              : "w-full py-3 bg-action hover:bg-action-hover text-canvas rounded-sm text-sm font-semibold transition-colors mb-3"}
           >
             Go to the home page
           </button>
-          <p className="text-xs text-zinc-500">
+          <p className={isBroadcastRoute ? "text-xs text-zinc-500" : "text-xs text-muted"}>
             If this is your game, open Share in the control panel to get the current links.
           </p>
         </div>
@@ -94,10 +106,10 @@ function AppRoutes() {
 
   if (authLoading && !gameState) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">
+      <div className={screenClass}>
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-zinc-400 font-medium tracking-wide">Connecting...</p>
+          {isBroadcastRoute && <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>}
+          <p className={isBroadcastRoute ? 'text-zinc-400 font-medium tracking-wide' : 'text-muted'}>Connecting...</p>
         </div>
       </div>
     );
@@ -109,7 +121,7 @@ function AppRoutes() {
     if (location.pathname === '/changelog') {
       return (
         <>
-          <Suspense fallback={<div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">Loading...</div>}>
+          <Suspense fallback={<div className={screenClass}>Loading...</div>}>
             <ChangelogPage />
           </Suspense>
           <AppFooter />
@@ -127,7 +139,7 @@ function AppRoutes() {
 
   return (
     <>
-      <Suspense fallback={<div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">Loading...</div>}>
+      <Suspense fallback={<div className={screenClass}>Loading...</div>}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/game" element={<ControlPanel />} />

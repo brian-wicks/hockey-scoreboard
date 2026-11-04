@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { HexColorInput, HexColorPicker } from "react-colorful";
 import { cn } from "../../../utils/cn";
 import { useDropdownPlacement } from "../DropdownInputs";
-import { glassInputClass } from "./glass";
+import { inputClass } from "./primitives";
 
 interface ColorPickerProps {
   value: string;
@@ -46,7 +46,7 @@ export function ColorPicker({ value, onChange, className, label = "Color" }: Col
         onClick={() => setOpen((o) => !o)}
         aria-label={`${label} swatch`}
         aria-expanded={open}
-        className="w-12 h-12 shrink-0 rounded-lg border border-white/10 cursor-pointer transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+        className="w-12 h-12 shrink-0 rounded-sm border border-line cursor-pointer  focus:outline-none"
         style={{ backgroundColor: value }}
       />
       <HexColorInput
@@ -54,14 +54,14 @@ export function ColorPicker({ value, onChange, className, label = "Color" }: Col
         onChange={onChange}
         prefixed
         aria-label={label}
-        className={`flex-1 ${glassInputClass} font-mono uppercase`}
+        className={`flex-1 ${inputClass} tabular-nums uppercase`}
       />
       {open &&
         coords &&
         createPortal(
           <div
             ref={popoverRef}
-            className="control-panel-color-popover fixed z-50 p-3 rounded-2xl border border-white/10 bg-zinc-950/95 backdrop-blur-xl shadow-2xl"
+            className="ui control-panel-color-popover fixed z-50 p-3 rounded-sm border border-line bg-canvas"
             style={{
               left: coords.left,
               ...(dropUp ? { bottom: coords.bottom } : { top: coords.top }),

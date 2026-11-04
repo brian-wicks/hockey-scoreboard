@@ -17,10 +17,7 @@ describe("Login Component", () => {
     expect(screen.getByText("Hockey Scoreboard")).toBeInTheDocument();
     expect(screen.getByText(/Sign in with your Google account/i)).toBeInTheDocument();
 
-    // The header and the closer both offer a sign-in button.
-    const buttons = screen.getAllByRole("button", { name: /Sign in with Google/i });
-    expect(buttons.length).toBeGreaterThan(1);
-    fireEvent.click(buttons[0]);
+    fireEvent.click(screen.getByRole("button", { name: /Sign in with Google/i }));
 
     expect(mockLogin).toHaveBeenCalled();
   });

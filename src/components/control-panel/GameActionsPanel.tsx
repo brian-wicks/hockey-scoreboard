@@ -2,7 +2,7 @@ import { memo } from "react";
 import { useStore } from "../../store";
 import { transitionToPeriod } from "../../utils/period";
 import { UpdateGameState } from "./types";
-import { GlassPanel, SectionLabel } from "./ui/glass";
+import { Button, Panel, SectionLabel } from "./ui/primitives";
 
 interface GameActionsPanelProps {
   period: string;
@@ -22,33 +22,26 @@ function GameActionsPanel({ period, updateState, setClock }: GameActionsPanelPro
     transitionToPeriod(gameState, period, nextPeriod, updateState, setClock);
   };
 
-  const periodButtonClass = (isActive: boolean) =>
-    `p-3 rounded-xl font-medium border transition-colors ${
-      isActive
-        ? "bg-indigo-500/80 border-indigo-400/40 text-white shadow-[0_0_20px_rgba(99,102,241,0.35)]"
-        : "bg-white/[0.06] hover:bg-white/[0.1] border-white/10 text-zinc-100"
-    }`;
+  const periodButton = (id: string, label: string) => (
+    <Button
+      onClick={() => updatePeriod(id)}
+      aria-pressed={period === id}
+      className={`p-3 ${period === id ? "bg-ink hover:bg-ink text-canvas border-ink" : ""}`}
+    >
+      {label}
+    </Button>
+  );
 
   return (
-    <GlassPanel>
-      <SectionLabel className="mb-4 text-base text-zinc-300">
-        Game actions
-      </SectionLabel>
-      <div className="grid grid-cols-2 gap-4">
-        <button onClick={() => updatePeriod("1st")} className={periodButtonClass(period === "1st")}>
-          1st Period
-        </button>
-        <button onClick={() => updatePeriod("2nd")} className={periodButtonClass(period === "2nd")}>
-          2nd Period
-        </button>
-        <button onClick={() => updatePeriod("3rd")} className={periodButtonClass(period === "3rd")}>
-          3rd Period
-        </button>
-        <button onClick={() => updatePeriod("OT")} className={periodButtonClass(period === "OT")}>
-          Overtime
-        </button>
+    <Panel>
+      <SectionLabel className="mb-3">Period</SectionLabel>
+      <div className="grid grid-cols-2 gap-2">
+        {periodButton("1st", "1st Period")}
+        {periodButton("2nd", "2nd Period")}
+        {periodButton("3rd", "3rd Period")}
+        {periodButton("OT", "Overtime")}
       </div>
-    </GlassPanel>
+    </Panel>
   );
 }
 

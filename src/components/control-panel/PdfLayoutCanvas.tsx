@@ -185,16 +185,16 @@ export default function PdfLayoutCanvas({ pdfBytes, layout, onChange, visibleGro
 
   return (
     <div ref={containerRef} className="relative w-full">
-      <canvas ref={canvasRef} className="w-full rounded-lg bg-white shadow-lg" />
+      <canvas ref={canvasRef} className="w-full rounded-sm bg-white" />
 
       {!pdfBytes && (
-        <div className="absolute inset-0 flex items-center justify-center text-sm text-zinc-400">
+        <div className="absolute inset-0 flex items-center justify-center text-sm text-muted">
           Generating preview...
         </div>
       )}
 
       {error && (
-        <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-red-950/60 text-sm text-red-200">
+        <div className="absolute inset-0 flex items-center justify-center rounded-sm bg-canvas text-sm text-danger">
           {error}
         </div>
       )}
@@ -219,13 +219,13 @@ export default function PdfLayoutCanvas({ pdfBytes, layout, onChange, visibleGro
               style={{ left: `${screen.left}px`, top: `${screen.top}px` }}
               title={`${anchor.group} · ${anchor.label} (drag to move, arrow keys to nudge)`}
               aria-label={`${anchor.group} ${anchor.label} position`}
-              className={`group absolute -translate-x-1/2 -translate-y-1/2 h-3 w-3 rounded-full border touch-none cursor-grab focus:outline-none focus:ring-2 focus:ring-indigo-300 ${
+              className={`group absolute -translate-x-1/2 -translate-y-1/2 h-3 w-3 rounded-full border touch-none cursor-grab focus:outline-none ${
                 isDragging
-                  ? "cursor-grabbing border-white bg-indigo-400 scale-125"
-                  : "border-white/80 bg-indigo-500/80 hover:bg-indigo-400"
+                  ? "cursor-grabbing border-white bg-ink scale-125"
+                  : "border-line bg-action hover:bg-action-hover"
               }`}
             >
-              <span className="pointer-events-none absolute left-1/2 top-full z-10 hidden -translate-x-1/2 translate-y-1 whitespace-nowrap rounded bg-zinc-900/95 px-1.5 py-0.5 text-[10px] text-zinc-100 group-hover:block group-focus:block">
+              <span className="pointer-events-none absolute left-1/2 top-full z-10 hidden -translate-x-1/2 translate-y-1 whitespace-nowrap rounded-sm bg-canvas px-1.5 py-0.5 text-xs text-ink group-hover:block group-focus:block">
                 {anchor.group} · {anchor.label}
               </span>
             </button>

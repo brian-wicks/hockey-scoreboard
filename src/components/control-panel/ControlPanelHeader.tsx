@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Share2, AlertCircle, LayoutPanelTop, LogOut, PresentationIcon, RotateCcw, Trophy, User as UserIcon, Menu, X, DoorOpen } from "lucide-react";
 import { MAX_UNDO_STEPS, useStore } from "../../store";
-import { GlassButton } from "./ui/glass";
+import { Button, Wordmark } from "./ui/primitives";
 
 interface ControlPanelHeaderProps {
   isConnected: boolean;
@@ -30,29 +30,27 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
   return (
-    <header className="bg-white/[0.03] backdrop-blur-xl border-b border-white/10 relative z-50">
+    <header className="bg-canvas border-b border-line relative z-50">
       <div className="px-3 py-2 sm:px-6 sm:py-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 sm:gap-3">
-          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white flex items-center gap-2">
-            {isConnected ? (
-              <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.6)] animate-pulse" title="Connected to server" />
-            ) : (
-              <span
-                className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-red-500/60 bg-red-500/15 text-red-400"
-                title="Server connection lost"
-              >
-                <AlertCircle size={14} />
-              </span>
-            )}
+          <h1 className="text-lg flex items-center gap-2 min-w-0">
             {isViewer ? (
-              <span className="truncate max-w-[120px] sm:max-w-none">Hockey Scoreboard</span>
+              <Wordmark className="truncate" />
             ) : (
-              <Link to="/" className="truncate max-w-[120px] sm:max-w-none hover:text-zinc-300 transition-colors" title="Back to Dashboard">
-                Hockey Scoreboard
+              <Link to="/" className="truncate rounded-sm hover:underline" title="Back to Dashboard">
+                <Wordmark />
               </Link>
             )}
+            {isConnected ? (
+              <span className="w-2 h-2 shrink-0 rounded-full bg-ink" title="Connected to server" />
+            ) : (
+              <span className="inline-flex items-center gap-1 shrink-0 text-xs font-normal text-danger" title="Server connection lost">
+                <AlertCircle size={14} />
+                <span className="hidden sm:inline">Connection lost</span>
+              </span>
+            )}
           </h1>
-          <GlassButton
+          <Button
             onClick={onUndo}
             disabled={!canUndo}
             variant="secondary"
@@ -65,7 +63,7 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
           >
             <RotateCcw size={16} />
             <span className="hidden sm:inline">Undo</span>
-          </GlassButton>
+          </Button>
         </div>
 
         {/* Desktop Navigation */}
@@ -74,7 +72,7 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
             {!isViewer && (
               <Link
                 to="/"
-                className="flex items-center gap-2 px-3 py-2 bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 rounded-xl text-sm font-medium text-red-300 hover:text-red-200 transition-colors"
+                className="flex items-center gap-2 px-3 py-2 bg-canvas hover:bg-surface border border-line rounded-sm text-sm font-semibold text-ink transition-colors"
                 title="Close this game and return to the Dashboard"
               >
                 <DoorOpen size={16} />
@@ -85,7 +83,7 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
               href={overlayPath}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-2 px-3 py-2 bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 rounded-xl text-sm font-medium text-zinc-100 transition-colors"
+              className="flex items-center gap-2 px-3 py-2 bg-canvas hover:bg-surface border border-line rounded-sm text-sm font-semibold text-ink transition-colors"
             >
               <LayoutPanelTop size={16} />
               <span>Overlay</span>
@@ -94,7 +92,7 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
               href={jumbotronPath}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-2 px-3 py-2 bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 rounded-xl text-sm font-medium text-zinc-100 transition-colors"
+              className="flex items-center gap-2 px-3 py-2 bg-canvas hover:bg-surface border border-line rounded-sm text-sm font-semibold text-ink transition-colors"
             >
               <PresentationIcon size={16} />
               <span>Jumbotron</span>
@@ -104,28 +102,28 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
                 href={resultsPath}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-2 px-3 py-2 bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 rounded-xl text-sm font-medium text-zinc-100 transition-colors"
+                className="flex items-center gap-2 px-3 py-2 bg-canvas hover:bg-surface border border-line rounded-sm text-sm font-semibold text-ink transition-colors"
               >
                 <Trophy size={16} />
                 <span>Results</span>
               </a>
             )}
             {!isViewer && onShare && (
-              <GlassButton onClick={onShare} variant="primary">
+              <Button onClick={onShare} variant="primary">
                 <Share2 size={16} />
                 <span>Share</span>
-              </GlassButton>
+              </Button>
             )}
           </div>
 
           {user && !isViewer && (
-            <div className="flex items-center gap-3 pl-4 border-l border-white/10">
+            <div className="flex items-center gap-3 pl-4 border-l border-line">
               <div className="flex items-center gap-2 group cursor-default">
                 {user.photoURL && !imageError ? (
                   <img
                     src={user.photoURL}
                     alt={user.displayName || ""}
-                    className="w-8 h-8 rounded-full border border-white/15"
+                    className="w-8 h-8 rounded-full border border-line"
                     referrerPolicy="no-referrer"
                     crossOrigin="anonymous"
                     onError={(e) => {
@@ -134,17 +132,17 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
                     }}
                   />
                 ) : (
-                  <div className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/15 flex items-center justify-center">
-                    <UserIcon size={14} className="text-zinc-400" />
+                  <div className="w-8 h-8 rounded-full bg-canvas border border-line flex items-center justify-center">
+                    <UserIcon size={14} className="text-muted" />
                   </div>
                 )}
-                <span className="text-sm font-medium text-zinc-300">
+                <span className="text-sm font-semibold text-ink">
                   {user.displayName}
                 </span>
               </div>
               <button
                 onClick={logout}
-                className="p-2 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                className="p-2 text-muted hover:text-danger hover:bg-surface rounded-sm transition-colors"
                 title="Sign out"
               >
                 <LogOut size={18} />
@@ -161,7 +159,7 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
                  <img
                    src={user.photoURL}
                    alt={user.displayName || ""}
-                   className="w-7 h-7 rounded-full border border-white/15"
+                   className="w-7 h-7 rounded-full border border-line"
                    referrerPolicy="no-referrer"
                    crossOrigin="anonymous"
                    onError={(e) => {
@@ -170,15 +168,15 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
                    }}
                  />
                ) : (
-                 <div className="w-7 h-7 rounded-full bg-white/[0.06] border border-white/15 flex items-center justify-center">
-                   <UserIcon size={12} className="text-zinc-400" />
+                 <div className="w-7 h-7 rounded-full bg-canvas border border-line flex items-center justify-center">
+                   <UserIcon size={12} className="text-muted" />
                  </div>
                )}
              </div>
           )}
           <button
             onClick={toggleMenu}
-            className="p-2 text-zinc-400 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
+            className="p-2 text-muted hover:text-ink hover:bg-surface rounded-sm transition-colors"
             aria-label="Toggle menu"
           >
             {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -188,13 +186,13 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
 
       {/* Mobile Menu Dropdown */}
       {isMenuOpen && (
-        <div className="lg:hidden absolute top-full left-0 right-0 bg-zinc-950/90 backdrop-blur-xl border-b border-white/10 shadow-2xl animate-in slide-in-from-top-2 duration-200">
+        <div className="lg:hidden absolute top-full left-0 right-0 bg-canvas border-b border-line">
           <div className="p-4 flex flex-col gap-2">
             {!isViewer && (
               <Link
                 to="/"
                 onClick={() => setIsMenuOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 rounded-xl text-sm font-medium text-red-300 hover:text-red-200 transition-colors"
+                className="flex items-center gap-3 px-4 py-3 bg-canvas hover:bg-surface border border-line rounded-sm text-sm font-semibold text-ink transition-colors"
               >
                 <DoorOpen size={18} />
                 <span>Close</span>
@@ -205,9 +203,9 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
               target="_blank"
               rel="noreferrer"
               onClick={() => setIsMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 rounded-xl text-sm font-medium text-zinc-100 transition-colors"
+              className="flex items-center gap-3 px-4 py-3 bg-canvas hover:bg-surface border border-line rounded-sm text-sm font-semibold text-ink transition-colors"
             >
-              <LayoutPanelTop size={18} className="text-zinc-400" />
+              <LayoutPanelTop size={18} />
               <span>Overlay</span>
             </a>
             <a
@@ -215,9 +213,9 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
               target="_blank"
               rel="noreferrer"
               onClick={() => setIsMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 rounded-xl text-sm font-medium text-zinc-100 transition-colors"
+              className="flex items-center gap-3 px-4 py-3 bg-canvas hover:bg-surface border border-line rounded-sm text-sm font-semibold text-ink transition-colors"
             >
-              <PresentationIcon size={18} className="text-zinc-400" />
+              <PresentationIcon size={18} />
               <span>Jumbotron</span>
             </a>
             {!isViewer && (
@@ -226,9 +224,9 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
                 target="_blank"
                 rel="noreferrer"
                 onClick={() => setIsMenuOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 rounded-xl text-sm font-medium text-zinc-100 transition-colors"
+                className="flex items-center gap-3 px-4 py-3 bg-canvas hover:bg-surface border border-line rounded-sm text-sm font-semibold text-ink transition-colors"
               >
-                <Trophy size={18} className="text-zinc-400" />
+                <Trophy size={18} />
                 <span>Results</span>
               </a>
             )}
@@ -238,7 +236,7 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
                   onShare();
                   setIsMenuOpen(false);
                 }}
-                className="flex items-center gap-3 px-4 py-3 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-400/30 rounded-xl text-sm font-medium transition-colors"
+                className="flex items-center gap-3 px-4 py-3 bg-surface hover:bg-action-hover text-ink border border-ink rounded-sm text-sm font-semibold transition-colors"
               >
                 <Share2 size={18} />
                 <span>Share scoreboard</span>
@@ -246,8 +244,8 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
             )}
 
             {user && !isViewer && (
-              <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between px-2">
-                <span className="text-sm font-medium text-zinc-400 truncate max-w-[200px]">
+              <div className="mt-2 pt-2 border-t border-line flex items-center justify-between px-2">
+                <span className="text-sm font-semibold text-muted truncate max-w-[200px]">
                   {user.displayName}
                 </span>
                 <button
@@ -255,7 +253,7 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
                     logout();
                     setIsMenuOpen(false);
                   }}
-                  className="flex items-center gap-2 px-3 py-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors text-sm font-medium"
+                  className="flex items-center gap-2 px-3 py-2 text-danger hover:bg-surface rounded-sm transition-colors text-sm font-semibold"
                 >
                   <LogOut size={16} />
                   Sign out

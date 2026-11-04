@@ -2,7 +2,7 @@ import { GameEvent, GameState, TeamPlayer } from "../../store";
 import { toSkaterLabel } from "../../utils/roster";
 import { SearchDropdownInput, SearchOption } from "./DropdownInputs";
 import { UpdateGameState } from "./types";
-import { GlassButton, GlassPanel, SectionLabel, glassInputClass, glassInsetClass } from "./ui/glass";
+import { Button, Panel, SectionLabel, inputClass } from "./ui/primitives";
 
 interface GoalReviewPanelProps {
   team: "home" | "away";
@@ -61,13 +61,13 @@ export default function GoalReviewPanel({
   if (goalReviewItems.length === 0) return null;
 
   return (
-    <GlassPanel className={`p-3 ${className}`}>
+    <Panel className={`p-3 ${className}`}>
       <div className="flex items-center justify-between mb-3">
         <SectionLabel>Goal review</SectionLabel>
       </div>
       <div className="flex flex-col gap-3">
         {goalReviewItems.map((event) => (
-          <div key={event.id} className={`p-3 ${glassInsetClass}`}>
+          <div key={event.id} className="pt-3 border-t border-line">
             {(() => {
               const activeHighlight = gameState.jumbotronGoalHighlight;
               const scorer = (event.scorer ?? "").trim();
@@ -82,7 +82,7 @@ export default function GoalReviewPanel({
                 nowMs < activeHighlight.expiresAt;
               return (
                 <>
-            <div className="flex items-center justify-between text-xs text-zinc-400 font-mono">
+            <div className="flex items-center justify-between text-xs text-muted tabular-nums">
               <span>{event.period}</span>
               <span>{event.clockTime}</span>
             </div>
@@ -90,26 +90,26 @@ export default function GoalReviewPanel({
               <SearchDropdownInput
                 value={event.scorer ?? ""}
                 onChange={(nextValue) => updateEvent(event.id, { scorer: nextValue })}
-                inputClassName={`${glassInputClass} w-full`}
+                inputClassName={`${inputClass} w-full`}
                 placeholder="Scorer"
                 options={skaterOptions}
               />
               <SearchDropdownInput
                 value={event.assist1 ?? ""}
                 onChange={(nextValue) => updateEvent(event.id, { assist1: nextValue })}
-                inputClassName={`${glassInputClass} w-full`}
+                inputClassName={`${inputClass} w-full`}
                 placeholder="Assist 1"
                 options={skaterOptions}
               />
               <SearchDropdownInput
                 value={event.assist2 ?? ""}
                 onChange={(nextValue) => updateEvent(event.id, { assist2: nextValue })}
-                inputClassName={`${glassInputClass} w-full`}
+                inputClassName={`${inputClass} w-full`}
                 placeholder="Assist 2"
                 options={skaterOptions}
               />
               {isActive ? (
-                <GlassButton
+                <Button
                   type="button"
                   onClick={() =>
                     updateState({
@@ -125,9 +125,9 @@ export default function GoalReviewPanel({
                   className="font-semibold"
                 >
                   Hide from jumbotron
-                </GlassButton>
+                </Button>
               ) : (
-                <GlassButton
+                <Button
                   type="button"
                   onClick={() => {
                     if (!scorer) return;
@@ -153,11 +153,11 @@ export default function GoalReviewPanel({
                     });
                   }}
                 disabled={!scorer}
-                variant="success"
+                variant="primary"
                 className="font-semibold"
               >
                   Show on jumbotron (15s)
-              </GlassButton>
+              </Button>
               )}
             </div>
                 </>
@@ -166,6 +166,6 @@ export default function GoalReviewPanel({
           </div>
         ))}
       </div>
-    </GlassPanel>
+    </Panel>
   );
 }

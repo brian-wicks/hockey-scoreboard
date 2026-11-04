@@ -7,10 +7,10 @@ export default function AppFooter() {
   const hasBottomNav = location.pathname === '/game';
 
   return (
-    <footer className={`fixed right-3 z-40 ${hasBottomNav ? 'bottom-16 md:bottom-3' : 'bottom-3'}`}>
+    <footer className={`ui fixed right-3 z-40 ${hasBottomNav ? 'bottom-16 md:bottom-3' : 'bottom-3'}`}>
       <Link
         to="/changelog"
-        className="inline-flex items-center rounded-md border border-zinc-800/80 bg-zinc-950/90 px-2 py-1 text-xs font-mono text-zinc-300 backdrop-blur-sm transition-colors hover:text-white"
+        className="inline-flex items-center rounded-sm border border-line bg-canvas px-2 py-1 text-xs tabular-nums text-muted transition-colors hover:text-ink"
         title="View changelog"
       >
         v{__APP_VERSION__}

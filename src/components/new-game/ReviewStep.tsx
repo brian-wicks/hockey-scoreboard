@@ -1,5 +1,6 @@
+import { ChevronRight } from "lucide-react";
 import { TeamDraft } from "./TeamSelectStep";
-import { GlassButton, glassInsetClass } from "../control-panel/ui/glass";
+import { Button, insetClass } from "../control-panel/ui/primitives";
 
 interface ReviewStepProps {
   homeDraft: TeamDraft;
@@ -23,8 +24,8 @@ function TeamSummaryCard({
   onToggleSave: (value: boolean) => void;
 }) {
   return (
-    <div className={`p-4 flex flex-col items-center gap-3 ${glassInsetClass}`}>
-      <div className="w-12 h-12 rounded-full border border-white/20 overflow-hidden flex items-center justify-center bg-white/[0.04]" aria-hidden>
+    <div className={`p-4 flex flex-col items-center gap-3 ${insetClass}`}>
+      <div className="w-12 h-12 rounded-sm border border-line overflow-hidden flex items-center justify-center bg-canvas" aria-hidden>
         {draft.identity.logo ? (
           <img src={draft.identity.logo} alt="" className="w-full h-full object-contain" />
         ) : (
@@ -32,17 +33,17 @@ function TeamSummaryCard({
         )}
       </div>
       <div className="text-center">
-        <div className="font-semibold text-zinc-100">{draft.identity.name || "Unnamed team"}</div>
-        <div className="text-xs font-mono text-zinc-400">{draft.identity.abbreviation || "-"}</div>
+        <div className="font-semibold text-ink">{draft.identity.name || "Unnamed team"}</div>
+        <div className="text-xs tabular-nums text-muted">{draft.identity.abbreviation || "-"}</div>
       </div>
-      <div className="text-xs text-zinc-500">{draft.players.length} players</div>
+      <div className="text-xs text-muted">{draft.players.length} players</div>
       {draft.source === "new" && (
-        <label className="flex items-center gap-2 text-xs text-zinc-400 mt-1">
+        <label className="flex items-center gap-2 text-xs text-muted mt-1">
           <input
             type="checkbox"
             checked={saveToLibrary}
             onChange={(e) => onToggleSave(e.target.checked)}
-            className="accent-indigo-500"
+            className="accent-ink"
           />
           Save to my team library
         </label>
@@ -65,8 +66,8 @@ export default function ReviewStep({
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h3 className="text-lg font-bold text-white">Review and start</h3>
-        <p className="text-sm text-zinc-400 mt-0.5">Confirm both teams before starting the game.</p>
+        <h3 className="text-[1.75rem] leading-[1.2] font-semibold">Review and start</h3>
+        <p className="text-sm text-muted mt-0.5">Confirm both teams before starting the game.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -74,13 +75,14 @@ export default function ReviewStep({
         <TeamSummaryCard draft={awayDraft} saveToLibrary={saveAwayToLibrary} onToggleSave={onToggleSaveAway} />
       </div>
 
-      <div className="flex justify-between pt-2 border-t border-white/10">
-        <GlassButton onClick={onBack} variant="ghost" disabled={starting}>
+      <div className="flex justify-between pt-2 border-t border-line">
+        <Button onClick={onBack} variant="ghost" disabled={starting}>
           Back
-        </GlassButton>
-        <GlassButton onClick={onStart} disabled={starting} variant="success">
+        </Button>
+        <Button onClick={onStart} disabled={starting} variant="primary">
           {starting ? "Starting..." : "Start game"}
-        </GlassButton>
+          {!starting && <ChevronRight size={16} />}
+        </Button>
       </div>
     </div>
   );
