@@ -21,7 +21,9 @@
     "deploy:prod": "pm2 deploy ecosystem.config.cjs production",
     "build:electron": "node scripts/build-electron.mjs",
     "electron:dev": "npm run build:electron && electron .",
-    "electron:build": "npm run build:electron && electron-builder"
+    "electron:build": "npm run build:electron && electron-builder",
+    "teams:fetch-buiha": "tsx scripts/fetch-buiha-teams.ts",
+    "teams:import": "tsx scripts/import-teams.ts"
   },
   "dependencies": {
     "@fontsource/outfit": "^5.3.0",

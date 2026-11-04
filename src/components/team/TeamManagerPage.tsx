@@ -1,15 +1,17 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, PlusCircle, Pencil } from "lucide-react";
+import { ArrowLeft, PlusCircle, Pencil, Upload } from "lucide-react";
 import { SavedTeam, useStore } from "../../store";
 import DashboardHeader from "../dashboard/DashboardHeader";
 import { Button } from "../control-panel/ui/primitives";
 import TeamLibraryGrid from "./TeamLibraryGrid";
 import TeamEditModal from "./TeamEditModal";
+import TeamImportModal from "./TeamImportModal";
 
 export default function TeamManagerPage() {
   const { isViewer, user } = useStore();
   const [editorTarget, setEditorTarget] = useState<SavedTeam | "new" | null>(null);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   // Viewers only ever arrive via /share/:shareId links, never here — theoretical guard.
   if (isViewer || !user) return null;
@@ -27,10 +29,16 @@ export default function TeamManagerPage() {
               </Link>
               <h1 className="text-[1.75rem] leading-[1.2] font-semibold">Team library</h1>
             </div>
-            <Button onClick={() => setEditorTarget("new")} variant="primary">
-              <PlusCircle size={16} />
-              Create new team
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => setIsImportOpen(true)}>
+                <Upload size={16} />
+                Import teams
+              </Button>
+              <Button onClick={() => setEditorTarget("new")} variant="primary">
+                <PlusCircle size={16} />
+                Create new team
+              </Button>
+            </div>
           </div>
 
           <TeamLibraryGrid
@@ -44,6 +52,8 @@ export default function TeamManagerPage() {
             />
         </main>
       </div>
+
+      {isImportOpen && <TeamImportModal onClose={() => setIsImportOpen(false)} />}
 
       {editorTarget !== null && (
         <TeamEditModal entry={editorTarget === "new" ? null : editorTarget} onClose={() => setEditorTarget(null)} />
