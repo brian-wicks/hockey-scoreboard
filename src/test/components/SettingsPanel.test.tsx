@@ -13,7 +13,7 @@ const flushMicrotasks = async () => {
 
 const baseGameState = {
   homeTeam: {
-    name: "Home Team",
+    name: "Home team",
     abbreviation: "HOM",
     score: 0,
     shots: 0,
@@ -24,7 +24,7 @@ const baseGameState = {
     players: [],
   },
   awayTeam: {
-    name: "Away Team",
+    name: "Away team",
     abbreviation: "AWY",
     score: 0,
     shots: 0,
@@ -65,7 +65,7 @@ describe("SettingsPanel", () => {
     render(<SettingsPanel gameState={baseGameState as any} updateState={mockUpdateState} />);
     await act(flushMicrotasks);
     
-    const homeNameInput = screen.getByDisplayValue("Home Team");
+    const homeNameInput = screen.getByDisplayValue("Home team");
     await act(async () => {
       fireEvent.change(homeNameInput, { target: { value: "New Home" } });
       fireEvent.blur(homeNameInput);
@@ -80,14 +80,14 @@ describe("SettingsPanel", () => {
     render(<SettingsPanel gameState={baseGameState as any} updateState={mockUpdateState} />);
     await act(flushMicrotasks);
 
-    const homeNameInput = screen.getByDisplayValue("Home Team");
+    const homeNameInput = screen.getByDisplayValue("Home team");
     await act(async () => {
       fireEvent.change(homeNameInput, { target: { value: "   " } });
       fireEvent.blur(homeNameInput);
     });
 
     expect(mockUpdateState).not.toHaveBeenCalled();
-    expect((homeNameInput as HTMLInputElement).value).toBe("Home Team");
+    expect((homeNameInput as HTMLInputElement).value).toBe("Home team");
   });
 
   it("handles team color changes", async () => {
@@ -114,7 +114,7 @@ describe("SettingsPanel", () => {
     });
     
     await act(async () => {
-      const addButton = screen.getAllByText(/Add Player/i)[0];
+      const addButton = screen.getAllByText(/Add player/i)[0];
       fireEvent.click(addButton);
     });
     
@@ -179,9 +179,9 @@ describe("SettingsPanel", () => {
     await act(flushMicrotasks);
 
     // Keyboard shortcuts now live under their own sub-tab.
-    fireEvent.click(screen.getByText("Keyboard Shortcuts"));
+    fireEvent.click(screen.getByText("Keyboard shortcuts"));
 
-    const resetButton = screen.getByText(/Reset to Defaults/i);
+    const resetButton = screen.getByText(/Reset to defaults/i);
     await act(async () => {
       fireEvent.click(resetButton);
     });
@@ -211,7 +211,7 @@ describe("SettingsPanel", () => {
     const { rerender } = render(<SettingsPanel gameState={baseGameState as any} updateState={mockUpdateState} />);
     await act(flushMicrotasks);
 
-    const homeNameInput = screen.getByDisplayValue("Home Team");
+    const homeNameInput = screen.getByDisplayValue("Home team");
     await act(async () => {
       fireEvent.change(homeNameInput, { target: { value: "Mid-edit Name" } });
     });
@@ -253,20 +253,20 @@ describe("SettingsPanel", () => {
     }
   });
 
-  it("switches between Teams, Keyboard Shortcuts, and Gamesheet PDF sub-tabs", async () => {
+  it("switches between Teams, Keyboard shortcuts, and Gamesheet PDF sub-tabs", async () => {
     render(<SettingsPanel gameState={baseGameState as any} updateState={mockUpdateState} />);
     await act(flushMicrotasks);
 
     // Teams & Rosters is the default.
-    expect(screen.getByText("Home Team Settings")).toBeInTheDocument();
+    expect(screen.getByText("Home team settings")).toBeInTheDocument();
     expect(screen.queryByText("Gamesheet layout")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Gamesheet PDF"));
     expect(screen.getByText("Gamesheet layout")).toBeInTheDocument();
-    expect(screen.queryByText("Home Team Settings")).not.toBeInTheDocument();
+    expect(screen.queryByText("Home team settings")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("Teams & Rosters"));
-    expect(screen.getByText("Home Team Settings")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Teams and rosters"));
+    expect(screen.getByText("Home team settings")).toBeInTheDocument();
     expect(screen.queryByText("Gamesheet layout")).not.toBeInTheDocument();
   });
 });

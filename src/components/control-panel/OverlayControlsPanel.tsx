@@ -28,20 +28,20 @@ export default function OverlayControlsPanel({
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <GlassButton onClick={() => updateState({overlayVisible: !overlayVisible})} variant="secondary">
-            {overlayVisible ? "Hide Overlay" : "Show Overlay"}
+            {overlayVisible ? "Hide overlay" : "Show overlay"}
           </GlassButton>
           <GlassButton
             onClick={() => updateState({jumbotronGradientsEnabled: !jumbotronGradientsEnabled})}
             variant="secondary"
           >
-            {jumbotronGradientsEnabled ? "Disable Jumbotron Gradients" : "Enable Jumbotron Gradients"}
+            {jumbotronGradientsEnabled ? "Disable jumbotron gradients" : "Enable jumbotron gradients"}
           </GlassButton>
         </div>
       </div>
       <div className="border-t border-white/10 pt-4">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h3 className="text-sm font-semibold text-zinc-200 uppercase tracking-wider">Lower Third</h3>
+            <h3 className="text-sm font-semibold text-zinc-200 uppercase tracking-wider">Lower third</h3>
           </div>
           <GlassButton
             type="button"

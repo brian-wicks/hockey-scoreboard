@@ -46,22 +46,22 @@ describe("ControlPanelHeader", () => {
     const toggle = screen.getByLabelText("Toggle menu");
     fireEvent.click(toggle);
 
-    const shareBtn = screen.getByText("Share Scoreboard");
+    const shareBtn = screen.getByText("Share scoreboard");
     fireEvent.click(shareBtn);
     expect(onShare).toHaveBeenCalledTimes(1);
 
     // Menu should close after share.
-    expect(screen.queryByText("Share Scoreboard")).toBeNull();
+    expect(screen.queryByText("Share scoreboard")).toBeNull();
   });
 
   it("logs out from the mobile menu and closes it", () => {
     render(<ControlPanelHeader isConnected={false} onUndo={() => {}} canUndo={true} />, { wrapper: MemoryRouter });
 
     fireEvent.click(screen.getByLabelText("Toggle menu"));
-    fireEvent.click(screen.getByText("Sign Out"));
+    fireEvent.click(screen.getByText("Sign out"));
 
     expect(mockLogout).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText("Sign Out")).toBeNull();
+    expect(screen.queryByText("Sign out")).toBeNull();
   });
 });
 

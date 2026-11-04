@@ -36,7 +36,7 @@ export default function DashboardHeader() {
               title="Set up the overlay in OBS"
             >
               <Cast size={16} />
-              <span>OBS Setup</span>
+              <span>OBS setup</span>
             </button>
             <button
               onClick={() => setIsOBSGuideOpen(true)}

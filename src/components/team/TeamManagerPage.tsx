@@ -26,11 +26,11 @@ export default function TeamManagerPage() {
               <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors mb-2">
                 <ArrowLeft size={14} /> Back to Dashboard
               </Link>
-              <h1 className="text-xl font-bold text-white">Team Library</h1>
+              <h1 className="text-xl font-bold text-white">Team library</h1>
             </div>
             <GlassButton onClick={() => setEditorTarget("new")} variant="primary">
               <PlusCircle size={16} />
-              Create New Team
+              Create new team
             </GlassButton>
           </div>
 

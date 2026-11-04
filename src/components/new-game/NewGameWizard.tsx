@@ -76,7 +76,7 @@ export default function NewGameWizard({ isOpen, onClose, onStarted }: NewGameWiz
         <div className="sticky top-0 z-10 flex items-center justify-between p-4 sm:p-6 border-b border-white/10 bg-zinc-950 backdrop-blur-2xl">
           <h2 className="text-xl font-bold flex items-center gap-2 text-white">
             <PlayCircle className="text-indigo-400" size={24} />
-            New Game
+            New game
           </h2>
           <button
             onClick={onClose}

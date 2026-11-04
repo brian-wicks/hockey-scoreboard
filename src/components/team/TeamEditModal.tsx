@@ -48,7 +48,7 @@ export default function TeamEditModal({ entry, onClose }: TeamEditModalProps) {
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
       <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-zinc-950/90 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl animate-in zoom-in-95 fade-in duration-200">
         <div className="sticky top-0 z-10 flex items-center justify-between p-4 sm:p-6 border-b border-white/10 bg-zinc-950 backdrop-blur-2xl">
-          <h2 className="text-xl font-bold text-white">{entry ? "Edit Team" : "Create New Team"}</h2>
+          <h2 className="text-xl font-bold text-white">{entry ? "Edit team" : "Create new team"}</h2>
           <button
             onClick={onClose}
             className="p-2 text-zinc-400 hover:text-white hover:bg-white/[0.08] rounded-lg transition-colors"
@@ -76,7 +76,7 @@ export default function TeamEditModal({ entry, onClose }: TeamEditModalProps) {
             </GlassButton>
             <GlassButton onClick={handleSave} disabled={saving || !identity.name.trim()} variant="primary">
               <SaveIcon className="w-4 h-4" />
-              {saving ? "Saving..." : "Save Team"}
+              {saving ? "Saving..." : "Save team"}
             </GlassButton>
           </div>
         </div>

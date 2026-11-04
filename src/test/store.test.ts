@@ -258,7 +258,7 @@ describe("store", () => {
     const { useStore } = await import("../store");
 
     useStore.setState({ user: mockUser as any });
-    const shortcut: KeyboardShortcut = { key: "A", action: "toggleClock", description: "Toggle Clock" };
+    const shortcut: KeyboardShortcut = { key: "A", action: "toggleClock", description: "Toggle clock" };
     await useStore.getState().updateShortcut(0, shortcut);
     expect(fetchMock).toHaveBeenCalled();
   });
@@ -270,7 +270,7 @@ describe("store", () => {
 
     useStore.setState({ user: mockUser as any });
     const previousShortcuts = useStore.getState().keyboardShortcuts;
-    const shortcut: KeyboardShortcut = { key: "Z", action: "toggleClock", description: "Toggle Clock" };
+    const shortcut: KeyboardShortcut = { key: "Z", action: "toggleClock", description: "Toggle clock" };
     await useStore.getState().updateShortcut(0, shortcut);
     expect(useStore.getState().keyboardShortcuts).toEqual(previousShortcuts);
   });
@@ -278,7 +278,7 @@ describe("store", () => {
   it("loads shortcuts and fills missing defaults", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       json: () =>
-        Promise.resolve([{ key: " ", action: "toggleClock", description: "Toggle Clock" } satisfies KeyboardShortcut]),
+        Promise.resolve([{ key: " ", action: "toggleClock", description: "Toggle clock" } satisfies KeyboardShortcut]),
     });
     vi.stubGlobal("fetch", fetchMock);
     const { useStore } = await import("../store");
@@ -373,7 +373,7 @@ describe("store", () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500, statusText: "Server Error" });
     vi.stubGlobal("fetch", fetchMock);
     const { useStore } = await import("../store");
-    const customShortcuts: KeyboardShortcut[] = [{ key: "Q", action: "toggleClock", description: "Toggle Clock" }];
+    const customShortcuts: KeyboardShortcut[] = [{ key: "Q", action: "toggleClock", description: "Toggle clock" }];
     useStore.setState({ user: mockUser as any, keyboardShortcuts: customShortcuts });
 
     await useStore.getState().resetShortcuts();

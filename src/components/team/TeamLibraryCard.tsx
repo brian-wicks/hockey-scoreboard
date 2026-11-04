@@ -40,7 +40,7 @@ export default function TeamLibraryCard({ entry, onDeleteRequest, actions }: Tea
         variant="ghost"
         className="w-full text-xs border border-white/10"
       >
-        {rosterExpanded ? "Hide Roster" : `Show Roster (${entry.team.players?.length ?? 0})`}
+        {rosterExpanded ? "Hide roster" : `Show roster (${entry.team.players?.length ?? 0})`}
       </GlassButton>
       {rosterExpanded && (
         <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">

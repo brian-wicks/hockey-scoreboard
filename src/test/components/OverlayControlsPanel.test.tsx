@@ -19,8 +19,8 @@ describe("OverlayControlsPanel Component", () => {
     );
 
     expect(screen.getByText("Overlay")).toBeInTheDocument();
-    expect(screen.getByText("Hide Overlay")).toBeInTheDocument();
-    expect(screen.getByText("Disable Jumbotron Gradients")).toBeInTheDocument();
+    expect(screen.getByText("Hide overlay")).toBeInTheDocument();
+    expect(screen.getByText("Disable jumbotron gradients")).toBeInTheDocument();
   });
 
   it("toggles overlay visibility", () => {
@@ -32,7 +32,7 @@ describe("OverlayControlsPanel Component", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Hide Overlay"));
+    fireEvent.click(screen.getByText("Hide overlay"));
     expect(mockUpdateState).toHaveBeenCalledWith({ overlayVisible: false });
   });
 
@@ -45,7 +45,7 @@ describe("OverlayControlsPanel Component", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Enable Jumbotron Gradients"));
+    fireEvent.click(screen.getByText("Enable jumbotron gradients"));
     expect(mockUpdateState).toHaveBeenCalledWith({ jumbotronGradientsEnabled: true });
   });
 

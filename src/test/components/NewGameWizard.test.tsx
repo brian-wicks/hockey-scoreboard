@@ -33,7 +33,7 @@ describe("NewGameWizard", () => {
 
   it("always goes straight to Home team selection — nothing is ever unsaved", () => {
     render(<NewGameWizard isOpen onClose={onClose} onStarted={onStarted} />);
-    expect(screen.getByText("Home Team")).toBeInTheDocument();
+    expect(screen.getByText("Home team")).toBeInTheDocument();
   });
 
   it("walks through create-new home, library-pick away, review, and starts the game", async () => {
@@ -47,18 +47,18 @@ describe("NewGameWizard", () => {
     fireEvent.click(screen.getByText("Continue"));
 
     // Away: pick from library
-    expect(await screen.findByText("Away Team")).toBeInTheDocument();
+    expect(await screen.findByText("Away team")).toBeInTheDocument();
     expect(screen.getByText("Boston Bruins")).toBeInTheDocument();
     fireEvent.click(screen.getByText("Select"));
 
     // Review
-    expect(await screen.findByText("Review & Start")).toBeInTheDocument();
+    expect(await screen.findByText("Review and start")).toBeInTheDocument();
     expect(screen.getByText("Ice Wolves")).toBeInTheDocument();
     expect(screen.getByText("Boston Bruins")).toBeInTheDocument();
     // Only the newly-created home team offers a "save to library" checkbox.
     expect(screen.getAllByRole("checkbox")).toHaveLength(1);
 
-    fireEvent.click(screen.getByText("Start Game"));
+    fireEvent.click(screen.getByText("Start game"));
 
     await waitFor(() => {
       expect(saveTeamToLibrary).toHaveBeenCalledWith("Ice Wolves", expect.objectContaining({ name: "Ice Wolves" }));

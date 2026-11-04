@@ -112,43 +112,43 @@ function ScreenshotCarousel() {
 const CAPABILITIES = [
   {
     icon: Radio,
-    title: "Score, clock, and penalties in one place",
-    description: "Every change reaches the overlay, jumbotron, and any open viewer links right away.",
+    title: "Live game control",
+    description: "Goals, shots, penalties and the clock, with each change sent to every display as you make it.",
   },
   {
     icon: MonitorPlay,
-    title: "Overlay for OBS, vMix, or any capture setup",
-    description: "A plain scoreboard bar meant to sit in a browser source, not a full graphics package.",
+    title: "Overlay for OBS, vMix or any capture setup",
+    description: "A scoreboard bar on a transparent background, sized for a browser source.",
   },
   {
     icon: Presentation,
     title: "Jumbotron view for the rink",
-    description: "Full-screen scoreboard with goal highlights, for whatever screen is hanging above the ice.",
+    description: "A full-screen scoreboard with goal highlights for the screen above the ice.",
   },
   {
     icon: Share2,
-    title: "Read-only links for anyone following along",
-    description: "Send a link — no account or app needed on the other end.",
+    title: "Read-only share links",
+    description: "Viewers open the link in any browser. They don't need an account or an app.",
   },
   {
     icon: Bookmark,
-    title: "Teams and rosters saved for next time",
-    description: "Build a lineup once, reuse it for the next matchup instead of retyping it.",
+    title: "Saved teams and rosters",
+    description: "Enter a lineup once and pick the team from your library when you start the next game.",
   },
   {
     icon: LayoutGrid,
     title: "Stream Deck-style button grid",
-    description: "One-tap goals, shots, and penalties for when you're watching the play, not the screen.",
+    description: "Large buttons for goals, shots and penalties, so you can keep your eyes on the play.",
   },
   {
     icon: RotateCcw,
-    title: "Undo that actually goes back",
-    description: "Step back through score, shots, and penalty edits, not just the last one.",
+    title: "Multi-step undo",
+    description: "Undo steps back through score, shot and penalty edits one at a time.",
   },
   {
     icon: FileText,
-    title: "Gamesheet PDF at the final horn",
-    description: "Export straight from the event log — positioned to match your league's sheet.",
+    title: "Gamesheet PDF export",
+    description: "Fills in your league's gamesheet from the event log, lined up with the printed boxes.",
   },
 ];
 
@@ -173,7 +173,7 @@ export const Login: React.FC = () => {
               className="hidden sm:inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-zinc-300 hover:text-white border border-white/10 hover:border-white/20 rounded-xl transition-colors"
             >
               <Cast size={16} />
-              How OBS setup works
+              OBS setup guide
             </button>
             <SignInButton onClick={login} className="!py-2 !px-4 text-sm" />
           </div>
@@ -186,12 +186,12 @@ export const Login: React.FC = () => {
           <section className="pt-6 sm:pt-12 grid lg:grid-cols-[1.1fr_0.9fr] gap-8 lg:gap-12 items-center">
             <div className="flex flex-col gap-5">
               <h1 className="text-3xl sm:text-4xl font-bold text-white leading-tight">
-                Run the game from one screen.
+                Run your hockey scoreboard from one control panel
               </h1>
               <p className="text-base text-zinc-400 max-w-lg">
-                Track score, clock, and penalties from a single control panel. It's the same data behind
-                your stream overlay, the rink jumbotron, and any share links you hand out — you edit it
-                once and everything else just reflects it.
+                Enter goals, shots, penalties and clock changes as the game happens. Your stream overlay,
+                the rink jumbotron and any share links read from the same game, so they update as you
+                go.
               </p>
               <div>
                 <SignInButton onClick={login} />
@@ -214,7 +214,7 @@ export const Login: React.FC = () => {
 
           {/* Capabilities */}
           <section className="flex flex-col gap-5">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">What it does</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">Features</h2>
             <div className={`overflow-hidden ${glassInsetClass}`}>
               <div className="grid sm:grid-cols-2">
                 {CAPABILITIES.map(({ icon: Icon, title, description }, i) => (

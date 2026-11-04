@@ -95,24 +95,24 @@ const AVAILABLE_ICONS = [
 ];
 
 const ACTION_OPTIONS: { value: ShortcutAction | "none"; label: string }[] = [
-  { value: "none", label: "No Action" },
-  { value: "toggleClock", label: "Toggle Clock" },
+  { value: "none", label: "No action" },
+  { value: "toggleClock", label: "Toggle clock" },
   { value: "clockIncrease", label: "Clock +1s" },
   { value: "clockDecrease", label: "Clock -1s" },
-  { value: "nextPeriod", label: "Next Period" },
-  { value: "prevPeriod", label: "Previous Period" },
-  { value: "homeScoreUp", label: "Home Score +1" },
-  { value: "awayScoreUp", label: "Away Score +1" },
-  { value: "homeShotsUp", label: "Home Shots +1" },
-  { value: "awayShotsUp", label: "Away Shots +1" },
-  { value: "homeScoreDown", label: "Home Score -1" },
-  { value: "awayScoreDown", label: "Away Score -1" },
-  { value: "homeShotsDown", label: "Home Shots -1" },
-  { value: "awayShotsDown", label: "Away Shots -1" },
-  { value: "homePenaltyAdd", label: "Home Penalty" },
-  { value: "awayPenaltyAdd", label: "Away Penalty" },
-  { value: "homePenaltyRemoveEarliest", label: "Remove Home Penalty" },
-  { value: "awayPenaltyRemoveEarliest", label: "Remove Away Penalty" },
+  { value: "nextPeriod", label: "Next period" },
+  { value: "prevPeriod", label: "Previous period" },
+  { value: "homeScoreUp", label: "Home score +1" },
+  { value: "awayScoreUp", label: "Away score +1" },
+  { value: "homeShotsUp", label: "Home shots +1" },
+  { value: "awayShotsUp", label: "Away shots +1" },
+  { value: "homeScoreDown", label: "Home score -1" },
+  { value: "awayScoreDown", label: "Away score -1" },
+  { value: "homeShotsDown", label: "Home shots -1" },
+  { value: "awayShotsDown", label: "Away shots -1" },
+  { value: "homePenaltyAdd", label: "Home penalty" },
+  { value: "awayPenaltyAdd", label: "Away penalty" },
+  { value: "homePenaltyRemoveEarliest", label: "Remove home penalty" },
+  { value: "awayPenaltyRemoveEarliest", label: "Remove away penalty" },
 ];
 
 function ScoreboardPreview() {
@@ -172,7 +172,7 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
       <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-md animate-in fade-in duration-200" onClick={onClose} />
       <div className="relative w-full max-w-md bg-zinc-950/90 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
         <div className="flex items-center justify-between p-4 border-b border-white/10">
-          <h3 className="text-lg font-bold">Edit Button {index + 1}</h3>
+          <h3 className="text-lg font-bold">Edit button {index + 1}</h3>
           <button onClick={onClose} className="p-1 hover:bg-white/[0.08] rounded-lg transition-colors">
             <X size={20} />
           </button>
@@ -205,7 +205,7 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Color Source</label>
+            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Color source</label>
             <div className="grid grid-cols-3 gap-2">
               {(["custom", "home", "away"] as const).map((source) => (
                 <button
@@ -234,7 +234,7 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Text Color</label>
+                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5">Text color</label>
                 <ColorPicker
                   value={edited.textColor}
                   onChange={(hex) => setEdited({ ...edited, textColor: hex })}
@@ -285,7 +285,7 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
             Cancel
           </GlassButton>
           <GlassButton onClick={() => onSave(edited)} variant="primary" className="flex-1">
-            Save Changes
+            Save changes
           </GlassButton>
         </div>
       </div>
@@ -375,13 +375,13 @@ export default function StreamDeckPanel() {
   return (
     <div className="flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-2 px-1">
-        <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Live Preview</span>
+        <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Live preview</span>
         <button
           type="button"
           onClick={() => updateState({ overlayVisible: !gameState.overlayVisible })}
           className="p-2 rounded-lg bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] text-zinc-300 hover:text-white transition-colors"
-          title={gameState.overlayVisible ? "Hide Overlay" : "Show Overlay"}
-          aria-label={gameState.overlayVisible ? "Hide Overlay" : "Show Overlay"}
+          title={gameState.overlayVisible ? "Hide overlay" : "Show overlay"}
+          aria-label={gameState.overlayVisible ? "Hide overlay" : "Show overlay"}
         >
           {gameState.overlayVisible ? <Eye size={16} /> : <EyeOff size={16} />}
         </button>

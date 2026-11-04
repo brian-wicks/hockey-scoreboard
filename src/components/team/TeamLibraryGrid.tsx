@@ -82,7 +82,7 @@ export default function TeamLibraryGrid({ renderActions, emptyMessage = "No save
 
       <ConfirmDialog
         open={pendingDelete !== null}
-        title="Delete Team Preset"
+        title="Delete team"
         message={`Are you sure you want to delete the team preset "${pendingDelete?.name}"?`}
         confirmLabel="Delete"
         confirmVariant="destructive"

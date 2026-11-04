@@ -63,7 +63,7 @@ describe("EventLogPanel Component", () => {
       />
     );
 
-    expect(screen.getByText("Event Log")).toBeInTheDocument();
+    expect(screen.getByText("Event log")).toBeInTheDocument();
     
     // Check for goal event by looking for its specific inputs
     expect(screen.getByDisplayValue("10")).toBeInTheDocument(); // Scorer

@@ -30,9 +30,9 @@ describe("Login Component", () => {
 
     render(<Login />);
 
-    expect(screen.getByText("Score, clock, and penalties in one place")).toBeInTheDocument();
-    expect(screen.getByText("Overlay for OBS, vMix, or any capture setup")).toBeInTheDocument();
+    expect(screen.getByText("Live game control")).toBeInTheDocument();
+    expect(screen.getByText("Overlay for OBS, vMix or any capture setup")).toBeInTheDocument();
     expect(screen.getByText("Jumbotron view for the rink")).toBeInTheDocument();
-    expect(screen.getByText("Read-only links for anyone following along")).toBeInTheDocument();
+    expect(screen.getByText("Read-only share links")).toBeInTheDocument();
   });
 });

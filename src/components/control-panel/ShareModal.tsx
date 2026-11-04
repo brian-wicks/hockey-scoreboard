@@ -86,7 +86,7 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-white/10">
           <h2 className="text-xl font-bold flex items-center gap-2 text-white">
             <Share2 className="text-indigo-400" size={24} />
-            Share Scoreboard
+            Share scoreboard
           </h2>
           <button
             onClick={onClose}
@@ -103,8 +103,8 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
                 <Share2 size={32} className="text-indigo-400" />
               </div>
               <div className="max-w-xs mx-auto">
-                <p className="text-zinc-300 font-medium">No share link generated yet.</p>
-                <p className="text-sm text-zinc-500 mt-1">Generate a unique ID to share your live scoreboard with others.</p>
+                <p className="text-zinc-300 font-medium">No share links yet.</p>
+                <p className="text-sm text-zinc-500 mt-1">Create a link so other people can follow the game.</p>
               </div>
               <GlassButton
                 onClick={handleGenerateShare}
@@ -117,7 +117,7 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
                 ) : (
                   <Share2 size={18} />
                 )}
-                Generate Public Share Link
+                Create share links
               </GlassButton>
             </div>
           ) : (
@@ -127,15 +127,15 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
                   <AlertTriangle size={18} />
                 </div>
                 <p className="text-sm text-amber-200/80 leading-relaxed italic">
-                  Anyone with these links can view your live scoreboard and jumbotron without logging in. They <span className="text-amber-400 font-semibold underline decoration-amber-400/30">cannot</span> control the game or change settings.
+                  Anyone with these links can see the scoreboard and jumbotron without signing in. They <span className="text-amber-400 font-semibold underline decoration-amber-400/30">can't</span> control the game or change settings.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
-                  { label: "Control Panel", path: `/share/${shareId}`, desc: "Full control panel view" },
-                  { label: "Public Overlay", path: `/share/${shareId}/overlay`, desc: "Stream-ready graphic" },
-                  { label: "Public Jumbotron", path: `/share/${shareId}/jumbotron`, desc: "Arena-style display" },
+                  { label: "Control Panel", path: `/share/${shareId}`, desc: "Read-only view of the control panel" },
+                  { label: "Overlay", path: `/share/${shareId}/overlay`, desc: "Add as a browser source in OBS" },
+                  { label: "Jumbotron", path: `/share/${shareId}/jumbotron`, desc: "Full-screen display for the rink" },
                 ].map((link) => (
                   <div key={link.path} className="group bg-white/[0.04] border border-white/10 hover:border-white/20 rounded-xl p-4 flex flex-col gap-3 transition-all">
                     <div className="flex items-center justify-between">
@@ -187,7 +187,7 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
                   disabled={isGeneratingShare}
                   className="text-xs text-zinc-500 hover:text-zinc-300 underline transition-colors decoration-zinc-700 underline-offset-4"
                 >
-                  Regenerate New Link
+                  Replace with new links
                 </button>
               </div>
             </div>

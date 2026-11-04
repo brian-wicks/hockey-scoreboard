@@ -32,7 +32,7 @@ function GameActionsPanel({ period, updateState, setClock }: GameActionsPanelPro
   return (
     <GlassPanel>
       <SectionLabel className="mb-4 text-base text-zinc-300">
-        Game Actions
+        Game actions
       </SectionLabel>
       <div className="grid grid-cols-2 gap-4">
         <button onClick={() => updatePeriod("1st")} className={periodButtonClass(period === "1st")}>

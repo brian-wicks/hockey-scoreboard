@@ -25,7 +25,7 @@ interface TeamEditorFieldsProps {
   /** "url" (default) shows the raw Logo URL text field alongside a small upload button —
    * used by Settings, where someone may already have a URL to paste while a game is live.
    * "upload" replaces it with a single drag-and-drop/click-to-browse dropzone and no URL
-   * field — used by the Edit Team modal and the New Game wizard's team creation step, so
+   * field — used by the Edit Team modal and the New game wizard's team creation step, so
    * both "create/edit a team" entry points share the same logo experience. */
   logoInput?: "url" | "upload";
 }
@@ -51,7 +51,7 @@ const sanitizeJerseyNumber = (value: string) => value.replace(/\D/g, "").slice(0
  * Team identity + roster editor. Owns its own text-input draft state so typing stays
  * snappy while the caller decides when to persist (on blur/Enter, via onIdentityCommit /
  * onRosterChange) — SettingsPanel commits straight to the live socket; a local form
- * (New Game wizard, Team Manager) just commits to its own draft state instead.
+ * (New game wizard, Team Manager) just commits to its own draft state instead.
  */
 export default function TeamEditorFields({
   title,
@@ -187,7 +187,7 @@ export default function TeamEditorFields({
       )}
       <div className="flex flex-col gap-4">
         <div>
-          <label className="block text-sm font-medium text-zinc-400 mb-1">Team Name</label>
+          <label className="block text-sm font-medium text-zinc-400 mb-1">Team name</label>
           <input
             type="text"
             value={name}
@@ -247,7 +247,7 @@ export default function TeamEditorFields({
                 <Upload size={20} className="text-zinc-500" />
               )}
               <span className="text-xs text-zinc-400">
-                {isUploadingLogo ? "Uploading…" : logo ? "Drag & drop, or click to replace" : "Drag & drop an image, or click to browse"}
+                {isUploadingLogo ? "Uploading..." : logo ? "Drag & drop, or click to replace" : "Drag & drop an image, or click to browse"}
               </span>
               {logoUploadError && <span className="text-xs text-red-400">{logoUploadError}</span>}
               <input
@@ -292,7 +292,7 @@ export default function TeamEditorFields({
                     className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-medium text-zinc-100"
                   >
                     <Upload size={13} />
-                    {isUploadingLogo ? "Uploading…" : "Upload image"}
+                    {isUploadingLogo ? "Uploading..." : "Upload image"}
                   </button>
                   {logoUploadError && <span className="text-xs text-red-400">{logoUploadError}</span>}
                 </div>
@@ -308,7 +308,7 @@ export default function TeamEditorFields({
           )}
         </div>
         <div>
-          <label className="block text-sm font-medium text-zinc-400 mb-1">Primary Color</label>
+          <label className="block text-sm font-medium text-zinc-400 mb-1">Primary color</label>
           <ColorPicker value={identity.color} onChange={(hex) => onIdentityCommit({ color: hex })} label={colorLabel} />
         </div>
         <div className="pt-3 border-t border-white/10">
@@ -395,7 +395,7 @@ export default function TeamEditorFields({
                 onClick={addPlayer}
                 className="mt-2 w-full px-3 py-2 bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] rounded-lg text-xs font-medium text-zinc-100"
               >
-                Add Player
+                Add player
               </button>
             </div>
           )}

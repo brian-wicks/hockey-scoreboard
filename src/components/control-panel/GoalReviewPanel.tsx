@@ -63,7 +63,7 @@ export default function GoalReviewPanel({
   return (
     <GlassPanel className={`p-3 ${className}`}>
       <div className="flex items-center justify-between mb-3">
-        <SectionLabel>Goal Review</SectionLabel>
+        <SectionLabel>Goal review</SectionLabel>
       </div>
       <div className="flex flex-col gap-3">
         {goalReviewItems.map((event) => (
@@ -124,7 +124,7 @@ export default function GoalReviewPanel({
                   variant="secondary"
                   className="font-semibold"
                 >
-                  Hide from Jumbotron
+                  Hide from jumbotron
                 </GlassButton>
               ) : (
                 <GlassButton
@@ -156,7 +156,7 @@ export default function GoalReviewPanel({
                 variant="success"
                 className="font-semibold"
               >
-                  Show on Jumbotron (15s)
+                  Show on jumbotron (15s)
               </GlassButton>
               )}
             </div>

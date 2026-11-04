@@ -45,7 +45,7 @@ export default function SavedGamesList({ onOpened }: SavedGamesListProps) {
               <History size={18} />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-white">Your Games</h2>
+              <h2 className="text-sm font-semibold text-white">Your games</h2>
               <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Autosaved &middot; open any game</p>
             </div>
           </div>
@@ -54,7 +54,7 @@ export default function SavedGamesList({ onOpened }: SavedGamesListProps) {
             className="text-[10px] font-bold text-zinc-500 hover:text-white uppercase tracking-widest transition-colors flex items-center gap-1.5"
           >
             <div className="w-1.5 h-1.5 rounded-full bg-zinc-700" />
-            Refresh List
+            Refresh list
           </button>
         </div>
         <div className="divide-y divide-white/10 max-h-[500px] overflow-y-auto">
@@ -86,14 +86,14 @@ export default function SavedGamesList({ onOpened }: SavedGamesListProps) {
                         onOpened?.();
                       }}
                       className="p-2 text-zinc-400 hover:text-white hover:bg-indigo-500/80 rounded-lg transition-all"
-                      title="Open Game"
+                      title="Open game"
                     >
                       <Play size={16} fill="currentColor" />
                     </button>
                     <button
                       onClick={() => setPendingDelete({ id: game.id, name: game.name })}
                       className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                      title="Delete Game"
+                      title="Delete game"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -107,7 +107,7 @@ export default function SavedGamesList({ onOpened }: SavedGamesListProps) {
 
       <ConfirmDialog
         open={pendingDelete !== null}
-        title="Delete Saved Game"
+        title="Delete saved game"
         message={`Delete "${pendingDelete?.name}" forever? This can't be undone.`}
         confirmLabel="Delete"
         confirmVariant="destructive"

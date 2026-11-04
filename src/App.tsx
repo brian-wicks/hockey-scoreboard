@@ -69,11 +69,11 @@ function AppRoutes() {
             <AlertCircle size={32} className="text-red-500" />
           </div>
           <h2 className="text-xl font-bold text-white mb-2">
-            {isNotFound ? "Share Link Not Found" : "Connection Failed"}
+            {isNotFound ? "Share link not found" : "Connection failed"}
           </h2>
           <p className="text-zinc-400 mb-6">
             {isNotFound 
-              ? "The scoreboard you are looking for doesn't exist or the link has expired." 
+              ? "This scoreboard doesn't exist, or the link has been replaced." 
               : authError}
           </p>
           <button
@@ -82,10 +82,10 @@ function AppRoutes() {
             }}
             className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold transition-all mb-3 shadow-lg shadow-indigo-500/20"
           >
-            Go to Homepage
+            Go to the home page
           </button>
           <p className="text-xs text-zinc-500">
-            If you are the owner, please check your share settings and generate a new link.
+            If this is your game, open Share in the control panel to get the current links.
           </p>
         </div>
       </div>

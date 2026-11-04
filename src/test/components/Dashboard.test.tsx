@@ -44,8 +44,8 @@ describe("Dashboard", () => {
   it("renders the primary actions and saved games list", async () => {
     render(<Dashboard />, { wrapper: MemoryRouter });
 
-    expect(screen.getByText("New Game")).toBeInTheDocument();
-    expect(screen.getByText("Manage Teams")).toBeInTheDocument();
+    expect(screen.getByText("New game")).toBeInTheDocument();
+    expect(screen.getByText("Manage teams")).toBeInTheDocument();
     expect(await screen.findByText("Saved Game 1")).toBeInTheDocument();
   });
 

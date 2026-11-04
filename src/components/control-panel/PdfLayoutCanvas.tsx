@@ -189,7 +189,7 @@ export default function PdfLayoutCanvas({ pdfBytes, layout, onChange, visibleGro
 
       {!pdfBytes && (
         <div className="absolute inset-0 flex items-center justify-center text-sm text-zinc-400">
-          Generating preview…
+          Generating preview...
         </div>
       )}
 

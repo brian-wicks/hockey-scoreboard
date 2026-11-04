@@ -59,7 +59,7 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
             className="px-2.5 sm:px-4"
             title={
               undoCount >= MAX_UNDO_STEPS
-                ? `Undo last score/shots/penalty change (history limit of ${MAX_UNDO_STEPS} reached — oldest changes are no longer undoable)`
+                ? `Undo last score/shots/penalty change (history limit of ${MAX_UNDO_STEPS} reached, so the oldest changes can no longer be undone)`
                 : "Undo last score/shots/penalty change"
             }
           >
@@ -241,7 +241,7 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
                 className="flex items-center gap-3 px-4 py-3 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-400/30 rounded-xl text-sm font-medium transition-colors"
               >
                 <Share2 size={18} />
-                <span>Share Scoreboard</span>
+                <span>Share scoreboard</span>
               </button>
             )}
 
@@ -258,7 +258,7 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
                   className="flex items-center gap-2 px-3 py-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors text-sm font-medium"
                 >
                   <LogOut size={16} />
-                  Sign Out
+                  Sign out
                 </button>
               </div>
             )}

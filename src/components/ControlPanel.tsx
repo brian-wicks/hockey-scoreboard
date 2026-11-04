@@ -83,7 +83,7 @@ export default function ControlPanel() {
 
         {isViewer && (
           <div className="bg-amber-900/40 border-b border-amber-800 py-1.5 px-4 text-center">
-            <p className="text-xs font-medium text-amber-200 uppercase tracking-widest">Viewer Mode — Read Only</p>
+            <p className="text-xs font-medium text-amber-200 uppercase tracking-widest">Viewer mode: read only</p>
           </div>
         )}
 

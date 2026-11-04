@@ -30,12 +30,12 @@ export default function Dashboard() {
           <div className="flex flex-col sm:flex-row gap-3">
             <GlassButton onClick={() => setIsWizardOpen(true)} variant="primary" className="flex-1 py-3">
               <PlusCircle size={18} />
-              New Game
+              New game
             </GlassButton>
             <Link to="/teams" className="flex-1">
               <GlassButton variant="secondary" className="w-full py-3">
                 <Users2 size={18} />
-                Manage Teams
+                Manage teams
               </GlassButton>
             </Link>
           </div>

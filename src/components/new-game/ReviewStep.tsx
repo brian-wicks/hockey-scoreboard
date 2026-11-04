@@ -32,7 +32,7 @@ function TeamSummaryCard({
         )}
       </div>
       <div className="text-center">
-        <div className="font-semibold text-zinc-100">{draft.identity.name || "Unnamed Team"}</div>
+        <div className="font-semibold text-zinc-100">{draft.identity.name || "Unnamed team"}</div>
         <div className="text-xs font-mono text-zinc-400">{draft.identity.abbreviation || "-"}</div>
       </div>
       <div className="text-xs text-zinc-500">{draft.players.length} players</div>
@@ -65,7 +65,7 @@ export default function ReviewStep({
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h3 className="text-lg font-bold text-white">Review &amp; Start</h3>
+        <h3 className="text-lg font-bold text-white">Review and start</h3>
         <p className="text-sm text-zinc-400 mt-0.5">Confirm both teams before starting the game.</p>
       </div>
 
@@ -79,7 +79,7 @@ export default function ReviewStep({
           Back
         </GlassButton>
         <GlassButton onClick={onStart} disabled={starting} variant="success">
-          {starting ? "Starting..." : "Start Game"}
+          {starting ? "Starting..." : "Start game"}
         </GlassButton>
       </div>
     </div>

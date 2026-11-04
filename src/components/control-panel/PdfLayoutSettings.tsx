@@ -448,11 +448,11 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
               </button>
               <div className="text-xs text-zinc-500 min-w-[90px] text-right">
                 {fileLayoutStatus === "saving"
-                  ? "Saving…"
+                  ? "Saving..."
                   : fileLayoutStatus === "saved"
                     ? "Saved"
                     : fileLayoutStatus === "loading"
-                      ? "Loading…"
+                      ? "Loading..."
                       : fileLayoutStatus === "loaded"
                         ? "Loaded"
                         : fileLayoutStatus === "error"
@@ -493,7 +493,7 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
               Show sample data
             </label>
             <div className="ml-auto text-xs text-zinc-500">
-              {showPdfPreview ? (isGeneratingPreview ? "Updating preview…" : "Preview ready") : "Preview off"}
+              {showPdfPreview ? (isGeneratingPreview ? "Updating preview..." : "Preview ready") : "Preview off"}
             </div>
           </div>
 
@@ -516,7 +516,7 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
               <div>
                 <div className="text-zinc-300">
                   {templateStatus === "uploading"
-                    ? "Uploading template…"
+                    ? "Uploading template..."
                     : pdfLayout.templateUrl
                       ? "Using your uploaded blank template"
                       : "Using the built-in blank template"}

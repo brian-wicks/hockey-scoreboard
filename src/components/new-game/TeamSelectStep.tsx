@@ -58,7 +58,7 @@ export default function TeamSelectStep({ side, onConfirm, onBack, otherSelection
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h3 className="text-lg font-bold text-white">{sideLabel} Team</h3>
+        <h3 className="text-lg font-bold text-white">{sideLabel} team</h3>
         <p className="text-sm text-zinc-400 mt-0.5">Pick a team from your library, or create a new one.</p>
       </div>
 
@@ -80,7 +80,7 @@ export default function TeamSelectStep({ side, onConfirm, onBack, otherSelection
               {otherSelection.label} team selected
             </div>
             <div className="text-sm font-semibold text-white truncate">
-              {otherSelection.draft.identity.name || "Unnamed Team"}
+              {otherSelection.draft.identity.name || "Unnamed team"}
             </div>
           </div>
         </div>
@@ -113,7 +113,7 @@ export default function TeamSelectStep({ side, onConfirm, onBack, otherSelection
 
       {mode === "library" ? (
         <TeamLibraryGrid
-          emptyMessage="No saved teams yet — switch to Create New instead."
+          emptyMessage="No saved teams yet. Switch to Create new to add one."
           renderActions={(entry) => (
             <GlassButton onClick={() => handleLibrarySelect(entry)} variant="primary" className="w-full text-sm">
               Select
@@ -132,7 +132,7 @@ export default function TeamSelectStep({ side, onConfirm, onBack, otherSelection
             framed={false}
             logoInput="upload"
           />
-          <p className="text-xs text-zinc-500 italic">Roster is optional — you can add players later in Settings.</p>
+          <p className="text-xs text-zinc-500 italic">Roster is optional. You can add players later in Settings.</p>
           <GlassButton onClick={handleCreateContinue} disabled={!identity.name.trim()} variant="primary" className="self-end">
             Continue
           </GlassButton>

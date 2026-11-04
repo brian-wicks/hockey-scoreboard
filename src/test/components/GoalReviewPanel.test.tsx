@@ -5,7 +5,7 @@ import GoalReviewPanel from "../../components/control-panel/GoalReviewPanel";
 
 const baseState: GameState = {
   homeTeam: {
-    name: "Home Team",
+    name: "Home team",
     abbreviation: "HOM",
     score: 1,
     shots: 2,
@@ -16,7 +16,7 @@ const baseState: GameState = {
     players: [],
   },
   awayTeam: {
-    name: "Away Team",
+    name: "Away team",
     abbreviation: "AWY",
     score: 2,
     shots: 4,

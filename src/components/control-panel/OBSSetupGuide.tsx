@@ -74,7 +74,7 @@ export default function OBSSetupGuide({ isOpen, onClose }: OBSSetupGuideProps) {
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-white/10">
           <h2 className="text-xl font-bold flex items-center gap-2 text-white">
             <Cast className="text-indigo-400" size={24} />
-            Set Up in OBS
+            Set up in OBS
           </h2>
           <button
             onClick={handleClose}
@@ -107,8 +107,8 @@ export default function OBSSetupGuide({ isOpen, onClose }: OBSSetupGuideProps) {
                   </div>
                   <p className="text-xs text-zinc-500">
                     Running OBS on a different machine than your game control browser? Use a
-                    <span className="text-zinc-300"> Share Link </span>
-                    from the Control Panel's Share button instead — it works from any device.
+                    <span className="text-zinc-300"> share link </span>
+                    from the Control Panel's Share button instead. Share links work on any device.
                   </p>
                 </>
               ) : (
@@ -139,7 +139,7 @@ export default function OBSSetupGuide({ isOpen, onClose }: OBSSetupGuideProps) {
                   <span className="font-semibold text-white">Browser</span>, then name it and click OK.
                 </li>
                 <li>Paste your overlay URL into the URL field.</li>
-                <li>Set Width/Height to match your OBS canvas (e.g. 1920×1080).</li>
+                <li>Set width and height to match your OBS canvas (e.g. 1920x1080).</li>
                 <li>
                   Uncheck <span className="font-semibold text-white">Shutdown source when not visible</span>.
                 </li>
@@ -154,16 +154,16 @@ export default function OBSSetupGuide({ isOpen, onClose }: OBSSetupGuideProps) {
           {step === 2 && (
             <div className="space-y-4">
               <div>
-                <h3 className="text-sm font-bold text-zinc-100">3. Preview & position</h3>
+                <h3 className="text-sm font-bold text-zinc-100">3. Preview and position</h3>
                 <p className="text-sm text-zinc-400 mt-1">
-                  The overlay has a transparent background, so it composites straight over your stream.
-                  It updates live as the game state changes — no need to refresh once it's placed.
+                  The overlay has a transparent background, so it sits on top of your stream. It updates
+                  as the game changes, and you don't need to refresh it after placing it.
                 </p>
               </div>
               <a href={overlayUrl} target="_blank" rel="noreferrer">
                 <GlassButton variant="secondary" className="w-full py-2.5">
                   <ExternalLink size={16} />
-                  Open Overlay
+                  Open overlay
                 </GlassButton>
               </a>
             </div>

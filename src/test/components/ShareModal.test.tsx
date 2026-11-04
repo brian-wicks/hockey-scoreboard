@@ -47,7 +47,7 @@ describe("ShareModal Component", () => {
 
     render(<ShareModal isOpen={true} onClose={mockOnClose} />);
 
-    expect(screen.getByText("No share link generated yet.")).toBeInTheDocument();
+    expect(screen.getByText("No share links yet.")).toBeInTheDocument();
 
     // Mock POST for generation
     vi.mocked(global.fetch).mockResolvedValueOnce({
@@ -55,10 +55,10 @@ describe("ShareModal Component", () => {
       json: () => Promise.resolve({ shareId: "new-share-id" }),
     } as any);
 
-    fireEvent.click(screen.getByText("Generate Public Share Link"));
+    fireEvent.click(screen.getByText("Create share links"));
 
     await waitFor(() => {
-      expect(screen.getByText("Public Overlay")).toBeInTheDocument();
+      expect(screen.getByText("Overlay")).toBeInTheDocument();
       expect(screen.getByText("new-share-id")).toBeInTheDocument();
     });
   });

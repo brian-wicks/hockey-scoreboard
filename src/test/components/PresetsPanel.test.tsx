@@ -23,8 +23,8 @@ describe("PresetsPanel Component", () => {
   };
 
   const mockPresets = [
-    { name: "Game 1", team: { name: "Home Team", abbreviation: "HOM", logo: "", color: "#000", players: [] }, updatedAt: 1 },
-    { name: "Game 2", team: { name: "Away Team", abbreviation: "AWY", logo: "", color: "#fff", players: [] }, updatedAt: 2 },
+    { name: "Game 1", team: { name: "Home team", abbreviation: "HOM", logo: "", color: "#000", players: [] }, updatedAt: 1 },
+    { name: "Game 2", team: { name: "Away team", abbreviation: "AWY", logo: "", color: "#fff", players: [] }, updatedAt: 2 },
   ];
 
   it("renders the presets and handles deletion", async () => {
@@ -41,8 +41,8 @@ describe("PresetsPanel Component", () => {
     await act(flushMicrotasks);
 
     // Cards show the team's display name, not the preset name.
-    expect(await screen.findByText("Home Team")).toBeInTheDocument();
-    expect(screen.getByText("Away Team")).toBeInTheDocument();
+    expect(await screen.findByText("Home team")).toBeInTheDocument();
+    expect(screen.getByText("Away team")).toBeInTheDocument();
 
     const deleteButton = screen.getByLabelText(/Delete preset Game 1/i);
     await act(async () => {
@@ -72,7 +72,7 @@ describe("PresetsPanel Component", () => {
     render(<PresetsPanel gameState={baseGameState as any} updateState={vi.fn()} />);
     await act(flushMicrotasks);
 
-    fireEvent.click(screen.getByText("Save Home"));
+    fireEvent.click(screen.getByText("Save home"));
 
     await waitFor(() => {
       expect(saveTeamToLibrary).toHaveBeenCalledWith(
@@ -97,9 +97,9 @@ describe("PresetsPanel Component", () => {
     await act(flushMicrotasks);
     await screen.findAllByText("Current Home");
 
-    fireEvent.click(screen.getByText("Save Home"));
+    fireEvent.click(screen.getByText("Save home"));
 
-    expect(await screen.findByText("Team Name Already Exists")).toBeInTheDocument();
+    expect(await screen.findByText("Team name already exists")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Overwrite"));
     await waitFor(() => {

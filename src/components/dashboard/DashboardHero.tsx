@@ -10,8 +10,8 @@ export default function DashboardHero() {
       <div className="min-w-0">
         <h2 className="text-base font-bold text-white">Hockey Scoreboard</h2>
         <p className="text-sm text-zinc-400 mt-1">
-          Live game control for ice hockey broadcasts — score, clock, and penalties sync instantly to
-          your stream overlay, jumbotron display, and shareable viewer links.
+          Start a new game or open a saved one. Score, clock and penalty changes you make in the
+          control panel show up on the overlay, the jumbotron and any share links.
         </p>
         <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-xs font-medium text-zinc-400">
           <span className="inline-flex items-center gap-1.5">
@@ -21,7 +21,7 @@ export default function DashboardHero() {
             <MonitorPlay size={13} className="text-indigo-400" /> Jumbotron
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <Share2 size={13} className="text-emerald-400" /> Shareable links
+            <Share2 size={13} className="text-emerald-400" /> Share links
           </span>
         </div>
       </div>

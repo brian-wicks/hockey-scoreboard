@@ -71,7 +71,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
               : "border border-transparent text-zinc-400 hover:text-zinc-200"
           }`}
         >
-          <Users size={15} /> Teams &amp; Rosters
+          <Users size={15} /> Teams and rosters
         </button>
         <button
           type="button"
@@ -82,7 +82,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
               : "border border-transparent text-zinc-400 hover:text-zinc-200"
           }`}
         >
-          <Keyboard size={15} /> Keyboard Shortcuts
+          <Keyboard size={15} /> Keyboard shortcuts
         </button>
         <button
           type="button"
@@ -100,7 +100,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
       {settingsTab === "teams" && (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <TeamEditorFields
-          title="Home Team Settings"
+          title="Home team settings"
           identity={{
             name: gameState.homeTeam.name,
             abbreviation: gameState.homeTeam.abbreviation,
@@ -113,7 +113,7 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
           onRosterChange={(players) => updateTeam("home", { players })}
         />
         <TeamEditorFields
-          title="Away Team Settings"
+          title="Away team settings"
           identity={{
             name: gameState.awayTeam.name,
             abbreviation: gameState.awayTeam.abbreviation,
@@ -133,13 +133,13 @@ export default function SettingsPanel({ gameState, updateState }: SettingsPanelP
         <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
           <h2 className="text-xl font-bold flex items-center gap-2">
             <Keyboard size={24} />
-            Keyboard Shortcuts
+            Keyboard shortcuts
           </h2>
           <button
             onClick={resetShortcuts}
             className="px-4 py-2 bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] rounded-lg text-sm font-medium transition-colors"
           >
-            Reset to Defaults
+            Reset to defaults
           </button>
         </div>
         <div className="text-sm text-zinc-500 mb-4 italic">

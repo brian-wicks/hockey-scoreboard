@@ -37,16 +37,16 @@ describe("TeamManagerPage", () => {
 
     expect(await screen.findByText("Boston Bruins")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("Create New Team"));
-    expect(screen.getByText("Create New Team", { selector: "h2" })).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Create new team"));
+    expect(screen.getByText("Create new team", { selector: "h2" })).toBeInTheDocument();
 
     // The library grid's own search box is also an empty text input underneath the
     // modal overlay, so target the Name field via its adjacent label instead of by value.
-    const nameInput = screen.getByText("Team Name").nextElementSibling as HTMLInputElement;
+    const nameInput = screen.getByText("Team name").nextElementSibling as HTMLInputElement;
     fireEvent.change(nameInput, { target: { value: "New Team" } });
     fireEvent.blur(nameInput);
 
-    fireEvent.click(screen.getByText("Save Team"));
+    fireEvent.click(screen.getByText("Save team"));
 
     await waitFor(() => {
       expect(saveTeamToLibrary).toHaveBeenCalledWith("New Team", expect.objectContaining({ name: "New Team" }));
@@ -57,7 +57,7 @@ describe("TeamManagerPage", () => {
     render(<TeamManagerPage />, { wrapper: MemoryRouter });
 
     fireEvent.click(await screen.findByText("Edit"));
-    expect(screen.getByText("Edit Team")).toBeInTheDocument();
+    expect(screen.getByText("Edit team")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Boston Bruins")).toBeInTheDocument();
   });
 

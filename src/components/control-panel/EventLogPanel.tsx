@@ -90,12 +90,12 @@ export default function EventLogPanel({
                 className="control-panel-select bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-sm"
               >
                 <option value="goal">Goal</option>
-                <option value="goal_revoked">Goal Revoked</option>
-                <option value="penalty_added">Penalty Added</option>
-                <option value="penalty_over_notice">Penalty Over</option>
-                <option value="shot_on_goal">Shot on Goal</option>
-                <option value="goalie_change">Goalie Change</option>
-                <option value="period_end">Period End</option>
+                <option value="goal_revoked">Goal revoked</option>
+                <option value="penalty_added">Penalty added</option>
+                <option value="penalty_over_notice">Penalty over</option>
+                <option value="shot_on_goal">Shot on goal</option>
+                <option value="goalie_change">Goalie change</option>
+                <option value="period_end">Period end</option>
               </select>
               <select
                 value={event.team}
@@ -181,8 +181,8 @@ export default function EventLogPanel({
                   onChange={(e) => updateEvent(event.id, { shotDelta: Number(e.target.value) })}
                   className="control-panel-select bg-white/[0.05] border border-white/10 focus:border-indigo-400/60 focus:outline-none text-zinc-100 rounded-md px-2 py-1 text-sm"
                 >
-                  <option value={1}>+1 Shot</option>
-                  <option value={-1}>-1 Shot</option>
+                  <option value={1}>+1 shot</option>
+                  <option value={-1}>-1 shot</option>
                 </select>
                 <div className="text-xs text-zinc-500 flex items-center">Logged for {event.team} shots</div>
               </div>
@@ -211,7 +211,7 @@ export default function EventLogPanel({
   return (
     <GlassPanel className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold text-zinc-300 uppercase tracking-wider">Event Log</h2>
+          <h2 className="text-lg font-semibold text-zinc-300 uppercase tracking-wider">Event log</h2>
           <div className="flex items-center gap-2 flex-wrap">
             <GlassButton
               type="button"
