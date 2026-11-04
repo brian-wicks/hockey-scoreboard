@@ -1,105 +1,114 @@
 # Running the scoreboard at a rink with no wifi
 
 The normal app needs the internet: it signs you in with Google, and that sign-in
-has to be refreshed roughly every hour. At a rink with weak or no wifi that
-fails, and the app becomes unusable mid-game.
+has to be refreshed roughly every hour. At a rink with weak or no wifi the
+refresh fails and the app stops working mid-game.
 
-The **desktop app** solves this. It's a normal application you install once and
-double-click, and it works with the network unplugged.
+The desktop app avoids this. You install it once, open it like any other
+application, and it works with the network unplugged.
 
-## What's different in the desktop app
+## Differences from the website
 
-- **No sign-in.** It opens straight into the Dashboard.
-- **Everything stays on the laptop.** Games you run offline are saved on that
-  machine only — they will not appear in your account on the website.
-- **Logo and template uploads work, and stay on the laptop.** Drop in a team
-  crest or your own blank gamesheet PDF as usual; the file is saved alongside the
-  local database instead of being sent to the cloud. A logo you pasted as a web
-  *address* on the website won't load offline, though — upload the image file
-  itself instead.
-- **Only that laptop can control the game.** The app is not reachable from other
-  devices on the rink's network. This is deliberate: with sign-in switched off,
-  anyone who could reach it could change the score.
+- There's no sign-in. The app opens straight into the Dashboard.
+- Games you run in the desktop app are saved on that laptop only. They won't
+  appear in your account on the website.
+- Logo and gamesheet template uploads work as usual, but the files are saved next
+  to the local database instead of being sent to the cloud. A logo you added on
+  the website as a web address won't load offline, so upload the image file
+  itself.
+- Only that laptop can control the game. Other devices on the rink's network
+  can't reach the app, because with sign-in switched off anyone who could reach
+  it could change the score.
 
 ## Installing it
 
-Ask whoever set up the scoreboard to build the installer once:
+Download the installer for your system from the
+[latest release](https://github.com/brian-wicks/hockey-scoreboard/releases/latest):
+the `.dmg` for a Mac, the `.exe` for Windows or the `.AppImage` for Linux. Copy it
+to the rink laptop and install it like any other app. Neither installer is
+code-signed, so the first launch needs one extra step; see
+[Unsigned builds](#unsigned-builds) below.
+
+To build an installer yourself instead, run:
 
 ```
 npm run electron:build
 ```
 
-That produces an installer in the `release/` folder — `.dmg` on a Mac, `.exe` on
-Windows. Copy it to the rink laptop and install it like any other app.
+The installer ends up in the `release/` folder.
 
 ## Using it on game day
 
-1. Open **Hockey Scoreboard** from your Applications folder or Start menu.
-2. It opens on the Dashboard. Start a game with **New Game**, exactly as on the
-   website.
-3. For the OBS overlay, use the same overlay address as usual — the setup guide
-   in the app shows it.
+1. Open Hockey Scoreboard from your Applications folder or Start menu.
+2. Start a game from the Dashboard with **New game**, the same as on the website.
+3. For the OBS overlay, use the overlay address shown in the app's OBS setup
+   guide.
 4. Export the gamesheet PDF at the end of the game as normal. The file saves to
-   your computer, so you can email it once you're back on wifi.
+   your computer, and you can email it once you're back on wifi.
 
-You do not need to be online at any point.
+You don't need to be online at any point.
 
-## Where the data lives
+## Data folder
 
-Games, teams, and settings are stored in a database file inside the app's own
-data folder, which the app creates on first launch:
+Games, teams and settings are stored in a database file in the app's data
+folder, which the app creates on first launch:
 
 - macOS: `~/Library/Application Support/hockey-scoreboard/data`
 - Windows: `%APPDATA%\hockey-scoreboard\data`
 
-Back that folder up if a season's games matter to you.
+Back that folder up if you want to keep a season's games.
 
-## Notes for whoever maintains this
+## Notes for maintainers
 
-- Local mode is a real authentication bypass. It's opt-in via `LOCAL_MODE=true`
-  (see `src/lib/localMode.ts`), the server refuses to start with it under
-  `NODE_ENV=production`, and it binds loopback only.
+- Local mode turns authentication off. It's opt-in via `LOCAL_MODE=true` (see
+  `src/lib/localMode.ts`), the server refuses to start with it under
+  `NODE_ENV=production`, and it only listens on loopback.
 - `npm run electron:dev` runs the desktop shell against the repo without
-  packaging. `npm run build:electron` just produces the bundles it needs.
-- The server is bundled to `dist-electron/server.mjs` by
-  `scripts/build-electron.mjs` because `tsx` isn't available inside a packaged
-  app. Nothing in that bundle is left as a bare import — Contents/Resources/
-  server/ has no node_modules to resolve one from once installed. Cloud-only
-  deps (firebase-admin, @sentry/node) are stubbed out at bundle time
-  (`electron/stubs/`); `better-sqlite3` is native, so it's rebuilt for
-  Electron's ABI by electron-builder and resolved by absolute path from inside
-  `electron/main.cjs` instead.
+  packaging. `npm run build:electron` only produces the bundles it needs.
+- `scripts/build-electron.mjs` bundles the server to `dist-electron/server.mjs`
+  because `tsx` isn't available inside a packaged app. The bundle can't contain
+  any bare imports, since `Contents/Resources/server/` has no `node_modules` to
+  resolve them from once installed. Cloud-only dependencies (firebase-admin,
+  @sentry/node) are replaced with stubs from `electron/stubs/` at bundle time.
+  `better-sqlite3` is native, so electron-builder rebuilds it for Electron's ABI
+  and `electron/main.cjs` loads it by absolute path.
 
 ## Cutting a release
 
-Pushing a version tag builds installers for macOS, Windows, and Linux and
-publishes them to the repo's GitHub Releases page automatically
-(`.github/workflows/release.yml`). To cut one:
+Pushing a version tag makes `.github/workflows/release.yml` build installers for
+macOS, Windows and Linux and publish them on the repo's GitHub Releases page.
+To cut one:
 
-1. Bump `version` in `package.json` and add the changelog entry, as usual.
+1. Bump `version` in `package.json` and add the changelog entry.
 2. Commit and push that to `main`.
-3. Tag it and push the tag — the tag must be `v` + the exact `package.json`
-   version, or CI fails before building anything:
+3. Tag the commit and push the tag. The tag has to be `v` followed by the exact
+   `package.json` version, or CI fails before building anything:
    ```
    git tag v1.12.0
    git push origin v1.12.0
    ```
-4. Watch the "Release desktop app" workflow in the repo's Actions tab. Once it
-   finishes, the release is live on the Releases page with a `.dmg`, `.exe`,
-   and `.AppImage` attached — no manual step.
+4. Watch the "Release desktop app" workflow in the repo's Actions tab. When it
+   finishes, the release is on the Releases page with the `.dmg`, `.exe` and
+   `.AppImage` attached. There's no manual step.
 
-Neither build is code-signed (no Apple/Microsoft certificate is configured).
-Windows will show a SmartScreen warning on first launch of a downloaded
-copy — "More info" → "Run anyway" gets past it. macOS is worse: since the
-app has no signature at all (not even ad-hoc), Gatekeeper doesn't show the
-usual "unidentified developer" prompt that right-click → Open bypasses —
-it shows **"[App] is damaged and can't be opened"** instead, because a
-fully unsigned app downloaded through a browser gets quarantined and macOS
-won't assess it. The app isn't actually damaged; strip the quarantine flag
-instead:
+## Unsigned builds
+
+Neither build is code-signed, because no Apple or Microsoft certificate is
+configured.
+
+On Windows, SmartScreen shows a warning the first time you open a downloaded
+copy. Click "More info", then "Run anyway".
+
+On macOS the app has no signature at all, not even an ad-hoc one. A fully
+unsigned app downloaded through a browser gets quarantined, and Gatekeeper
+reports **"Hockey Scoreboard is damaged and can't be opened"** instead of the
+usual "unidentified developer" prompt that right-click > Open gets past. The app
+isn't damaged. Remove the quarantine flag in Terminal and it will open:
+
 ```
 xattr -cr "/Applications/Hockey Scoreboard.app"
 ```
-Setting up real signing needs a paid Apple Developer account and/or a
-code-signing certificate — worth doing before handing this to
-non-technical users at scale, out of scope for now.
+
+Signing the builds properly needs a paid Apple Developer account and a Windows
+code-signing certificate. That's worth setting up before handing the app to
+non-technical users in larger numbers, but it isn't planned yet.
