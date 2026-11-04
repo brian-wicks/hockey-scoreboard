@@ -298,7 +298,7 @@ export default function StreamDeckPanel() {
   const { handleAction } = useSharedActions();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [focusPenaltyId, setFocusPenaltyId] = useState<string | null>(null);
-  const prevPenaltyCountsRef = useRef({ home: 0, away: 0 });
+  const prevPenaltyCountsRef = useRef<{ home: number; away: number } | null>(null);
 
   const homePlayers = gameState?.homeTeam.players ?? [];
   const awayPlayers = gameState?.awayTeam.players ?? [];
@@ -351,6 +351,10 @@ export default function StreamDeckPanel() {
     const homeCount = gameState.homeTeam.penalties.length;
     const awayCount = gameState.awayTeam.penalties.length;
     const prevCounts = prevPenaltyCountsRef.current;
+    prevPenaltyCountsRef.current = { home: homeCount, away: awayCount };
+
+    // Penalties already there when the page opens aren't new, so only record them.
+    if (!prevCounts) return;
 
     // Simple heuristic: if a penalty was added, focus it. Only look at the team whose
     // count actually grew — checking both unconditionally let an already-blank,
@@ -366,8 +370,6 @@ export default function StreamDeckPanel() {
         setFocusPenaltyId(lastAway.id);
       }
     }
-
-    prevPenaltyCountsRef.current = { home: homeCount, away: awayCount };
   }, [gameState?.homeTeam.penalties.length, gameState?.awayTeam.penalties.length]);
 
   if (!gameState) return null;

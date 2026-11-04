@@ -122,4 +122,37 @@ describe("StreamDeckPanel Component", () => {
 
     expect(screen.queryByText(/Edit Button 1/i)).not.toBeInTheDocument();
   });
+
+  describe("focusing a new penalty", () => {
+    const blankPenalty = { id: "p1", playerNumber: "", infraction: "", timeRemaining: 120000, duration: 120000 };
+    const mockStoreWithHomePenalties = (penalties: typeof blankPenalty[]) => {
+      vi.mocked(useStore).mockReturnValue({
+        gameState: { ...mockGameState, homeTeam: { ...mockGameState.homeTeam, penalties } },
+        streamDeckConfig: mockConfig,
+        loadStreamDeckConfig: vi.fn(),
+        updateStreamDeckButton: vi.fn(),
+        ensureInitialized: vi.fn(),
+      } as any);
+      vi.mocked(useSharedActions).mockReturnValue({ handleAction: vi.fn() } as any);
+    };
+
+    it("leaves focus alone when the page opens with a blank penalty already there", async () => {
+      mockStoreWithHomePenalties([blankPenalty]);
+
+      render(<StreamDeckPanel />);
+
+      expect(await screen.findByPlaceholderText("#")).not.toHaveFocus();
+    });
+
+    it("focuses a penalty added while the page is open", async () => {
+      mockStoreWithHomePenalties([]);
+      const { rerender } = render(<StreamDeckPanel />);
+      await screen.findByText("Goal Home");
+
+      mockStoreWithHomePenalties([blankPenalty]);
+      rerender(<StreamDeckPanel />);
+
+      expect(await screen.findByPlaceholderText("#")).toHaveFocus();
+    });
+  });
 });
