@@ -11,6 +11,32 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.14.0',
+    date: '2026-11-04',
+    sections: {
+      added: [
+        'Add screen reader labels to the score and shot buttons, such as "Home score +1".',
+        'Show "Connection lost" next to the app name when the server connection drops.',
+        'Add a button that moves to the next period when the clock reaches zero.',
+        'Add a way to collapse the list of goals in Goal Review.',
+        'Add an Import teams button to the Team library for adding teams from .json files.',
+      ],
+      changed: [
+        'Redesign the app with a light black and white look.',
+        'Use the lined-up gamesheet layout as the default, so a fresh desktop install fills in the printed boxes correctly.',
+        'Use sentence case and plainer wording for labels, buttons and messages across the app.',
+        'Show real screenshots on the signed-out home page, with team logos and a penalty on screen.',
+        'Show Goal Review beside the overlay preview on the Stream Deck page when the window is at least 1280px wide.',
+      ],
+      fixed: [
+        'Fix the Goal Review panel covering the sidebar and running off the screen at laptop widths.',
+        'Fix the changelog link sending signed-out visitors back to the home page.',
+        'Fix the Stream Deck page moving focus to a blank penalty and scrolling down to it when opened.',
+        'Fix long team names pushing the abbreviation out of the team panel in the Control Panel.',
+      ],
+    },
+  },
+  {
     version: '1.13.2',
     date: '2026-09-17',
     sections: {
