@@ -1,0 +1,25 @@
+name: CI
+
+# Checks every push and pull request. Releases have their own workflow, release.yml.
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      # Local mode doesn't need Firebase config, which this repo has no CI secrets for. The
+      # static file tests only need a dist/index.html to exist. See release.yml.
+      - run: VITE_LOCAL_MODE=true npm run build
+      - run: npx vitest run
