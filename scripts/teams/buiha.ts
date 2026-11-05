@@ -3,45 +3,35 @@ import type { ImportedPlayer, ImportedTeam, PlayerPosition } from "../../src/uti
 
 const LOGO_BASE = "https://buiha.org.uk/assets/img/icon/md";
 
-// Club stub -> the club's first team abbreviation. `prefix` starts the abbreviations of
-// its other teams (NEW, then NEB and NEC), set where two clubs would otherwise clash.
-export const CLUBS: Record<string, { code: string; prefix?: string }> = {
-  birmingham: { code: "BIR" },
-  bradford: { code: "BRA" },
-  bristol: { code: "BRS" },
-  cambridge: { code: "CAM" },
-  cardiff: { code: "CAR", prefix: "CD" },
-  edinburgh: { code: "EDI" },
-  glasgow: { code: "GLA" },
-  hull: { code: "HUL" },
-  imperial: { code: "IMP" },
-  kent: { code: "KEN" },
-  leeds: { code: "LEE" },
-  london: { code: "LON" },
-  manchester: { code: "MAN" },
-  newcastle: { code: "NEW" },
-  northeast: { code: "NEA", prefix: "NA" },
-  northumbria: { code: "NOR", prefix: "NR" },
-  nottingham: { code: "NOT", prefix: "NT" },
-  oxford: { code: "OXF" },
-  sheffield: { code: "SHE", prefix: "SF" },
-  southampton: { code: "SOU" },
-  southern: { code: "SRN" },
-  standrews: { code: "STA" },
-  stirling: { code: "STI" },
-  uclu: { code: "UCL" },
-  uea: { code: "UEA" },
-  aberdeen: { code: "ABD" },
-  "warwick-coventry": { code: "WAR" },
-};
-
-// Teams whose names don't follow the club's usual pattern.
-const TEAM_CODES: Record<string, string> = {
-  "Cambridge Huskies": "CAH",
-  "Cambridge Narwhals": "CAN",
-  "Oxford Vikings": "OXV",
-  "Oxford Vikings B": "OVB",
-  "Oxford Vikings C": "OVC",
+// Club stub -> the abbreviation shared by all of the club's teams.
+export const CLUBS: Record<string, string> = {
+  birmingham: "BIR",
+  bradford: "BRA",
+  bristol: "BRS",
+  cambridge: "CAM",
+  cardiff: "CAR",
+  edinburgh: "EDI",
+  glasgow: "GLA",
+  hull: "HUL",
+  imperial: "IMP",
+  kent: "KEN",
+  leeds: "LEE",
+  london: "LON",
+  manchester: "MAN",
+  newcastle: "NEW",
+  northeast: "NEA",
+  northumbria: "NOR",
+  nottingham: "NOT",
+  oxford: "OXF",
+  sheffield: "SHE",
+  southampton: "SOU",
+  southern: "SRN",
+  standrews: "STA",
+  stirling: "STI",
+  uclu: "UCL",
+  uea: "UEA",
+  aberdeen: "ABD",
+  "warwick-coventry": "WAR",
 };
 
 export interface ApiRosterRow {
@@ -67,15 +57,10 @@ export interface ApiClub {
 
 export const UNASSIGNED_TEAM = "Unassigned";
 
-export function teamAbbreviation(stub: string, teamName: string, clubName: string): string {
-  if (TEAM_CODES[teamName]) return TEAM_CODES[teamName];
-  const club = CLUBS[stub];
-  if (!club) throw new Error(`Unknown club "${stub}"`);
-  const prefix = club.prefix ?? club.code.slice(0, 2);
-  if (/\bwomen/i.test(teamName)) return `${prefix}W`;
-  if (/\balumni\b/i.test(teamName)) return `${prefix}L`;
-  const suffix = teamName.startsWith(clubName) ? teamName.slice(clubName.length).trim() : teamName.match(/ ([B-Z])$/)?.[1];
-  return suffix && /^[B-Z]$/.test(suffix) ? `${prefix}${suffix}` : club.code;
+export function teamAbbreviation(stub: string): string {
+  const code = CLUBS[stub];
+  if (!code) throw new Error(`Unknown club "${stub}"`);
+  return code;
 }
 
 function teamColor(club: ApiClub): string {
@@ -136,20 +121,10 @@ export function clubToTeams(club: ApiClub, rows: ApiRosterRow[]): ImportedTeam[]
     const positions = leadershipPositions(apiTeam);
     return {
       name,
-      abbreviation: teamAbbreviation(club.stub, name, club.name),
+      abbreviation: teamAbbreviation(club.stub),
       logo: teamLogo(club, apiTeam),
       color: teamColor(club),
       players: [...roster.values()].map((row) => toPlayer(row, positions)).sort(byJerseyThenName),
     };
   });
-}
-
-/** Throws if two teams would share an abbreviation, since they'd be hard to tell apart on the overlay. */
-export function assertUniqueAbbreviations(teams: ImportedTeam[]): void {
-  const seen = new Map<string, string>();
-  for (const team of teams) {
-    const other = seen.get(team.abbreviation);
-    if (other) throw new Error(`"${team.name}" and "${other}" are both ${team.abbreviation}`);
-    seen.set(team.abbreviation, team.name);
-  }
 }

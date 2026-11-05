@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   CLUBS,
-  assertUniqueAbbreviations,
   clubToTeams,
   teamAbbreviation,
   type ApiClub,
   type ApiRosterRow,
 } from "../../scripts/teams/buiha";
-import { mergeTeams, parseTeamsFile, type ImportedTeam } from "../utils/teamFile";
+import { mergeTeams, parseTeamsFile } from "../utils/teamFile";
 
 const club: ApiClub = {
   stub: "newcastle",
@@ -51,6 +50,7 @@ describe("clubToTeams", () => {
   it("maps identity, trims names, sorts by jersey and sets captains", () => {
     const [first, second] = clubToTeams(club, rows);
     expect(first).toMatchObject({ abbreviation: "NEW", color: "#053065", logo: "https://example.test/a.png" });
+    expect(second.abbreviation).toBe("NEW");
     expect(first.players).toEqual([
       { id: "buiha-1", jerseyNumber: "7", name: "Amy Adams", position: "C" },
       { id: "buiha-2", jerseyNumber: "19", name: "Zoe Young", position: "" },
@@ -73,28 +73,19 @@ describe("clubToTeams", () => {
 });
 
 describe("teamAbbreviation", () => {
-  it.each([
-    ["newcastle", "Newcastle Wildcats", "Newcastle Wildcats", "NEW"],
-    ["newcastle", "Newcastle Wildcats B", "Newcastle Wildcats", "NEB"],
-    ["northumbria", "Northumbria Kings B", "Northumbria Kings", "NRB"],
-    ["nottingham", "Nottingham Mavericks B", "Nottingham Mavericks", "NTB"],
-    ["birmingham", "Birmingham Lions Womens", "Birmingham Lions", "BIW"],
-    ["sheffield", "Sheffield Bears E", "Sheffield Bears", "SFE"],
-    ["oxford", "Oxford Vikings B", "Oxford University Blues", "OVB"],
-    ["cambridge", "Cambridge Huskies", "Cambridge University Blues", "CAH"],
-  ])("%s %s", (stub, team, clubName, expected) => {
-    expect(teamAbbreviation(stub, team, clubName)).toBe(expected);
+  it("gives every team in a club the club's code", () => {
+    expect(teamAbbreviation("newcastle")).toBe("NEW");
+    expect(teamAbbreviation("oxford")).toBe("OXF");
   });
 
-  it("gives every club's first team a different three-letter code", () => {
-    const codes = Object.values(CLUBS).map((entry) => entry.code);
+  it("rejects an unknown club", () => {
+    expect(() => teamAbbreviation("nowhere")).toThrow(/Unknown club/);
+  });
+
+  it("gives every club a different three-letter code", () => {
+    const codes = Object.values(CLUBS);
     expect(new Set(codes).size).toBe(codes.length);
     expect(codes.every((code) => code.length === 3)).toBe(true);
-  });
-
-  it("rejects two teams sharing an abbreviation", () => {
-    const team = (name: string) => ({ name, abbreviation: "NEW" }) as ImportedTeam;
-    expect(() => assertUniqueAbbreviations([team("One"), team("Two")])).toThrow(/both NEW/);
   });
 });
 

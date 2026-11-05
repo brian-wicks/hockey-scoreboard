@@ -11,7 +11,6 @@ import { parseArgs } from "node:util";
 import {
   CLUBS,
   UNASSIGNED_TEAM,
-  assertUniqueAbbreviations,
   clubToTeams,
   type ApiClub,
   type ApiRosterRow,
@@ -65,8 +64,6 @@ for (const stub of Object.keys(CLUBS)) {
   teams.push(...clubTeams);
   console.log(`${stub}: ${clubTeams.map((team) => `${team.name} (${team.players.length})`).join(", ")}`);
 }
-
-assertUniqueAbbreviations(teams);
 
 const outPath = resolve(values.out ?? `data/teams/buiha-${seasonLabel}.json`);
 const teamsDir = outPath.replace(/\.json$/, "");
