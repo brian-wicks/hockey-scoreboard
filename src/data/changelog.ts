@@ -11,6 +11,32 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.14.2',
+    date: '2026-11-05',
+    sections: {
+      added: [
+        'Add a delete button to event log entries. Deleting a goal, shot or penalty also updates the score, shots or penalty clock, and takes it off the gamesheet.',
+        'Add a warning when exporting a gamesheet whose goals don\'t match the score.',
+        'Add a row to the event log for the start of each period, including the 1st.',
+        'Show each team\'s color on its card in the Team library.',
+      ],
+      changed: [
+        'Show the end of a period as one row across both teams in the event log, with each team\'s earlier events lined up below it.',
+        'Replace the remove penalty button with an End button. The penalty stays on the gamesheet.',
+        'Send lower third and event log text when you leave the box or press Enter, so half-typed words don\'t reach the overlay.',
+        'Undo now only reverses your last action. It used to also remove anything added from another device in the meantime.',
+        'Update dependencies to pick up security fixes.',
+      ],
+      fixed: [
+        'Fix text boxes losing what you typed on a slow connection.',
+        'Fix goals and other events disappearing from the log when two changes overlap.',
+        'Fix scores and penalty timers jumping back after an edit on a slow connection.',
+        'Fix share links freezing after a short connection drop. They now keep trying to reconnect.',
+        'Fix Goal Review removing a goal while you were still editing it.',
+      ],
+    },
+  },
+  {
     version: '1.14.1',
     date: '2026-11-05',
     sections: {
