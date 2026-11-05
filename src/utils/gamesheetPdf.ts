@@ -1,5 +1,6 @@
 import { PDFDocument, PDFPage, rgb, StandardFonts } from "pdf-lib";
 import type {GameEvent, TeamPlayer, TeamState} from "../store";
+import { getLiveGoals } from "./eventLog";
 
 export type GamesheetPdfLayout = {
   // v2: X from LEFT, Y from TOP, in PDF points. If missing, layout is treated as legacy (v1) at render-time.
@@ -384,52 +385,10 @@ function sortRosterByNumber(players: TeamPlayer[]) {
     .map((entry) => entry.player);
 }
 
-function matchesRevokedGoal(goal: GameEvent, revoked: GameEvent) {
-  const sameTeam = goal.team === revoked.team;
-  if (!sameTeam) return false;
-  // If the revoke has details, try to match them; otherwise fall back to "most recent goal for team".
-  const revokedHasAnyDetails =
-    Boolean(revoked.period?.trim()) ||
-    Boolean(revoked.clockTime?.trim()) ||
-    Boolean(revoked.scorer?.trim()) ||
-    Boolean(revoked.assist1?.trim()) ||
-    Boolean(revoked.assist2?.trim());
-  if (!revokedHasAnyDetails) return true;
-
-  const norm = (v: string | undefined) => (v ?? "").trim();
-  return (
-    norm(goal.period) === norm(revoked.period) &&
-    norm(goal.clockTime) === norm(revoked.clockTime) &&
-    norm(goal.scorer) === norm(revoked.scorer) &&
-    norm(goal.assist1) === norm(revoked.assist1) &&
-    norm(goal.assist2) === norm(revoked.assist2)
-  );
-}
-
 function getEffectiveGoals(eventLog: GameEvent[]) {
-  const sorted = eventLog.slice().sort(sortChronological);
-  const homeGoals: GameEvent[] = [];
-  const awayGoals: GameEvent[] = [];
-
-  for (const e of sorted) {
-    if (e.type === "goal") {
-      (e.team === "home" ? homeGoals : awayGoals).push(e);
-      continue;
-    }
-    if (e.type === "goal_revoked") {
-      const list = e.team === "home" ? homeGoals : awayGoals;
-      // Prefer removing a matching goal if details exist; otherwise remove latest.
-      for (let i = list.length - 1; i >= 0; i -= 1) {
-        if (matchesRevokedGoal(list[i], e)) {
-          list.splice(i, 1);
-          break;
-        }
-      }
-    }
-  }
-
-  homeGoals.sort(sortByGameClock);
-  awayGoals.sort(sortByGameClock);
+  const goals = getLiveGoals(eventLog);
+  const homeGoals = goals.filter((e) => e.team === "home").sort(sortByGameClock);
+  const awayGoals = goals.filter((e) => e.team === "away").sort(sortByGameClock);
   return { homeGoals, awayGoals };
 }
 
@@ -727,7 +686,7 @@ function createPeriodTotals(): PeriodTotals {
   return { "1": 0, "2": 0, "3": 0, OT: 0, total: 0 };
 }
 
-function getPeriodTotals(eventLog: GameEvent[]) {
+export function getPeriodTotals(eventLog: GameEvent[]) {
   const homeGoals = createPeriodTotals();
   const awayGoals = createPeriodTotals();
   const homePim = createPeriodTotals();

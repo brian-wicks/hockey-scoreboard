@@ -107,4 +107,51 @@ describe("GoalReviewPanel", () => {
     fireEvent.click(toggle);
     expect(scorer).toBeVisible();
   });
+
+  describe("revoked goals", () => {
+    const goal = (id: string, createdAt: number, scorer = ""): GameEvent => ({
+      id,
+      type: "goal",
+      team: "home",
+      period: "1st",
+      clockTime: "19:00",
+      scorer,
+      createdAt,
+    });
+    const revoke = (id: string, createdAt: number): GameEvent => ({
+      id,
+      type: "goal_revoked",
+      team: "home",
+      period: "1st",
+      clockTime: "18:30",
+      scorer: "",
+      assist1: "",
+      assist2: "",
+      createdAt,
+    });
+    const renderPanel = (eventLog: GameEvent[]) =>
+      render(
+        <GoalReviewPanel team="home" gameState={{ ...baseState, eventLog }} eventLog={eventLog} rosterPlayers={[]} updateState={vi.fn()} />,
+      );
+
+    it("doesn't list a revoked goal with no scorer", () => {
+      renderPanel([goal("g1", 1), revoke("r1", 2)]);
+      expect(screen.queryByText("Goal review")).toBeNull();
+    });
+
+    it("doesn't list a recently revoked goal with a scorer", () => {
+      renderPanel([goal("g1", 1, "John Doe"), revoke("r1", 2)]);
+      expect(screen.queryByText("Goal review")).toBeNull();
+    });
+
+    it("keeps the goals that weren't revoked", () => {
+      renderPanel([goal("g1", 1), goal("g2", 2), revoke("r1", 3)]);
+      expect(screen.getByRole("button", { name: /Goal review/ })).toHaveTextContent("1");
+    });
+
+    it("keeps a goal when the other team's goal is revoked", () => {
+      renderPanel([goal("g1", 1), { ...revoke("r1", 2), team: "away" }]);
+      expect(screen.getByRole("button", { name: /Goal review/ })).toHaveTextContent("1");
+    });
+  });
 });

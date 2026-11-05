@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
-import { buildGamesheetPdfBytes, getDefaultGamesheetPdfLayout } from "../../utils/gamesheetPdf";
+import type { GameEvent } from "../../store";
+import { buildGamesheetPdfBytes, getDefaultGamesheetPdfLayout, getPeriodTotals } from "../../utils/gamesheetPdf";
 
 // Mock pdf-lib
 vi.mock("pdf-lib", () => {
@@ -180,5 +181,54 @@ describe("Gamesheet PDF Utility", () => {
     const layout = getDefaultGamesheetPdfLayout();
     const result = await buildGamesheetPdfBytes(mockGameState, { layout, debug: true } as any);
     expect(result).toBeDefined();
+  });
+
+  describe("getPeriodTotals with revoked goals", () => {
+    const goal = (id: string, period: string, clockTime: string, scorer = "", createdAt = Number(id)) =>
+      ({ id, type: "goal", team: "home", period, clockTime, scorer, createdAt }) as GameEvent;
+    // The server stamps a revoke with the clock when it happened and the latest goal's details.
+    const revoke = (id: string, period: string, clockTime: string, scorer = "", createdAt = Number(id)) =>
+      ({ id, type: "goal_revoked", team: "home", period, clockTime, scorer, assist1: "", assist2: "", createdAt }) as GameEvent;
+    const homeGoals = (eventLog: GameEvent[]) => getPeriodTotals(eventLog).home.goals;
+
+    it("cancels a goal revoked with the clock stopped", () => {
+      expect(homeGoals([goal("1", "1st", "15:00"), revoke("2", "1st", "15:00")])).toMatchObject({ "1": 0, total: 0 });
+    });
+
+    it("cancels a goal revoked after the clock has moved", () => {
+      expect(homeGoals([goal("1", "1st", "15:00"), revoke("2", "1st", "14:30")])).toMatchObject({ "1": 0, total: 0 });
+    });
+
+    it("takes the goal off its own period when revoked in a later one", () => {
+      const totals = homeGoals([goal("1", "1st", "15:00"), goal("2", "2nd", "18:00"), revoke("3", "2nd", "17:00", "")]);
+      expect(totals).toMatchObject({ "1": 1, "2": 0, total: 1 });
+      expect(homeGoals([goal("1", "1st", "02:00"), revoke("2", "2nd", "19:00")])).toMatchObject({ "1": 0, "2": 0, total: 0 });
+    });
+
+    it("cancels a goal given a scorer after it was logged", () => {
+      expect(homeGoals([goal("1", "1st", "15:00", "10"), revoke("2", "1st", "14:30", "")])).toMatchObject({ total: 0 });
+    });
+
+    it("works back through goals when revoking twice", () => {
+      const log = [goal("1", "1st", "15:00", "10"), goal("2", "2nd", "15:00", "11"), revoke("3", "2nd", "14:00", "11"), revoke("4", "2nd", "13:00", "11")];
+      expect(homeGoals(log)).toMatchObject({ "1": 0, "2": 0, total: 0 });
+    });
+
+    it("counts a goal scored after a revoke", () => {
+      const log = [goal("1", "1st", "15:00"), revoke("2", "1st", "14:30"), goal("3", "1st", "10:00")];
+      expect(homeGoals(log)).toMatchObject({ "1": 1, total: 1 });
+    });
+
+    it("prefers an earlier goal whose details match the revoke exactly", () => {
+      const log = [goal("1", "1st", "15:00", "10"), goal("2", "2nd", "15:00", "11"), revoke("3", "1st", "15:00", "10")];
+      expect(homeGoals(log)).toMatchObject({ "1": 0, "2": 1, total: 1 });
+    });
+
+    it("leaves the other team's goals alone", () => {
+      const away = { ...goal("1", "1st", "15:00"), team: "away" } as GameEvent;
+      const totals = getPeriodTotals([away, revoke("2", "1st", "14:30")]);
+      expect(totals.away.goals.total).toBe(1);
+      expect(totals.home.goals.total).toBe(0);
+    });
   });
 });

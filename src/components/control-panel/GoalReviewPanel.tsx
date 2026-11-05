@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { GameEvent, GameState, TeamPlayer } from "../../store";
+import { getLiveGoals } from "../../utils/eventLog";
 import { toSkaterLabel } from "../../utils/roster";
 import { SearchDropdownInput, SearchOption } from "./DropdownInputs";
 import { UpdateGameState } from "./types";
@@ -51,8 +52,8 @@ export default function GoalReviewPanel({
   const currentClockSeconds = Math.max(0, Math.floor(gameState.clock.timeRemaining / 1000));
   const nowMs = typeof gameState.serverTime === "number" ? gameState.serverTime : Date.now();
 
-  const goalReviewItems = eventLog.filter((event) => {
-    if (event.type !== "goal" || event.team !== team) return false;
+  const goalReviewItems = getLiveGoals(eventLog).filter((event) => {
+    if (event.team !== team) return false;
     const scorerMissing = !(event.scorer ?? "").trim();
     const clockSeconds = parseClockSeconds(event.clockTime ?? "");
     const isRecentGoal =

@@ -44,3 +44,41 @@ export function buildPeriodEndEvent(gameState: GameState, period: string): GameE
     note: "End of period",
   };
 }
+
+function matchesRevokedGoal(goal: GameEvent, revoked: GameEvent) {
+  const norm = (v: string | undefined) => (v ?? "").trim();
+  return (
+    norm(goal.period) === norm(revoked.period) &&
+    norm(goal.clockTime) === norm(revoked.clockTime) &&
+    norm(goal.scorer) === norm(revoked.scorer) &&
+    norm(goal.assist1) === norm(revoked.assist1) &&
+    norm(goal.assist2) === norm(revoked.assist2)
+  );
+}
+
+/** The goals still standing, in the order they were logged. */
+export function getLiveGoals(eventLog: GameEvent[]): GameEvent[] {
+  const sorted = eventLog.slice().sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+  const goals: GameEvent[] = [];
+
+  for (const e of sorted) {
+    if (e.type === "goal") {
+      goals.push(e);
+      continue;
+    }
+    if (e.type === "goal_revoked") {
+      // A revoke carries the clock from when it happened, which rarely equals the goal's, so
+      // it only names a goal when everything matches. Otherwise it takes the team's latest goal.
+      let latest = -1;
+      let matching = -1;
+      for (let i = goals.length - 1; i >= 0 && matching < 0; i -= 1) {
+        if (goals[i].team !== e.team) continue;
+        if (latest < 0) latest = i;
+        if (matchesRevokedGoal(goals[i], e)) matching = i;
+      }
+      const index = matching >= 0 ? matching : latest;
+      if (index >= 0) goals.splice(index, 1);
+    }
+  }
+  return goals;
+}
