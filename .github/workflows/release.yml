@@ -1,14 +1,14 @@
 name: Release desktop app
 
-# Fires only on an explicit version tag (e.g. `git tag v1.12.0 && git push origin
-# v1.12.0`) — not on ordinary pushes to main. A GitHub Release with public
-# download links is a visible, external action, so it only happens from a
-# deliberate, separate step. See docs/offline-at-the-rink.md for the operator-
-# facing side of this build.
+# Fires on a version tag. A GitHub Release with public download links is a visible, external
+# action, so ordinary pushes to main don't publish one. A push that changes the version does:
+# tag-release.yml tags it and starts this workflow on the tag through workflow_dispatch. See
+# docs/offline-at-the-rink.md for the operator-facing side of this build.
 on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
 
 # To create the release and upload build artifacts to it.
 permissions:

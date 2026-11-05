@@ -75,21 +75,20 @@ Back that folder up if you want to keep a season's games.
 
 ## Cutting a release
 
-Pushing a version tag makes `.github/workflows/release.yml` build installers for
-macOS, Windows and Linux and publish them on the repo's GitHub Releases page.
+Pushing a new version to `main` publishes a release. `.github/workflows/tag-release.yml`
+tags the commit, then `.github/workflows/release.yml` builds installers for macOS, Windows
+and Linux and publishes them on the repo's GitHub Releases page.
+
 To cut one:
 
 1. Bump `version` in `package.json` and add the changelog entry.
 2. Commit and push that to `main`.
-3. Tag the commit and push the tag. The tag has to be `v` followed by the exact
-   `package.json` version, or CI fails before building anything:
-   ```
-   git tag v1.12.0
-   git push origin v1.12.0
-   ```
-4. Watch the "Release desktop app" workflow in the repo's Actions tab. When it
+3. Watch the "Release desktop app" workflow in the repo's Actions tab. When it
    finishes, the release is on the Releases page with the `.dmg`, `.exe` and
    `.AppImage` attached. There's no manual step.
+
+The release notes come from that version's changelog entry. Pushing to `main` without
+changing the version doesn't publish anything.
 
 ## Unsigned builds
 
