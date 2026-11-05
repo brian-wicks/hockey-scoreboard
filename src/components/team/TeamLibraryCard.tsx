@@ -2,6 +2,7 @@ import { ReactNode, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { SavedTeam } from "../../store";
 import { Button, insetClass } from "../control-panel/ui/primitives";
+import { TruncatedText } from "../control-panel/ui/TruncatedText";
 
 interface TeamLibraryCardProps {
   entry: SavedTeam;
@@ -23,7 +24,7 @@ export default function TeamLibraryCard({ entry, onDeleteRequest, actions }: Tea
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="font-semibold truncate">{entry.team.name}</div>
+          <TruncatedText text={entry.team.name} className="font-semibold" />
           <div className="text-sm text-muted">{entry.team.abbreviation}</div>
         </div>
         <button
