@@ -36,6 +36,12 @@ export default function TeamLibraryCard({ entry, onDeleteRequest, actions }: Tea
           <Trash2 className="w-4 h-4" />
         </button>
       </div>
+      <div
+        role="img"
+        aria-label={`Team color ${entry.team.color}`}
+        className="h-1 outline outline-1 outline-line"
+        style={{ backgroundColor: entry.team.color }}
+      />
       {actions}
       <Button type="button" onClick={() => setRosterExpanded((prev) => !prev)} variant="ghost" className="w-full">
         {rosterExpanded ? "Hide roster" : `Show roster (${entry.team.players?.length ?? 0})`}

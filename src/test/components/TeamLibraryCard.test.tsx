@@ -19,6 +19,14 @@ function hoverName(scrollWidth: number, clientWidth: number) {
   return element;
 }
 
+describe("TeamLibraryCard color", () => {
+  it("shows the team's color", () => {
+    const colored = { ...entry, team: { ...entry.team, color: "#053065" } } as SavedTeam;
+    render(<TeamLibraryCard entry={colored} onDeleteRequest={vi.fn()} actions={null} />);
+    expect(screen.getByRole("img", { name: "Team color #053065" })).toHaveStyle({ backgroundColor: "#053065" });
+  });
+});
+
 describe("TeamLibraryCard team name", () => {
   beforeEach(() => {
     vi.useFakeTimers();
