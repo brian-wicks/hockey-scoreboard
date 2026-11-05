@@ -11,6 +11,19 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.14.1',
+    date: '2026-11-05',
+    sections: {
+      added: [
+        'Show the full team name in a popup when you hover over a name that is cut off in the Team library.',
+      ],
+      fixed: [
+        'Fix revoked goals still counting on the gamesheet, in the period totals, the overall total, the goal list and player stats.',
+        'Fix Goal Review still listing goals that had been revoked.',
+      ],
+    },
+  },
+  {
     version: '1.14.0',
     date: '2026-11-04',
     sections: {
