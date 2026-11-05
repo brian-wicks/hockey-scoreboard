@@ -2,6 +2,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import EventLogPanel from "../../components/control-panel/EventLogPanel";
 import { useStore } from "../../store";
+import { exportGamesheetPdf, getGoalMismatches } from "../../utils/gamesheetPdf";
 
 vi.mock("../../store", () => ({
   useStore: vi.fn(),
@@ -10,6 +11,7 @@ vi.mock("../../store", () => ({
 vi.mock("../../utils/gamesheetPdf", () => ({
   buildGamesheetPdfBytes: vi.fn().mockResolvedValue(new Uint8Array()),
   exportGamesheetPdf: vi.fn(),
+  getGoalMismatches: vi.fn().mockReturnValue([]),
   getDefaultGamesheetPdfLayout: vi.fn().mockReturnValue({
     scale: 1, offsetX: 0, offsetY: 0,
     teamNames: { homeX: 0, homeYFromTop: 0, awayX: 0, awayYFromTop: 0, size: 10 },
@@ -121,5 +123,94 @@ describe("EventLogPanel Component", () => {
     const awayColumn = awayHeading.parentElement!;
     expect(homeColumn.contains(screen.getByDisplayValue("10:00"))).toBe(true); // goal event, home
     expect(awayColumn.contains(screen.getByDisplayValue("Tripping"))).toBe(true); // penalty event, away
+  });
+
+  describe("exporting and deleting", () => {
+    const team = (name: string, score: number) => ({ name, abbreviation: "T", score, shots: 0, timeouts: 1, logo: "", color: "#000000", penalties: [], players: [] }) as any;
+    const deleteEvent = vi.fn();
+    const renderPanel = (eventLog: any[] = []) => {
+      vi.mocked(useStore).mockImplementation(((selector?: (state: any) => unknown) => {
+        const state = { deleteEvent };
+        return selector ? selector(state) : state;
+      }) as any);
+      vi.mocked(getGoalMismatches).mockReturnValue([]);
+      return render(
+        <EventLogPanel eventLog={eventLog} homeTeam={team("Home", 1)} awayTeam={team("Away", 0)} homePlayers={[]} awayPlayers={[]} updateState={mockUpdateState} />,
+      );
+    };
+
+    it("exports straight away when the sheet matches the score", () => {
+      renderPanel();
+      fireEvent.click(screen.getByRole("button", { name: /Export PDF/ }));
+      expect(exportGamesheetPdf).toHaveBeenCalledTimes(1);
+      expect(screen.queryByText("Goals don't match the score")).toBeNull();
+    });
+
+    it("asks first when they differ, and Cancel doesn't export", () => {
+      renderPanel();
+      vi.mocked(getGoalMismatches).mockReturnValue([{ name: "Home", score: 1, sheetGoals: 0 }]);
+      fireEvent.click(screen.getByRole("button", { name: /Export PDF/ }));
+
+      expect(exportGamesheetPdf).not.toHaveBeenCalled();
+      expect(screen.getByText("Home: 0 on the gamesheet, 1 on the scoreboard")).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(exportGamesheetPdf).not.toHaveBeenCalled();
+      expect(screen.queryByText("Goals don't match the score")).toBeNull();
+    });
+
+    it("exports when told to go ahead anyway", () => {
+      renderPanel();
+      vi.mocked(getGoalMismatches).mockReturnValue([{ name: "Home", score: 1, sheetGoals: 0 }]);
+      fireEvent.click(screen.getByRole("button", { name: /Export PDF/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Export anyway" }));
+      expect(exportGamesheetPdf).toHaveBeenCalledTimes(1);
+    });
+
+    it("deletes the event whose button was clicked", () => {
+      renderPanel([{ id: "g1", type: "goal", team: "home", period: "1st", clockTime: "15:00" }]);
+      fireEvent.click(screen.getByRole("button", { name: "Delete event at 15:00" }));
+      expect(deleteEvent).toHaveBeenCalledWith("g1");
+    });
+
+    it("shows period rows once, in order, with each team's older events below them", () => {
+      const note = (id: string, team: string, text: string) => ({ id, type: "goalie_change", team, period: "1st", clockTime: "19:00", readOnly: true, note: text });
+      renderPanel([
+        { id: "s1", type: "period_start", team: "home", period: "1st", clockTime: "20:00", readOnly: true },
+        note("h1", "home", "Home first"),
+        note("a1", "away", "Away first"),
+        { id: "e1", type: "period_end", team: "home", period: "1st", clockTime: "0:00", readOnly: true },
+        { id: "s2", type: "period_start", team: "home", period: "OT", clockTime: "5:00", readOnly: true },
+        note("h2", "home", "Home second"),
+        note("a2", "away", "Away second"),
+      ]);
+
+      const position = (text: string) => screen.getByText(text);
+      const above = (a: string, b: string) =>
+        Boolean(position(a).compareDocumentPosition(position(b)) & Node.DOCUMENT_POSITION_FOLLOWING);
+      expect(above("Home second", "Start of overtime")).toBe(true);
+      expect(above("Away second", "Start of overtime")).toBe(true);
+      expect(above("Start of overtime", "End of 1st period")).toBe(true);
+      expect(above("End of 1st period", "Home first")).toBe(true);
+      expect(above("End of 1st period", "Away first")).toBe(true);
+      expect(above("Away first", "Start of 1st period")).toBe(true);
+    });
+
+    it("says when a team has no events, even with only period rows logged", () => {
+      renderPanel([{ id: "s1", type: "period_start", team: "home", period: "1st", clockTime: "20:00", readOnly: true }]);
+      expect(screen.getByText("No home events logged yet.")).toBeInTheDocument();
+      expect(screen.getByText("No away events logged yet.")).toBeInTheDocument();
+      expect(screen.getAllByText("Start of 1st period")).toHaveLength(1);
+    });
+
+    it("offers no delete button on a period row or a penalty's over note", () => {
+      renderPanel([
+        { id: "s1", type: "period_start", team: "home", period: "1st", clockTime: "20:00", readOnly: true },
+        { id: "e1", type: "period_end", team: "home", period: "1st", clockTime: "0:00", readOnly: true },
+        { id: "e2", type: "period_end", team: "home", period: "2nd", clockTime: "0:00" },
+        { id: "n1", type: "penalty_over_notice", team: "home", period: "1st", clockTime: "12:00", readOnly: true },
+      ]);
+      expect(screen.queryByRole("button", { name: /^Delete/ })).toBeNull();
+    });
   });
 });

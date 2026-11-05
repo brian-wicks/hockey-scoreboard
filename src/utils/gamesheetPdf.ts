@@ -727,6 +727,15 @@ export function getPeriodTotals(eventLog: GameEvent[]) {
   };
 }
 
+/** The teams whose goals on the gamesheet differ from their score on the scoreboard. */
+export function getGoalMismatches(input: { homeTeam: TeamState; awayTeam: TeamState; eventLog: GameEvent[] }) {
+  const totals = getPeriodTotals(input.eventLog);
+  return [
+    { name: input.homeTeam.name, score: input.homeTeam.score, sheetGoals: totals.home.goals.total },
+    { name: input.awayTeam.name, score: input.awayTeam.score, sheetGoals: totals.away.goals.total },
+  ].filter((team) => team.score !== team.sheetGoals);
+}
+
 function t(layout: GamesheetPdfLayout, x: number, y: number) {
   return { x: layout.offsetX + layout.scale * x, y: layout.offsetY + layout.scale * y };
 }

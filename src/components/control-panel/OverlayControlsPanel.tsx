@@ -1,5 +1,6 @@
 import { UpdateGameState } from "./types";
 import { Button, Panel, inputClass } from "./ui/primitives";
+import { CommitInput } from "./ui/CommitInput";
 
 interface OverlayControlsPanelProps {
   overlayVisible: boolean;
@@ -55,19 +56,15 @@ export default function OverlayControlsPanel({
           </Button>
         </div>
         <div className="grid grid-cols-1 gap-2">
-          <input
+          <CommitInput
             value={currentLowerThird.title}
-            onChange={(e) =>
-              updateState({ lowerThird: { ...currentLowerThird, title: e.target.value } })
-            }
+            onCommit={(title) => updateState({ lowerThird: { ...currentLowerThird, title } })}
             placeholder="Title"
             className={`${inputClass} w-full`}
           />
-          <input
+          <CommitInput
             value={currentLowerThird.subtitle ?? ""}
-            onChange={(e) =>
-              updateState({ lowerThird: { ...currentLowerThird, subtitle: e.target.value } })
-            }
+            onCommit={(subtitle) => updateState({ lowerThird: { ...currentLowerThird, subtitle } })}
             placeholder="Subtitle"
             className={`${inputClass} w-full`}
           />

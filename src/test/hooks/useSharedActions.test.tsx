@@ -299,12 +299,13 @@ describe("useSharedActions", () => {
       result.current.handleAction("nextPeriod");
     });
     const events = useStore.getState().gameState?.eventLog || [];
-    expect(events.length).toBe(1);
-    expect(events[0].type).toBe("period_end");
-    expect(events[0].period).toBe("1st");
+    expect(events.map((event) => [event.type, event.period])).toEqual([
+      ["period_end", "1st"],
+      ["period_start", "2nd"],
+    ]);
   });
 
-  it("does not add period_end event if already at zero", () => {
+  it("logs only the new period's start if already at zero", () => {
     useStore.setState({
       gameState: { 
         ...baseState, 
@@ -318,7 +319,7 @@ describe("useSharedActions", () => {
       result.current.handleAction("nextPeriod");
     });
     const events = useStore.getState().gameState?.eventLog || [];
-    expect(events.length).toBe(0);
+    expect(events.map((event) => event.type)).toEqual(["period_start"]);
   });
 
   it("warns on unhandled action", () => {

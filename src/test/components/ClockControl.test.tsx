@@ -172,7 +172,10 @@ describe("ClockControl Component", () => {
       expect(screen.queryByRole("button", { name: /^Start/ })).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: label }));
 
-      expect(mockUpdate).toHaveBeenCalledWith({ period: next });
+      expect(mockUpdate).toHaveBeenCalledWith({
+        period: next,
+        eventLog: [expect.objectContaining({ type: "period_start", period: next })],
+      });
       expect(mockSet).toHaveBeenCalledWith(nextClock);
       expect(mockStart).not.toHaveBeenCalled();
     });

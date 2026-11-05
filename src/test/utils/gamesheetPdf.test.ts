@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import type { GameEvent } from "../../store";
-import { buildGamesheetPdfBytes, getDefaultGamesheetPdfLayout, getPeriodTotals } from "../../utils/gamesheetPdf";
+import { buildGamesheetPdfBytes, getDefaultGamesheetPdfLayout, getGoalMismatches, getPeriodTotals } from "../../utils/gamesheetPdf";
 
 // Mock pdf-lib
 vi.mock("pdf-lib", () => {
@@ -229,6 +229,32 @@ describe("Gamesheet PDF Utility", () => {
       const totals = getPeriodTotals([away, revoke("2", "1st", "14:30")]);
       expect(totals.away.goals.total).toBe(1);
       expect(totals.home.goals.total).toBe(0);
+    });
+  });
+
+  describe("getGoalMismatches", () => {
+    const goal = (id: string, period = "1st") => ({ id, type: "goal", team: "home", period, clockTime: "15:00", createdAt: Number(id) }) as GameEvent;
+    const input = (score: number, eventLog: GameEvent[]) => ({
+      homeTeam: { name: "Home", score } as any,
+      awayTeam: { name: "Away", score: 0 } as any,
+      eventLog,
+    });
+
+    it("finds nothing when the sheet and score agree", () => {
+      expect(getGoalMismatches(input(2, [goal("1"), goal("2")]))).toEqual([]);
+    });
+
+    it("names a team with fewer goals on the sheet than the score", () => {
+      expect(getGoalMismatches(input(2, [goal("1")]))).toEqual([{ name: "Home", score: 2, sheetGoals: 1 }]);
+    });
+
+    it("counts revoked goals as gone", () => {
+      const revoke = { id: "2", type: "goal_revoked", team: "home", period: "1st", clockTime: "14:00", createdAt: 2 } as GameEvent;
+      expect(getGoalMismatches(input(0, [goal("1"), revoke]))).toEqual([]);
+    });
+
+    it("catches a goal the sheet can't place because of a mistyped period", () => {
+      expect(getGoalMismatches(input(1, [goal("1", "oops")]))).toEqual([{ name: "Home", score: 1, sheetGoals: 0 }]);
     });
   });
 });

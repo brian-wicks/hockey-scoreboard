@@ -454,7 +454,7 @@ export default function StreamDeckPanel() {
               key={p.id}
               penalty={p}
               onChange={(u) => handlePenaltyChange("home", i, u)}
-              onRemove={() => handlePenaltyRemove("home", i)}
+              onEndEarly={() => handlePenaltyRemove("home", i)}
               rosterPlayers={homePlayers}
               autoFocusPlayer={p.id === focusPenaltyId}
               onAutoFocusHandled={() => setFocusPenaltyId(null)}
@@ -478,7 +478,7 @@ export default function StreamDeckPanel() {
               key={p.id}
               penalty={p}
               onChange={(u) => handlePenaltyChange("away", i, u)}
-              onRemove={() => handlePenaltyRemove("away", i)}
+              onEndEarly={() => handlePenaltyRemove("away", i)}
               rosterPlayers={awayPlayers}
               autoFocusPlayer={p.id === focusPenaltyId}
               onAutoFocusHandled={() => setFocusPenaltyId(null)}

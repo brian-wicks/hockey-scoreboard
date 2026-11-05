@@ -3,6 +3,7 @@ import { io, Socket } from "socket.io-client";
 import { User, signInWithPopup, signOut } from "firebase/auth";
 import { auth, googleProvider } from "./lib/firebase";
 import { getBaseUrl, isLocalMode } from "./lib/localMode";
+import { applyGamePatch, createDeleteEventPatch, createGamePatch, invertGamePatch, isUndoable, type GamePatch } from "./utils/gamePatch";
 
 const normalizeBaseUrl = (url: string) => url.replace(/\/+$/, "");
 const BASE_URL = normalizeBaseUrl(getBaseUrl());
@@ -22,6 +23,7 @@ export type EventType =
   | "penalty_over_notice"
   | "shot_on_goal"
   | "goalie_change"
+  | "period_start"
   | "period_end";
 
 export interface GameEvent {
@@ -41,6 +43,8 @@ export interface GameEvent {
   goalie?: string;
   shotDelta?: number;
   removalReason?: "manual" | "expired";
+  /** The patch that caused the server to log this event, so that undoing the patch can remove it. */
+  opId?: string;
   note?: string;
   readOnly?: boolean;
   createdAt: number;
@@ -165,7 +169,10 @@ interface StoreState {
   serverTimeOffsetMs: number;
   keyboardShortcuts: KeyboardShortcut[];
   streamDeckConfig: StreamDeckConfig;
-  undoStack: Partial<GameState>[];
+  /** The patch that reverses each undoable action, oldest first. */
+  undoStack: GamePatch[];
+  /** Changes sent to the server and not yet confirmed. */
+  pendingPatches: { patch: GamePatch; sentAt: number }[];
 
   // Auth State
   user: User | null;
@@ -183,6 +190,7 @@ interface StoreState {
   ensureInitialized: () => void;
   setAuthError: (error: string | null) => void;
   updateState: (updates: Partial<GameState>) => void;
+  deleteEvent: (eventId: string) => void;
   undoLastUpdate: () => void;
   startClock: () => void;
   stopClock: () => void;
@@ -386,17 +394,25 @@ let hasInitialized = false;
 const STATE_CACHE_KEY = "scoreboard:gameStateCache:v1";
 export const MAX_UNDO_STEPS = 20;
 
-const shouldSnapshotForUndo = (updates: Partial<GameState>) => {
-  const home = updates.homeTeam;
-  const away = updates.awayTeam;
-  return (
-    (home && (typeof home.score === "number" || typeof home.shots === "number" || Array.isArray(home.penalties))) ||
-    (away && (typeof away.score === "number" || typeof away.shots === "number" || Array.isArray(away.penalties))) ||
-    // Goal Review / Event Log edits (scorer, assists, infraction, etc.) only touch
-    // eventLog — without this, such an edit is never itself snapshotted, so a later
-    // undo of an unrelated action silently reverts it via a stale eventLog snapshot.
-    Array.isArray(updates.eventLog)
-  );
+// Long enough for a very slow connection, short enough that a change the server never
+// confirmed doesn't sit on top of its state for long.
+const PENDING_PATCH_MAX_AGE_MS = 15_000;
+
+const sendPatch = (
+  socket: Socket,
+  patch: GamePatch,
+  get: () => StoreState,
+  set: (partial: Partial<StoreState>) => void,
+) => {
+  const newState = applyGamePatch(get().gameState!, patch);
+  set({
+    gameState: newState,
+    pendingPatches: [...get().pendingPatches, { patch, sentAt: Date.now() }],
+  });
+  saveCachedState(newState);
+  socket.emit("applyGamePatch", patch, () => {
+    set({ pendingPatches: get().pendingPatches.filter((pending) => pending.patch.opId !== patch.opId) });
+  });
 };
 
 const loadCachedState = (): GameState | null => {
@@ -427,6 +443,7 @@ export const useStore = create<StoreState>((set, get) => ({
   keyboardShortcuts: [...defaultShortcuts],
   streamDeckConfig: defaultStreamDeckConfig,
   undoStack: [],
+  pendingPatches: [],
   user: null,
   authLoading: true,
   authError: null,
@@ -466,7 +483,7 @@ export const useStore = create<StoreState>((set, get) => ({
       }
       if (auth) await signOut(auth);
       hasInitialized = false;
-      set({ user: null, gameState: null, socket: null, isViewer: false, shareId: null, authError: null, savedGames: [], teamLibrary: [], undoStack: [], activeGameId: undefined });
+      set({ user: null, gameState: null, socket: null, isViewer: false, shareId: null, authError: null, savedGames: [], teamLibrary: [], undoStack: [], pendingPatches: [], activeGameId: undefined });
     } catch (error) {
       console.error("Logout failed:", error);
     }
@@ -505,6 +522,7 @@ export const useStore = create<StoreState>((set, get) => ({
   openGame: async (id: string) => {
     const { socket } = get();
     if (!socket) return;
+    set({ pendingPatches: [] });
     await new Promise<void>((resolve) => {
       socket.emit("openGame", id, (result: { ok: boolean; error?: string }) => {
         if (!result?.ok) {
@@ -547,6 +565,7 @@ export const useStore = create<StoreState>((set, get) => ({
       // The server creates and saves the new game, then acks — team sanitization
       // and persistence happen atomically server-side, rather than this racing a
       // separate updateState call against a clock tick from the outgoing game.
+      set({ pendingPatches: [] });
       socket.emit("startNewGame", teams, () => {
         set({ undoStack: [] });
         resolve();
@@ -640,7 +659,9 @@ export const useStore = create<StoreState>((set, get) => ({
         auth: { shareId },
         transports: ["polling", "websocket"],
         reconnection: true,
-        reconnectionAttempts: 5,
+        // Share links often drive an unattended overlay or jumbotron, so keep trying for as
+        // long as the page is open rather than freezing after a short outage.
+        reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,
       });
 
@@ -726,7 +747,10 @@ export const useStore = create<StoreState>((set, get) => ({
       });
 
       socket.on("disconnect", () => {
-        set({ isConnected: false });
+        // Anything sent before the drop will never be confirmed. It either reached the server
+        // and is in the state it sends on reconnect, or it's gone. Changes made while offline
+        // are queued by the socket and added after this.
+        set({ isConnected: false, pendingPatches: [] });
       });
 
       socket.on("connect_error", (error) => {
@@ -737,8 +761,13 @@ export const useStore = create<StoreState>((set, get) => ({
       socket.on("gameState", (state: GameState) => {
         const serverTime = typeof state.serverTime === "number" ? state.serverTime : null;
         const serverTimeOffsetMs = serverTime === null ? get().serverTimeOffsetMs : serverTime - Date.now();
-        set({ gameState: state, serverTimeOffsetMs });
-        saveCachedState(state);
+        // Clock ticks arrive up to 10 times a second, and can be from before the server saw
+        // the operator's latest change. Keep that change on top until the server confirms it.
+        const oldestPending = Date.now() - PENDING_PATCH_MAX_AGE_MS;
+        const pendingPatches = get().pendingPatches.filter((pending) => pending.sentAt >= oldestPending);
+        const gameState = pendingPatches.reduce((next, pending) => applyGamePatch(next, pending.patch), state);
+        set({ gameState, serverTimeOffsetMs, pendingPatches });
+        saveCachedState(gameState);
       });
 
       socket.on("activeGame", (gameId: string | null) => {
@@ -785,27 +814,29 @@ export const useStore = create<StoreState>((set, get) => ({
   updateState: (updates: Partial<GameState>) => {
     const { socket, gameState, undoStack } = get();
     if (socket && gameState) {
-      if (shouldSnapshotForUndo(updates)) {
-        const snapshot: Partial<GameState> = { eventLog: gameState.eventLog };
-        if (updates.homeTeam) snapshot.homeTeam = gameState.homeTeam;
-        if (updates.awayTeam) snapshot.awayTeam = gameState.awayTeam;
-        set({ undoStack: [...undoStack, snapshot].slice(-MAX_UNDO_STEPS) });
+      const patch = createGamePatch(gameState, updates);
+      if (!patch) return;
+      if (isUndoable(patch)) {
+        set({ undoStack: [...undoStack, invertGamePatch(patch, gameState)].slice(-MAX_UNDO_STEPS) });
       }
-      const newState = { ...gameState, ...updates };
-      set({ gameState: newState });
-      saveCachedState(newState);
-      socket.emit("updateGameState", updates);
+      sendPatch(socket, patch, get, set);
     }
+  },
+
+  deleteEvent: (eventId: string) => {
+    const { socket, gameState, undoStack } = get();
+    if (!socket || !gameState) return;
+    const patch = createDeleteEventPatch(gameState, eventId);
+    if (!patch) return;
+    set({ undoStack: [...undoStack, invertGamePatch(patch, gameState)].slice(-MAX_UNDO_STEPS) });
+    sendPatch(socket, patch, get, set);
   },
 
   undoLastUpdate: () => {
     const { socket, undoStack, gameState } = get();
     if (!socket || !gameState || undoStack.length === 0) return;
-    const snapshot = undoStack[undoStack.length - 1];
-    const newState = { ...gameState, ...snapshot };
-    set({ gameState: newState, undoStack: undoStack.slice(0, -1) });
-    saveCachedState(newState);
-    socket.emit("updateGameState", snapshot);
+    set({ undoStack: undoStack.slice(0, -1) });
+    sendPatch(socket, undoStack[undoStack.length - 1], get, set);
   },
 
   startClock: () => {

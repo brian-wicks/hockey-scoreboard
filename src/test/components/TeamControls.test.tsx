@@ -152,13 +152,8 @@ describe("TeamControls", () => {
       />
     );
 
-    // Test removal
-    // The minus button in PenaltyItem
-    const penaltyItem = screen.getByDisplayValue("10").closest("div.flex");
-    const removeButton = penaltyItem?.querySelector("svg.lucide-minus")?.parentElement;
-    fireEvent.click(removeButton!);
-
-    expect(mockUpdateState).toHaveBeenCalledWith(expect.objectContaining({
+    fireEvent.click(screen.getByRole("button", { name: "End penalty early" }));
+    expect(mockUpdateState).toHaveBeenLastCalledWith(expect.objectContaining({
       homeTeam: expect.objectContaining({ penalties: [] })
     }));
   });

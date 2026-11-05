@@ -10,14 +10,14 @@ describe("PenaltyItem", () => {
   ];
 
   it("renders penalty details correctly", () => {
-    render(<PenaltyItem penalty={mockPenalty} onChange={() => {}} onRemove={() => {}} rosterPlayers={mockRoster} />);
+    render(<PenaltyItem penalty={mockPenalty} onChange={() => {}} onEndEarly={() => {}} rosterPlayers={mockRoster} />);
     expect(screen.getByDisplayValue("10")).toBeDefined();
     expect(screen.getByText("2:00")).toBeDefined();
   });
 
   it("toggles edit mode for time and commits change", () => {
     const onChange = vi.fn();
-    render(<PenaltyItem penalty={mockPenalty} onChange={onChange} onRemove={() => {}} rosterPlayers={mockRoster} />);
+    render(<PenaltyItem penalty={mockPenalty} onChange={onChange} onEndEarly={() => {}} rosterPlayers={mockRoster} />);
     
     const timeDisplay = screen.getByText("2:00");
     fireEvent.click(timeDisplay);
@@ -31,7 +31,7 @@ describe("PenaltyItem", () => {
 
   it("handles player number search and selection", () => {
     const onChange = vi.fn();
-    render(<PenaltyItem penalty={mockPenalty} onChange={onChange} onRemove={() => {}} rosterPlayers={mockRoster} />);
+    render(<PenaltyItem penalty={mockPenalty} onChange={onChange} onEndEarly={() => {}} rosterPlayers={mockRoster} />);
     
     const playerInput = screen.getByDisplayValue("10");
     fireEvent.focus(playerInput);
@@ -43,12 +43,23 @@ describe("PenaltyItem", () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ playerNumber: "20" }));
   });
 
-  it("calls onRemove when minus button is clicked", () => {
-    const onRemove = vi.fn();
-    render(<PenaltyItem penalty={mockPenalty} onChange={() => {}} onRemove={onRemove} rosterPlayers={mockRoster} />);
-    
-    fireEvent.click(screen.getByRole("button", { name: "Remove penalty" }));
-    
-    expect(onRemove).toHaveBeenCalled();
+  it("ends a penalty early, with no delete button", () => {
+    const onEndEarly = vi.fn();
+    render(<PenaltyItem penalty={mockPenalty} onChange={() => {}} onEndEarly={onEndEarly} rosterPlayers={mockRoster} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "End penalty early" }));
+
+    expect(onEndEarly).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Delete penalty" })).toBeNull();
+  });
+
+  it("doesn't change the timer when its box is opened and left alone", () => {
+    const onChange = vi.fn();
+    render(<PenaltyItem penalty={{ ...mockPenalty, timeRemaining: 89400 }} onChange={onChange} onEndEarly={() => {}} rosterPlayers={mockRoster} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "1:30" }));
+    fireEvent.blur(screen.getByPlaceholderText("M:SS"));
+
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

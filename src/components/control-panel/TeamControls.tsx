@@ -174,9 +174,8 @@ export default function TeamControls({ team, state, eventLog, updateState }: Tea
                 newPenalties[i] = updated;
                 updateTeam({ penalties: newPenalties });
               }}
-              onRemove={() => {
-                const newPenalties = state.penalties.filter((_, index) => index !== i);
-                updateTeam({ penalties: newPenalties });
+              onEndEarly={() => {
+                updateTeam({ penalties: state.penalties.filter((_, index) => index !== i) });
               }}
               autoFocusPlayer={p.id === focusPenaltyId}
               onAutoFocusHandled={() => setFocusPenaltyId((current) => (current === p.id ? null : current))}

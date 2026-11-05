@@ -1,4 +1,4 @@
-import { GameEvent, GameState } from "../store";
+import type { GameEvent, GameState } from "../store";
 function formatEventClock(currentRemainingMs: number): string {
   const totalSeconds = Math.floor(Math.max(0, currentRemainingMs) / 1000);
   const minutes = Math.floor(totalSeconds / 60);
@@ -29,6 +29,18 @@ export function buildGoalieChangeEvent(gameState: GameState, team: "home" | "awa
     ...buildBaseEvent(gameState, team),
     type: "goalie_change",
     goalie,
+  };
+}
+
+export function buildPeriodStartEvent(period: string, clockMs: number): GameEvent {
+  return {
+    id: Math.random().toString(36).slice(2, 11),
+    type: "period_start",
+    team: "home",
+    period,
+    clockTime: formatEventClock(clockMs),
+    createdAt: Date.now(),
+    readOnly: true,
   };
 }
 

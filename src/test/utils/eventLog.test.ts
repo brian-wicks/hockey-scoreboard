@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildGoalieChangeEvent, buildPeriodEndEvent, buildShotEvent } from "../../utils/eventLog";
+import { buildGoalieChangeEvent, buildPeriodEndEvent, buildPeriodStartEvent, buildShotEvent } from "../../utils/eventLog";
 import type { GameState } from "../../store";
 
 const baseState: GameState = {
@@ -67,5 +67,14 @@ describe("event log utils", () => {
     expect(event.readOnly).toBe(true);
     expect(event.note).toBe("End of period");
     expect(event.clockTime).toBe("0:00");
+  });
+
+  it("builds a period start event with the new period's clock", () => {
+    expect(buildPeriodStartEvent("2nd", 20 * 60 * 1000)).toMatchObject({
+      type: "period_start",
+      period: "2nd",
+      clockTime: "20:00",
+      readOnly: true,
+    });
   });
 });

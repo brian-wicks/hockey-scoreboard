@@ -158,7 +158,11 @@ describe("store", () => {
     useStore.setState({ socket: socketMock as any, gameState: baseState });
 
     useStore.getState().updateState({ period: "2nd" });
-    expect(socketMock.emit).toHaveBeenCalledWith("updateGameState", { period: "2nd" });
+    expect(socketMock.emit).toHaveBeenCalledWith(
+      "applyGamePatch",
+      expect.objectContaining({ fields: { period: "2nd" } }),
+      expect.any(Function),
+    );
     expect(useStore.getState().gameState?.period).toBe("2nd");
   });
 
@@ -170,13 +174,14 @@ describe("store", () => {
       homeTeam: { ...baseState.homeTeam, score: baseState.homeTeam.score + 1 },
     });
 
-    expect(useStore.getState().undoStack.at(-1)?.homeTeam?.score).toBe(baseState.homeTeam.score);
+    expect(useStore.getState().undoStack.at(-1)?.home?.scoreDelta).toBe(-1);
     useStore.getState().undoLastUpdate();
 
-    expect(socketMock.emit).toHaveBeenCalledWith("updateGameState", {
-      eventLog: baseState.eventLog,
-      homeTeam: baseState.homeTeam,
-    });
+    expect(socketMock.emit).toHaveBeenLastCalledWith(
+      "applyGamePatch",
+      expect.objectContaining({ home: { scoreDelta: -1 }, undoOf: expect.any(String) }),
+      expect.any(Function),
+    );
     expect(useStore.getState().gameState?.homeTeam.score).toBe(baseState.homeTeam.score);
     expect(useStore.getState().gameState?.period).toBe(baseState.period);
   });
@@ -190,24 +195,111 @@ describe("store", () => {
       homeTeam: { ...baseState.homeTeam, score: baseState.homeTeam.score + 1 },
     });
 
-    // ...and the server broadcasts back a state with the new "goal" event appended.
-    const goalEvent = { id: "evt-1", type: "goal", team: "home", period: "1st", clockTime: "20:00", createdAt: 1 } as const;
-    const stateWithGoalEvent: GameState = {
-      ...useStore.getState().gameState!,
-      eventLog: [goalEvent],
-    };
-    useStore.setState({ gameState: stateWithGoalEvent });
+    // ...and the server broadcasts back a state with the new "goal" event appended, tagged
+    // with the patch that caused it.
+    const sent = socketMock.emit.mock.calls.filter(([event]: any[]) => event === "applyGamePatch").at(-1)!;
+    const goalEvent = { id: "evt-1", type: "goal", team: "home", period: "1st", clockTime: "20:00", createdAt: 1, opId: sent[1].opId } as const;
+    useStore.setState({
+      gameState: { ...useStore.getState().gameState!, eventLog: [goalEvent] },
+    });
     expect(useStore.getState().gameState?.eventLog).toHaveLength(1);
 
     useStore.getState().undoLastUpdate();
 
-    // Undo must tell the server to revert to the pre-goal eventLog (event gone),
-    // not append a compensating "goal_revoked" entry.
-    expect(socketMock.emit).toHaveBeenCalledWith("updateGameState", {
-      eventLog: baseState.eventLog,
-      homeTeam: baseState.homeTeam,
+    // Undo removes that event rather than appending a compensating "goal_revoked" entry.
+    expect(socketMock.emit).toHaveBeenLastCalledWith(
+      "applyGamePatch",
+      expect.objectContaining({ undoOf: sent[1].opId }),
+      expect.any(Function),
+    );
+    expect(useStore.getState().gameState?.eventLog).toEqual([]);
+  });
+
+  it("sends nothing and adds no undo step when nothing changed", async () => {
+    const { useStore } = await import("../store");
+    useStore.setState({ socket: socketMock as any, gameState: baseState, undoStack: [] });
+    socketMock.emit.mockClear();
+
+    useStore.getState().updateState({ homeTeam: { ...baseState.homeTeam }, eventLog: [...baseState.eventLog] });
+
+    expect(socketMock.emit).not.toHaveBeenCalled();
+    expect(useStore.getState().undoStack).toEqual([]);
+  });
+
+  it("keeps a share link trying to reconnect for as long as it's open", async () => {
+    const { useStore } = await import("../store");
+    ioMock.mockClear();
+    await useStore.getState().connectViewer("share-1");
+    expect((ioMock.mock.calls.at(-1) as unknown[])[1]).toMatchObject({ reconnectionAttempts: Infinity });
+  });
+
+  describe("changes still in transit", () => {
+    const connected = async () => {
+      const { useStore } = await import("../store");
+      useStore.setState({ user: mockUser as any });
+      await useStore.getState().connect();
+      useStore.setState({ gameState: baseState, pendingPatches: [], undoStack: [] });
+      socketMock.emit.mockClear();
+      return useStore;
+    };
+    const lastAck = () => socketMock.emit.mock.calls.at(-1)!.at(-1) as () => void;
+    const tick = (overrides: Partial<GameState> = {}) => listeners.get("gameState")?.({ ...baseState, ...overrides });
+
+    it("keeps an unconfirmed change on screen through clock ticks", async () => {
+      const useStore = await connected();
+      useStore.getState().updateState({ lowerThird: { active: false, title: "Typed", subtitle: "" } });
+
+      tick();
+
+      expect(useStore.getState().gameState?.lowerThird?.title).toBe("Typed");
     });
-    expect(useStore.getState().gameState?.eventLog).toEqual(baseState.eventLog);
+
+    it("trusts the server again once the change is confirmed", async () => {
+      const useStore = await connected();
+      useStore.getState().updateState({ homeTeam: { ...baseState.homeTeam, score: baseState.homeTeam.score + 1 } });
+      lastAck()();
+      expect(useStore.getState().pendingPatches).toEqual([]);
+
+      const serverScore = baseState.homeTeam.score + 1;
+      tick({ homeTeam: { ...baseState.homeTeam, score: serverScore } });
+
+      expect(useStore.getState().gameState?.homeTeam.score).toBe(serverScore);
+    });
+
+    it("counts two quick goals even if a stale tick arrives between them", async () => {
+      const useStore = await connected();
+      useStore.getState().updateState({ homeTeam: { ...baseState.homeTeam, score: baseState.homeTeam.score + 1 } });
+      tick();
+      const current = useStore.getState().gameState!;
+      useStore.getState().updateState({ homeTeam: { ...current.homeTeam, score: current.homeTeam.score + 1 } });
+
+      const patches = socketMock.emit.mock.calls.map((call: any[]) => call[1].home.scoreDelta);
+      expect(patches).toEqual([1, 1]);
+      expect(useStore.getState().gameState?.homeTeam.score).toBe(baseState.homeTeam.score + 2);
+    });
+
+    it("stops holding on to a change that's never confirmed", async () => {
+      const useStore = await connected();
+      useStore.getState().updateState({ lowerThird: { active: false, title: "Lost", subtitle: "" } });
+      const realNow = Date.now();
+      const clock = vi.spyOn(Date, "now").mockReturnValue(realNow + 16_000);
+
+      tick();
+      clock.mockRestore();
+
+      expect(useStore.getState().gameState?.lowerThird?.title).not.toBe("Lost");
+      expect(useStore.getState().pendingPatches).toEqual([]);
+    });
+
+    it("forgets unconfirmed changes when the connection drops", async () => {
+      const useStore = await connected();
+      useStore.getState().updateState({ homeTeam: { ...baseState.homeTeam, score: baseState.homeTeam.score + 1 } });
+
+      listeners.get("disconnect")?.(undefined);
+      tick();
+
+      expect(useStore.getState().gameState?.homeTeam.score).toBe(baseState.homeTeam.score);
+    });
   });
 
   it("supports undoing multiple actions in sequence, most recent first", async () => {
@@ -382,7 +474,7 @@ describe("store", () => {
 
   it("performs full cleanup on logout, including the undo stack", async () => {
     const { useStore } = await import("../store");
-    useStore.setState({ socket: socketMock as any, user: mockUser as any, undoStack: [{ homeTeam: baseState.homeTeam }] });
+    useStore.setState({ socket: socketMock as any, user: mockUser as any, undoStack: [{ opId: "old", home: { scoreDelta: 1 } }] });
 
     await useStore.getState().logout();
     expect(socketMock.disconnect).toHaveBeenCalled();
@@ -401,7 +493,7 @@ describe("store", () => {
     useStore.setState({
       gameState: baseState,
       // Stale undo entry from the previously open/edited game.
-      undoStack: [{ homeTeam: baseState.homeTeam }],
+      undoStack: [{ opId: "old", home: { scoreDelta: 1 } }],
     });
 
     // Simulate the server: it broadcasts the opened game's state, then acks.

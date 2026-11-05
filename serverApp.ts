@@ -14,6 +14,7 @@ import pino from "pino";
 import pinoHttp from "pino-http";
 import * as Sentry from "@sentry/node";
 import { isLocalModeEnv, LOCAL_USER_ID } from "./src/lib/localMode.ts";
+import { applyGamePatch, type GamePatch, type PenaltyPatch, type TeamPatch } from "./src/utils/gamePatch.ts";
 import {
   getUserConfig, 
   setUserConfig, 
@@ -80,6 +81,7 @@ type EventType =
   | "penalty_over_notice"
   | "shot_on_goal"
   | "goalie_change"
+  | "period_start"
   | "period_end";
 
 interface GameEvent {
@@ -99,6 +101,7 @@ interface GameEvent {
   goalie?: string;
   shotDelta?: number;
   removalReason?: "manual" | "expired";
+  opId?: string;
   note?: string;
   readOnly?: boolean;
   createdAt: number;
@@ -749,6 +752,16 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     };
   }
 
+  function createPeriodStartEvent(gameState: GameState): Omit<GameEvent, "id" | "createdAt"> {
+    return {
+      type: "period_start",
+      team: "home",
+      period: gameState.period,
+      clockTime: formatClockTime(gameState.clock.timeRemaining),
+      readOnly: true,
+    };
+  }
+
   function createPeriodEndEvent(gameState: GameState): Omit<GameEvent, "id" | "createdAt"> {
     return {
       type: "period_end",
@@ -790,59 +803,165 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     return { added, removed };
   }
 
+  function logGoalChange(gameState: GameState, side: "home" | "away", delta: number) {
+    for (let i = 0; i < Math.abs(delta); i += 1) {
+      if (delta > 0) {
+        appendEvent(gameState, createBaseEvent(gameState, "goal", side));
+      } else {
+        appendEvent(gameState, {
+          ...createBaseEvent(gameState, "goal_revoked", side),
+          ...getMostRecentGoalDetails(gameState, side),
+        });
+      }
+    }
+  }
+
+  function logPenaltyAdded(gameState: GameState, side: "home" | "away", penalty: Penalty) {
+    appendEvent(gameState, {
+      ...createBaseEvent(gameState, "penalty_added", side),
+      penaltyId: penalty.id,
+      penaltyDurationMs: penalty.duration,
+      playerNumber: penalty.playerNumber,
+      infraction: penalty.infraction,
+    });
+  }
+
   function logScoreAndPenaltyChanges(userId: string, gameState: GameState, previousState: GameState, nextState: GameState) {
-    const homeGoalDelta = nextState.homeTeam.score - previousState.homeTeam.score;
-    const awayGoalDelta = nextState.awayTeam.score - previousState.awayTeam.score;
-
-    if (homeGoalDelta > 0) {
-      for (let i = 0; i < homeGoalDelta; i += 1) {
-        appendEvent(gameState, createBaseEvent(gameState, "goal", "home"));
-      }
-    } else if (homeGoalDelta < 0) {
-      for (let i = 0; i < Math.abs(homeGoalDelta); i += 1) {
-        appendEvent(gameState, {
-          ...createBaseEvent(gameState, "goal_revoked", "home"),
-          ...getMostRecentGoalDetails(gameState, "home"),
-        });
-      }
-    }
-
-    if (awayGoalDelta > 0) {
-      for (let i = 0; i < awayGoalDelta; i += 1) {
-        appendEvent(gameState, createBaseEvent(gameState, "goal", "away"));
-      }
-    } else if (awayGoalDelta < 0) {
-      for (let i = 0; i < Math.abs(awayGoalDelta); i += 1) {
-        appendEvent(gameState, {
-          ...createBaseEvent(gameState, "goal_revoked", "away"),
-          ...getMostRecentGoalDetails(gameState, "away"),
-        });
-      }
-    }
+    logGoalChange(gameState, "home", nextState.homeTeam.score - previousState.homeTeam.score);
+    logGoalChange(gameState, "away", nextState.awayTeam.score - previousState.awayTeam.score);
 
     const homePenaltyDiff = getPenaltyDiff(previousState.homeTeam.penalties, nextState.homeTeam.penalties);
-    homePenaltyDiff.added.forEach((penalty) =>
-      appendEvent(gameState, {
-        ...createBaseEvent(gameState, "penalty_added", "home"),
-        penaltyId: penalty.id,
-        penaltyDurationMs: penalty.duration,
-        playerNumber: penalty.playerNumber,
-        infraction: penalty.infraction,
-      }),
-    );
+    homePenaltyDiff.added.forEach((penalty) => logPenaltyAdded(gameState, "home", penalty));
     homePenaltyDiff.removed.forEach((penalty) => closePenaltyEvent(gameState, "home", penalty, "manual"));
 
     const awayPenaltyDiff = getPenaltyDiff(previousState.awayTeam.penalties, nextState.awayTeam.penalties);
-    awayPenaltyDiff.added.forEach((penalty) =>
-      appendEvent(gameState, {
-        ...createBaseEvent(gameState, "penalty_added", "away"),
-        penaltyId: penalty.id,
-        penaltyDurationMs: penalty.duration,
-        playerNumber: penalty.playerNumber,
-        infraction: penalty.infraction,
-      }),
-    );
+    awayPenaltyDiff.added.forEach((penalty) => logPenaltyAdded(gameState, "away", penalty));
     awayPenaltyDiff.removed.forEach((penalty) => closePenaltyEvent(gameState, "away", penalty, "manual"));
+  }
+
+  function sanitizePenaltyPatch(raw: unknown): PenaltyPatch | undefined {
+    if (!raw || typeof raw !== "object") return undefined;
+    const patch = raw as Record<string, unknown>;
+    const asList = (value: unknown) => (Array.isArray(value) ? (value as Record<string, unknown>[]) : []);
+    const updated = asList(patch.updated)
+      .filter((entry) => entry && typeof entry.id === "string" && entry.changes && typeof entry.changes === "object")
+      .map((entry) => {
+        const changes = entry.changes as Record<string, unknown>;
+        const safe: Partial<Penalty> = {};
+        if (typeof changes.playerNumber === "string") safe.playerNumber = changes.playerNumber;
+        if (typeof changes.infraction === "string") safe.infraction = changes.infraction;
+        if (Number.isFinite(changes.timeRemaining)) safe.timeRemaining = changes.timeRemaining as number;
+        if (Number.isFinite(changes.duration)) safe.duration = changes.duration as number;
+        return { id: entry.id as string, changes: safe };
+      });
+    const removed = asList(patch.removed)
+      .filter((entry) => entry && typeof entry.id === "string")
+      .map((entry) => ({ id: entry.id as string, reason: entry.reason === "deleted" ? ("deleted" as const) : ("manual" as const) }));
+    return { added: normalizePenalties(patch.added), updated, removed };
+  }
+
+  function sanitizeGamePatch(raw: unknown): GamePatch | null {
+    if (!raw || typeof raw !== "object") return null;
+    const input = raw as Record<string, unknown>;
+    if (typeof input.opId !== "string" || !input.opId) return null;
+    const patch: GamePatch = { opId: input.opId.slice(0, 64) };
+    if (typeof input.undoOf === "string") patch.undoOf = input.undoOf.slice(0, 64);
+    if (input.noLog === true) patch.noLog = true;
+
+    if (input.fields && typeof input.fields === "object") {
+      const { homeTeam: _home, awayTeam: _away, eventLog: _log, ...fields } = input.fields as Record<string, unknown>;
+      patch.fields = fields as GamePatch["fields"];
+    }
+
+    for (const side of ["home", "away"] as const) {
+      const rawTeam = input[side];
+      if (!rawTeam || typeof rawTeam !== "object") continue;
+      const team = rawTeam as Record<string, unknown>;
+      const teamPatch: TeamPatch = {};
+      const set = sanitizeTeamPatch(team.set);
+      if (set) {
+        const { score: _score, shots: _shots, penalties: _penalties, ...identity } = set;
+        teamPatch.set = identity as TeamPatch["set"];
+      }
+      if (Number.isInteger(team.scoreDelta)) teamPatch.scoreDelta = team.scoreDelta as number;
+      if (Number.isInteger(team.shotsDelta)) teamPatch.shotsDelta = team.shotsDelta as number;
+      teamPatch.penalties = sanitizePenaltyPatch(team.penalties);
+      patch[side] = teamPatch;
+    }
+
+    if (input.events && typeof input.events === "object") {
+      const events = input.events as Record<string, unknown>;
+      const asList = (value: unknown) => (Array.isArray(value) ? (value as Record<string, unknown>[]) : []);
+      patch.events = {
+        added: asList(events.added).filter((event) => event && typeof event.id === "string") as unknown as GameEvent[],
+        updated: asList(events.updated)
+          .filter((entry) => entry && typeof entry.id === "string" && entry.changes && typeof entry.changes === "object")
+          .map((entry) => {
+            const { id: _id, opId: _opId, ...changes } = entry.changes as Record<string, unknown>;
+            return { id: entry.id as string, changes };
+          }),
+        removed: (Array.isArray(events.removed) ? events.removed : []).filter((id): id is string => typeof id === "string"),
+      };
+    }
+    return patch;
+  }
+
+  /**
+   * Applies what one operator changed to the current game and logs the events that follow
+   * from it, tagging them with the patch so that undoing it can remove exactly those events.
+   */
+  function applyPatchToGame(context: { gameState: GameState }, patch: GamePatch) {
+    const previous = context.gameState;
+    const gameState = applyGamePatch(previous as never, patch) as unknown as GameState;
+    context.gameState = gameState;
+
+    if (patch.undoOf) {
+      reopenRestoredPenalties(gameState, patch);
+    } else if (!patch.noLog) {
+      const loggedBefore = new Set(gameState.eventLog.map((event) => event.id));
+      for (const side of ["home", "away"] as const) {
+        const teamPatch = patch[side];
+        if (!teamPatch) continue;
+        const teamKey = side === "home" ? "homeTeam" : "awayTeam";
+        logGoalChange(gameState, side, gameState[teamKey].score - previous[teamKey].score);
+
+        const previousById = new Map(previous[teamKey].penalties.map((penalty) => [penalty.id, penalty]));
+        for (const penalty of teamPatch.penalties?.added ?? []) {
+          if (!previousById.has(penalty.id)) logPenaltyAdded(gameState, side, penalty);
+        }
+        for (const { id, reason } of teamPatch.penalties?.removed ?? []) {
+          const penalty = previousById.get(id);
+          if (penalty && reason === "manual") closePenaltyEvent(gameState, side, penalty, "manual");
+        }
+      }
+      gameState.eventLog = gameState.eventLog.map((event) =>
+        loggedBefore.has(event.id) ? event : { ...event, opId: patch.opId },
+      );
+    }
+
+    const editedEventIds = new Set((patch.events?.updated ?? []).map((entry) => entry.id));
+    const touchesPenaltyEvents = gameState.eventLog.some((event) => event.type === "penalty_added" && editedEventIds.has(event.id));
+    context.gameState = touchesPenaltyEvents ? syncActivePenaltyStateFromEventLog(gameState) : gameState;
+    syncActivePenaltyEventDetails(context.gameState);
+  }
+
+  // Undoing "end penalty" or "delete penalty" puts the penalty back on the clock, so its
+  // event has to read as still running again.
+  function reopenRestoredPenalties(gameState: GameState, patch: GamePatch) {
+    for (const side of ["home", "away"] as const) {
+      for (const penalty of patch[side]?.penalties?.added ?? []) {
+        const isItsEvent = (event: GameEvent) => event.type === "penalty_added" && event.team === side && event.penaltyId === penalty.id;
+        if (!gameState.eventLog.some(isItsEvent)) {
+          logPenaltyAdded(gameState, side, penalty);
+          continue;
+        }
+        gameState.eventLog = gameState.eventLog.map((event) => {
+          if (!isItsEvent(event)) return event;
+          const { endClockTime: _end, removalReason: _reason, ...open } = event;
+          return open;
+        });
+      }
+    }
   }
 
   function syncActivePenaltyEventDetails(state: GameState) {
@@ -1157,6 +1276,9 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     socket.on(event, async (...args: Args) => {
       if (isSocketEventRateLimited(socket)) {
         logger.warn({ userId: socket.data.userId, socketId: socket.id, event }, "[Socket] Rate limit exceeded, dropping event");
+        // A client waiting on an ack shouldn't wait forever for an event that was dropped.
+        const ack = args[args.length - 1];
+        if (typeof ack === "function") ack({ ok: false, error: "Rate limited" });
         return;
       }
       try {
@@ -1211,6 +1333,29 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         reconcileRunningClock(userId, context.gameState);
       }
 
+      emitGameState(userId);
+    });
+
+    onSocketEvent(socket, "applyGamePatch", async (rawPatch: unknown, ack?: (result: { ok: boolean }) => void) => {
+      const respond = typeof ack === "function" ? ack : () => {};
+      if (isViewer) {
+        logger.warn({ userId, socketId: socket.id }, "[Socket] Unauthorized patch attempt from viewer");
+        respond({ ok: false });
+        return;
+      }
+      const patch = sanitizeGamePatch(rawPatch);
+      if (!patch) {
+        respond({ ok: false });
+        return;
+      }
+      const context = await getUserContext(userId);
+      applyPatchToGame(context, patch);
+      if (patch.fields?.clock) {
+        reconcileRunningClock(userId, context.gameState);
+      }
+      // The ack goes first so the client has stopped counting this change as in transit by
+      // the time the state that includes it arrives.
+      respond({ ok: true });
       emitGameState(userId);
     });
 
@@ -1304,6 +1449,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         if (Object.keys(teamsPatch).length > 0) {
           gameState = { ...gameState, ...sanitizeGameStateUpdate(teamsPatch) };
         }
+        appendEvent(gameState, createPeriodStartEvent(gameState));
         const name = `${gameState.homeTeam.name} vs ${gameState.awayTeam.name}`.trim() || "New Game";
         const gameId = await createSavedGame(userId, name, JSON.stringify(gameState));
         context.gameState = gameState;

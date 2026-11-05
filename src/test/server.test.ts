@@ -409,6 +409,166 @@ describe("server API", () => {
     client.close();
   });
 
+  describe("game patches", () => {
+    const connectPatchClient = async (userId: string) => {
+      const baseUrl = `http://127.0.0.1:${port}`;
+      const client = createClient(baseUrl, { auth: { token: userId }, transports: ["websocket"] });
+      await new Promise<void>((resolve) => client.on("connect", () => resolve()));
+      const shareId = await createShare(baseUrl, userId);
+      const read = async () => (await fetch(`${baseUrl}/api/share/${shareId}/state`)).json();
+      const send = (patch: any) => new Promise<any>((resolve) => client.emit("applyGamePatch", patch, resolve));
+      return { client, read, send, shareId };
+    };
+    const penalty = (id: string) => ({ id, playerNumber: "10", infraction: "HOOK", duration: 120000, timeRemaining: 120000 });
+
+    it("logs goals and adds to a newer score", async () => {
+      const { client, read, send } = await connectPatchClient("patch-goals");
+      expect(await send({ opId: "a", home: { scoreDelta: 1 } })).toEqual({ ok: true });
+      await send({ opId: "b", home: { scoreDelta: 1 } });
+
+      const state = await read();
+      expect(state.homeTeam.score).toBe(2);
+      expect(state.eventLog.map((e: any) => [e.type, e.opId])).toEqual([["goal", "a"], ["goal", "b"]]);
+      client.close();
+    });
+
+    it("keeps a goal logged while another device edits an older event", async () => {
+      const { client, read, send } = await connectPatchClient("patch-race");
+      await send({ opId: "a", home: { scoreDelta: 1 } });
+      const goalId = (await read()).eventLog[0].id;
+      // A second goal arrives from another device while this one is typing a scorer.
+      await send({ opId: "b", away: { scoreDelta: 1 } });
+      await send({ opId: "c", events: { updated: [{ id: goalId, changes: { scorer: "10" } }] } });
+
+      const state = await read();
+      expect(state.eventLog).toHaveLength(2);
+      expect(state.eventLog[0].scorer).toBe("10");
+      expect(state.awayTeam.score).toBe(1);
+      client.close();
+    });
+
+    it("doesn't rewind a penalty timer or score when a penalty detail is edited", async () => {
+      const { client, read, send } = await connectPatchClient("patch-timer");
+      await send({ opId: "a", home: { penalties: { added: [penalty("p1")] }, scoreDelta: 3 } });
+      await send({ opId: "b", home: { penalties: { updated: [{ id: "p1", changes: { timeRemaining: 40000 } }] } } });
+      await send({ opId: "c", home: { penalties: { updated: [{ id: "p1", changes: { infraction: "TRIP" } }] } } });
+
+      const state = await read();
+      expect(state.homeTeam.penalties[0]).toMatchObject({ timeRemaining: 40000, infraction: "TRIP" });
+      expect(state.homeTeam.score).toBe(3);
+      expect(state.eventLog.find((e: any) => e.type === "penalty_added").infraction).toBe("TRIP");
+      client.close();
+    });
+
+    it("keeps a penalty that ended early on the log, closed", async () => {
+      const { client, read, send } = await connectPatchClient("patch-end");
+      await send({ opId: "a", away: { penalties: { added: [penalty("p1")] } } });
+      await send({ opId: "b", away: { penalties: { removed: [{ id: "p1", reason: "manual" }] } } });
+
+      const state = await read();
+      expect(state.awayTeam.penalties).toEqual([]);
+      expect(state.eventLog.find((e: any) => e.type === "penalty_added")).toMatchObject({ removalReason: "manual", endClockTime: expect.any(String) });
+      expect(state.eventLog.some((e: any) => e.type === "penalty_over_notice")).toBe(true);
+      client.close();
+    });
+
+    it("takes a deleted penalty off the log completely", async () => {
+      const { client, read, send } = await connectPatchClient("patch-delete");
+      await send({ opId: "a", away: { penalties: { added: [penalty("p1")] } } });
+      await send({ opId: "b", away: { penalties: { removed: [{ id: "p1", reason: "deleted" }] } } });
+
+      const state = await read();
+      expect(state.awayTeam.penalties).toEqual([]);
+      expect(state.eventLog).toEqual([]);
+      client.close();
+    });
+
+    it("undoes a goal without logging a revoke or touching a newer goal", async () => {
+      const { client, read, send } = await connectPatchClient("patch-undo-goal");
+      await send({ opId: "mine", home: { scoreDelta: 1 } });
+      await send({ opId: "theirs", home: { scoreDelta: 1 } });
+      await send({ opId: "u", undoOf: "mine", home: { scoreDelta: -1 } });
+
+      const state = await read();
+      expect(state.homeTeam.score).toBe(1);
+      expect(state.eventLog.map((e: any) => [e.type, e.opId])).toEqual([["goal", "theirs"]]);
+      client.close();
+    });
+
+    it("undoing a revoke restores the goal without logging another", async () => {
+      const { client, read, send } = await connectPatchClient("patch-undo-revoke");
+      await send({ opId: "a", home: { scoreDelta: 1 } });
+      await send({ opId: "b", home: { scoreDelta: -1 } });
+      await send({ opId: "u", undoOf: "b", home: { scoreDelta: 1 } });
+
+      const state = await read();
+      expect(state.homeTeam.score).toBe(1);
+      expect(state.eventLog.map((e: any) => e.type)).toEqual(["goal"]);
+      client.close();
+    });
+
+    it("undoing an early end puts the penalty back on the clock", async () => {
+      const { client, read, send } = await connectPatchClient("patch-undo-end");
+      await send({ opId: "a", home: { penalties: { added: [penalty("p1")] } } });
+      await send({ opId: "b", home: { penalties: { removed: [{ id: "p1", reason: "manual" }] } } });
+      await send({ opId: "u", undoOf: "b", home: { penalties: { added: [penalty("p1")] } } });
+
+      const state = await read();
+      expect(state.homeTeam.penalties.map((p: any) => p.id)).toEqual(["p1"]);
+      expect(state.eventLog).toHaveLength(1);
+      expect(state.eventLog[0]).not.toHaveProperty("endClockTime");
+      expect(state.eventLog[0]).not.toHaveProperty("removalReason");
+      client.close();
+    });
+
+    it("deletes a goal from the log without logging a revoke", async () => {
+      const { client, read, send } = await connectPatchClient("patch-delete-goal");
+      await send({ opId: "a", home: { scoreDelta: 2 } });
+      const [first, second] = (await read()).eventLog;
+      await send({ opId: "b", noLog: true, home: { scoreDelta: -1 }, events: { removed: [first.id] } });
+
+      const state = await read();
+      expect(state.homeTeam.score).toBe(1);
+      expect(state.eventLog.map((e: any) => e.id)).toEqual([second.id]);
+      client.close();
+    });
+
+    it("starts a new game with a start of period row", async () => {
+      const { client, read } = await connectPatchClient("patch-new-game");
+      await new Promise<void>((resolve) => client.emit("startNewGame", undefined, () => resolve()));
+
+      const state = await read();
+      expect(state.eventLog.map((e: any) => [e.type, e.period, e.clockTime, e.readOnly])).toEqual([["period_start", "1st", "20:00", true]]);
+      client.close();
+    });
+
+    it("rejects a malformed patch and survives junk fields", async () => {
+      const { client, read, send } = await connectPatchClient("patch-junk");
+      expect(await send("nonsense")).toEqual({ ok: false });
+      expect(await send({ home: { scoreDelta: 1 } })).toEqual({ ok: false });
+      expect(await send({ opId: "x", home: { scoreDelta: "lots", penalties: { added: "no", updated: [null], removed: 5 } }, events: { added: [null], updated: "x", removed: [1] }, fields: { eventLog: "gone", homeTeam: null } })).toEqual({ ok: true });
+
+      const state = await read();
+      expect(state.homeTeam.score).toBe(0);
+      expect(state.eventLog).toEqual([]);
+      client.close();
+    });
+
+    it("ignores patches from a share link viewer", async () => {
+      const baseUrl = `http://127.0.0.1:${port}`;
+      const { client, read, shareId } = await connectPatchClient("patch-viewer");
+      const viewer = createClient(baseUrl, { auth: { shareId }, transports: ["websocket"] });
+      await new Promise<void>((resolve) => viewer.on("connect", () => resolve()));
+
+      const result = await new Promise((resolve) => viewer.emit("applyGamePatch", { opId: "v", home: { scoreDelta: 5 } }, resolve));
+
+      expect(result).toEqual({ ok: false });
+      expect((await read()).homeTeam.score).toBe(0);
+      viewer.close();
+      client.close();
+    });
+  });
+
   it("syncs penalty state when eventLog is updated directly", async () => {
     const userId = "user-eventlog-sync-test";
     const baseUrl = `http://localhost:${port}`;

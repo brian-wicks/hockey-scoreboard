@@ -33,6 +33,7 @@ export default function GoalReviewPanel({
   className = "",
 }: GoalReviewPanelProps) {
   const [expanded, setExpanded] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const listId = useId();
 
   const skaterOptions: SearchOption[] = Array.from(
@@ -61,7 +62,8 @@ export default function GoalReviewPanel({
       typeof clockSeconds === "number" &&
       clockSeconds >= currentClockSeconds &&
       clockSeconds - currentClockSeconds <= 120;
-    return scorerMissing || isRecentGoal;
+    // A goal can age out of the list while its details are being typed.
+    return scorerMissing || isRecentGoal || event.id === editingId;
   });
 
   if (goalReviewItems.length === 0) return null;
@@ -83,7 +85,14 @@ export default function GoalReviewPanel({
       </button>
       <div id={listId} hidden={!expanded} className={expanded ? "flex flex-col gap-3" : undefined}>
         {goalReviewItems.map((event) => (
-          <div key={event.id} className="pt-3 border-t border-line">
+          <div
+            key={event.id}
+            className="pt-3 border-t border-line"
+            onFocus={() => setEditingId(event.id)}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) setEditingId(null);
+            }}
+          >
             {(() => {
               const activeHighlight = gameState.jumbotronGoalHighlight;
               const scorer = (event.scorer ?? "").trim();

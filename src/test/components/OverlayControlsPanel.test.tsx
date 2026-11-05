@@ -67,7 +67,13 @@ describe("OverlayControlsPanel Component", () => {
     });
 
     // Update title
-    fireEvent.change(screen.getByPlaceholderText("Title"), { target: { value: "New Title" } });
+    mockUpdateState.mockClear();
+    const title = screen.getByPlaceholderText("Title");
+    fireEvent.focus(title);
+    fireEvent.change(title, { target: { value: "New Title" } });
+    expect(mockUpdateState).not.toHaveBeenCalled();
+    fireEvent.blur(title);
+    expect(mockUpdateState).toHaveBeenCalledTimes(1);
     expect(mockUpdateState).toHaveBeenCalledWith({
       lowerThird: expect.objectContaining({ title: "New Title" }),
     });

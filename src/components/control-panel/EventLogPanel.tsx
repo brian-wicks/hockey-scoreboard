@@ -1,10 +1,13 @@
-import { Download } from "lucide-react";
-import { GameEvent, TeamState, TeamPlayer } from "../../store";
-import { exportGamesheetPdf } from "../../utils/gamesheetPdf";
+import { useState } from "react";
+import { Download, Trash2 } from "lucide-react";
+import { GameEvent, TeamState, TeamPlayer, useStore } from "../../store";
+import { exportGamesheetPdf, getGoalMismatches } from "../../utils/gamesheetPdf";
 import { toSkaterLabel } from "../../utils/roster";
 import { PenaltyReasonInput, SearchDropdownInput } from "./DropdownInputs";
 import { UpdateGameState } from "./types";
 import { loadPdfLayout } from "./PdfLayoutSettings";
+import { CommitInput } from "./ui/CommitInput";
+import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { Button, Panel } from "./ui/primitives";
 
 interface EventLogPanelProps {
@@ -16,6 +19,33 @@ interface EventLogPanelProps {
   updateState: UpdateGameState;
 }
 
+type LogRow = { kind: "teams"; home: GameEvent[]; away: GameEvent[] } | { kind: "period"; event: GameEvent };
+
+const isPeriodEvent = (event: GameEvent) => event.type === "period_start" || event.type === "period_end";
+
+function periodEventLabel(event: GameEvent) {
+  const period = event.period === "OT" ? "overtime" : `${event.period} period`;
+  return `${event.type === "period_start" ? "Start" : "End"} of ${period}`;
+}
+
+// Newest first. A period marker is one full-width row, so each team's older events start below it.
+function buildLogRows(eventLog: GameEvent[]): LogRow[] {
+  const rows: LogRow[] = [];
+  for (const event of [...eventLog].reverse()) {
+    if (isPeriodEvent(event)) {
+      rows.push({ kind: "period", event });
+      continue;
+    }
+    let last = rows[rows.length - 1];
+    if (last?.kind !== "teams") {
+      last = { kind: "teams", home: [], away: [] };
+      rows.push(last);
+    }
+    last[event.team].push(event);
+  }
+  return rows;
+}
+
 export default function EventLogPanel({
   eventLog,
   homeTeam,
@@ -24,15 +54,42 @@ export default function EventLogPanel({
   awayPlayers,
   updateState,
 }: EventLogPanelProps) {
+  const deleteEvent = useStore((state) => state.deleteEvent);
+  const [exportMismatches, setExportMismatches] = useState<ReturnType<typeof getGoalMismatches>>([]);
+
+  const exportPdf = () => exportGamesheetPdf({ homeTeam, awayTeam, eventLog }, { layout: loadPdfLayout() });
+
+  const handleExport = () => {
+    const mismatches = getGoalMismatches({ homeTeam, awayTeam, eventLog });
+    if (mismatches.length > 0) {
+      setExportMismatches(mismatches);
+    } else {
+      exportPdf();
+    }
+  };
+
   const updateEvent = (id: string, updates: Partial<GameEvent>) => {
     const nextLog = eventLog.map((event) => (event.id === id ? { ...event, ...updates } : event));
     updateState({ eventLog: nextLog });
   };
 
-  const sortedLog = [...eventLog].reverse();
-  // period_end is a shared game marker (not a per-team action), so it appears in both columns.
-  const homeLog = sortedLog.filter((event) => event.team === "home" || event.type === "period_end");
-  const awayLog = sortedLog.filter((event) => event.team === "away" || event.type === "period_end");
+  const rows = buildLogRows(eventLog);
+  if (!rows.some((row) => row.kind === "teams")) rows.unshift({ kind: "teams", home: [], away: [] });
+  const firstTeamsRow = rows.find((row) => row.kind === "teams");
+  const homeHasEvents = eventLog.some((event) => event.team === "home" && !isPeriodEvent(event));
+  const awayHasEvents = eventLog.some((event) => event.team === "away" && !isPeriodEvent(event));
+
+  const renderDeleteButton = (event: GameEvent) => (
+    <button
+      type="button"
+      onClick={() => deleteEvent(event.id)}
+      aria-label={`Delete event at ${event.clockTime}`}
+      title="Delete this entry"
+      className="p-1.5 text-danger hover:bg-surface rounded-sm shrink-0 transition-colors pointer-coarse:min-h-11"
+    >
+      <Trash2 size={16} />
+    </button>
+  );
 
   const renderEventCard = (event: GameEvent) => {
     const rosterPlayers = event.team === "home" ? homePlayers : awayPlayers;
@@ -73,17 +130,20 @@ export default function EventLogPanel({
     );
 
     return (
-      <div key={event.id} className="py-3 border-b border-line">
+      <div key={event.id} className={`py-3 ${isPeriodEvent(event) ? "" : "border-b border-line"}`}>
         {event.readOnly ? (
           <div className="flex items-center justify-between gap-3">
-            <div className="text-sm text-ink font-semibold">{event.note ?? "Penalty is over"}</div>
+            <div className="text-sm text-ink font-semibold">
+              {isPeriodEvent(event) ? periodEventLabel(event) : event.note ?? "Penalty is over"}
+            </div>
             <div className="text-xs text-muted tabular-nums">
-              {event.period} {event.clockTime}
+              {isPeriodEvent(event) ? event.clockTime : `${event.period} ${event.clockTime}`}
             </div>
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 @[480px]:grid-cols-4 gap-2">
+            <div className="flex items-start gap-2">
+            <div className="grid grid-cols-1 @[480px]:grid-cols-4 gap-2 flex-1 min-w-0">
               <select
                 value={event.type}
                 onChange={(e) => updateEvent(event.id, { type: e.target.value as GameEvent["type"] })}
@@ -95,6 +155,7 @@ export default function EventLogPanel({
                 <option value="penalty_over_notice">Penalty over</option>
                 <option value="shot_on_goal">Shot on goal</option>
                 <option value="goalie_change">Goalie change</option>
+                <option value="period_start">Period start</option>
                 <option value="period_end">Period end</option>
               </select>
               <select
@@ -105,18 +166,20 @@ export default function EventLogPanel({
                 <option value="home">Home</option>
                 <option value="away">Away</option>
               </select>
-              <input
+              <CommitInput
                 value={event.period}
-                onChange={(e) => updateEvent(event.id, { period: e.target.value })}
+                onCommit={(period) => updateEvent(event.id, { period })}
                 className="bg-canvas border border-line focus:border-ink focus:outline-none text-ink rounded-sm px-2 py-1 text-sm"
                 placeholder="Period"
               />
-              <input
+              <CommitInput
                 value={event.clockTime}
-                onChange={(e) => updateEvent(event.id, { clockTime: e.target.value })}
+                onCommit={(clockTime) => updateEvent(event.id, { clockTime })}
                 className="bg-canvas border border-line focus:border-ink focus:outline-none text-ink rounded-sm px-2 py-1 text-sm tabular-nums"
                 placeholder="M:SS"
               />
+            </div>
+            {!isPeriodEvent(event) && renderDeleteButton(event)}
             </div>
 
             {event.type === "goal" || event.type === "goal_revoked" ? (
@@ -157,18 +220,16 @@ export default function EventLogPanel({
                   onChange={(nextValue) => updateEvent(event.id, { infraction: nextValue })}
                   inputClassName="bg-canvas border border-line focus:border-ink focus:outline-none text-ink rounded-sm px-2 py-1 text-sm w-full"
                 />
-                <input
+                <CommitInput
                   value={event.endClockTime ?? ""}
-                  onChange={(e) => updateEvent(event.id, { endClockTime: e.target.value })}
+                  onCommit={(endClockTime) => updateEvent(event.id, { endClockTime })}
                   className="bg-canvas border border-line focus:border-ink focus:outline-none text-ink rounded-sm px-2 py-1 text-sm tabular-nums"
                   placeholder="End time"
                 />
-                <input
+                <CommitInput
                   value={event.removalReason ?? ""}
-                  onChange={(e) =>
-                    updateEvent(event.id, {
-                      removalReason: (e.target.value || undefined) as GameEvent["removalReason"],
-                    })
+                  onCommit={(reason) =>
+                    updateEvent(event.id, { removalReason: (reason || undefined) as GameEvent["removalReason"] })
                   }
                   className="bg-canvas border border-line focus:border-ink focus:outline-none text-ink rounded-sm px-2 py-1 text-sm"
                   placeholder="Removal reason"
@@ -186,9 +247,9 @@ export default function EventLogPanel({
                 </select>
                 <div className="text-xs text-muted flex items-center">Logged for {event.team} shots</div>
               </div>
-            ) : event.type === "period_end" ? (
+            ) : isPeriodEvent(event) ? (
               <div className="grid grid-cols-1 @[280px]:grid-cols-2 gap-2 mt-2">
-                <div className="text-xs text-muted flex items-center">End of period marker</div>
+                <div className="text-xs text-muted flex items-center">{periodEventLabel(event)}</div>
               </div>
             ) : (
               <div className="grid grid-cols-1 @[280px]:grid-cols-2 gap-2 mt-2">
@@ -215,7 +276,7 @@ export default function EventLogPanel({
           <div className="flex items-center gap-2 flex-wrap">
             <Button
               type="button"
-              onClick={() => exportGamesheetPdf({ homeTeam, awayTeam, eventLog }, { layout: loadPdfLayout() })}
+              onClick={handleExport}
               variant="secondary"
               title="Export gamesheet PDF"
             >
@@ -225,22 +286,56 @@ export default function EventLogPanel({
           </div>
         </div>
 
-      <div className="grid grid-cols-1 min-[760px]:grid-cols-2 gap-4">
-        <div className="@container flex flex-col gap-2 min-w-0">
-          <div className="text-xs font-semibold text-muted ">Home</div>
-          <div className="flex flex-col gap-3 max-h-[560px] overflow-auto pr-1">
-            {homeLog.length === 0 && <div className="text-muted text-sm">No home events logged yet.</div>}
-            {homeLog.map(renderEventCard)}
-          </div>
+      <div className="max-h-[560px] overflow-auto pr-1">
+        <div className="hidden min-[760px]:grid grid-cols-2 gap-4 sticky top-0 z-10 bg-canvas pb-2 text-xs font-semibold text-muted">
+          <div>Home</div>
+          <div className="pl-4">Away</div>
         </div>
-        <div className="@container flex flex-col gap-2 min-w-0 min-[760px]:border-l min-[760px]:border-line min-[760px]:pl-4">
-          <div className="text-xs font-semibold text-muted ">Away</div>
-          <div className="flex flex-col gap-3 max-h-[560px] overflow-auto pr-1">
-            {awayLog.length === 0 && <div className="text-muted text-sm">No away events logged yet.</div>}
-            {awayLog.map(renderEventCard)}
-          </div>
-        </div>
+        {rows.map((row, index) =>
+          row.kind === "period" ? (
+            <div key={row.event.id} className="@container bg-surface rounded-sm px-3 my-3">
+              {renderEventCard(row.event)}
+            </div>
+          ) : (
+            <div key={`teams-${index}`} className="grid grid-cols-1 min-[760px]:grid-cols-2 gap-4">
+              <div className="@container flex flex-col gap-3 min-w-0">
+                <div className="min-[760px]:hidden text-xs font-semibold text-muted">Home</div>
+                {row === firstTeamsRow && !homeHasEvents && <div className="text-muted text-sm">No home events logged yet.</div>}
+                {row.home.map(renderEventCard)}
+              </div>
+              <div className="@container flex flex-col gap-3 min-w-0 min-[760px]:border-l min-[760px]:border-line min-[760px]:pl-4">
+                <div className="min-[760px]:hidden text-xs font-semibold text-muted">Away</div>
+                {row === firstTeamsRow && !awayHasEvents && <div className="text-muted text-sm">No away events logged yet.</div>}
+                {row.away.map(renderEventCard)}
+              </div>
+            </div>
+          ),
+        )}
       </div>
+
+      <ConfirmDialog
+        open={exportMismatches.length > 0}
+        title="Goals don't match the score"
+        message={
+          <>
+            <ul className="flex flex-col gap-1 mb-2">
+              {exportMismatches.map((team) => (
+                <li key={team.name}>
+                  {team.name}: {team.sheetGoals} on the gamesheet, {team.score} on the scoreboard
+                </li>
+              ))}
+            </ul>
+            Check the event log for a missing goal or a mistyped period.
+          </>
+        }
+        confirmLabel="Export anyway"
+        confirmVariant="primary"
+        onConfirm={() => {
+          setExportMismatches([]);
+          exportPdf();
+        }}
+        onCancel={() => setExportMismatches([])}
+      />
     </Panel>
   );
 }

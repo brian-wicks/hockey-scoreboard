@@ -108,6 +108,29 @@ describe("GoalReviewPanel", () => {
     expect(scorer).toBeVisible();
   });
 
+  it("keeps a goal listed while it's being edited after it ages out", () => {
+    const eventLog = [{ id: "g1", type: "goal", team: "home", period: "1st", clockTime: "19:00", scorer: "John Doe" }] as GameEvent[];
+    const panel = (timeRemaining: number) => (
+      <GoalReviewPanel
+        team="home"
+        gameState={{ ...baseState, clock: { ...baseState.clock, timeRemaining }, eventLog }}
+        eventLog={eventLog}
+        rosterPlayers={[]}
+        updateState={vi.fn()}
+      />
+    );
+    const { rerender } = render(panel(18 * 60 * 1000));
+    const assist = screen.getByPlaceholderText("Assist 1");
+    fireEvent.focus(assist);
+
+    rerender(panel(10 * 60 * 1000));
+    expect(screen.getByPlaceholderText("Assist 1")).toBe(assist);
+
+    fireEvent.blur(assist);
+    rerender(panel(10 * 60 * 1000));
+    expect(screen.queryByPlaceholderText("Assist 1")).toBeNull();
+  });
+
   describe("revoked goals", () => {
     const goal = (id: string, createdAt: number, scorer = ""): GameEvent => ({
       id,

@@ -51,6 +51,7 @@ describe("GameActionsPanel Component", () => {
         period: "2nd",
         eventLog: expect.arrayContaining([
           expect.objectContaining({ type: "period_end", period: "1st" }),
+          expect.objectContaining({ type: "period_start", period: "2nd" }),
         ]),
       })
     );
@@ -59,7 +60,7 @@ describe("GameActionsPanel Component", () => {
     expect(mockSetClock).toHaveBeenCalledWith(1200000);
   });
 
-  it("does not add period_end event if clock is already at 0", () => {
+  it("logs only the new period's start if the clock is already at 0", () => {
     const finishedGameState = {
       ...baseGameState,
       clock: { timeRemaining: 0 },
@@ -76,10 +77,13 @@ describe("GameActionsPanel Component", () => {
 
     fireEvent.click(screen.getByText("2nd Period"));
 
-    expect(mockUpdateState).toHaveBeenCalledWith({ period: "2nd" });
+    expect(mockUpdateState).toHaveBeenCalledWith({
+      period: "2nd",
+      eventLog: [expect.objectContaining({ type: "period_start", period: "2nd", clockTime: "20:00" })],
+    });
   });
 
-  it("does not add period_end event if it was already added", () => {
+  it("logs only the new period's start if the end was already added", () => {
     const stateWithEndEvent = {
       ...baseGameState,
       eventLog: [{ type: "period_end", period: "1st" }],
@@ -96,7 +100,13 @@ describe("GameActionsPanel Component", () => {
 
     fireEvent.click(screen.getByText("2nd Period"));
 
-    expect(mockUpdateState).toHaveBeenCalledWith({ period: "2nd" });
+    expect(mockUpdateState).toHaveBeenCalledWith({
+      period: "2nd",
+      eventLog: [
+        { type: "period_end", period: "1st" },
+        expect.objectContaining({ type: "period_start", period: "2nd" }),
+      ],
+    });
   });
 
   it("highlights the current period", () => {

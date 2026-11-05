@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Minus } from "lucide-react";
 import { Penalty, TeamPlayer } from "../../store";
 import { parseTimeInputMs } from "../../utils/clock";
 import { ComboboxDropdown, PenaltyReasonInput, useComboboxField } from "./DropdownInputs";
@@ -7,7 +6,7 @@ import { ComboboxDropdown, PenaltyReasonInput, useComboboxField } from "./Dropdo
 interface PenaltyItemProps {
   penalty: Penalty;
   onChange: (penalty: Penalty) => void;
-  onRemove: () => void;
+  onEndEarly: () => void;
   autoFocusPlayer?: boolean;
   onAutoFocusHandled?: () => void;
   rosterPlayers?: TeamPlayer[];
@@ -16,7 +15,7 @@ interface PenaltyItemProps {
 export default function PenaltyItem({
   penalty,
   onChange,
-  onRemove,
+  onEndEarly,
   autoFocusPlayer = false,
   onAutoFocusHandled,
   rosterPlayers = [],
@@ -74,7 +73,8 @@ export default function PenaltyItem({
 
   const handleTimeChange = (value: string) => {
     const timeMs = parseTimeInputMs(value);
-    if (timeMs !== null) {
+    // Displayed times round up, so sending an untouched one would move the timer.
+    if (timeMs !== null && value !== formatPenaltyTime(penalty.timeRemaining)) {
       // Only the remaining time is being corrected here — `duration` is the
       // penalty's original recorded length (used for gamesheet PIM), which this
       // editor shouldn't silently rewrite.
@@ -157,8 +157,14 @@ export default function PenaltyItem({
           {formatPenaltyTime(penalty.timeRemaining)}
         </button>
       )}
-      <button type="button" onClick={onRemove} aria-label="Remove penalty" className="p-1.5 text-danger hover:bg-surface rounded-sm shrink-0">
-        <Minus size={16} />
+      <button
+        type="button"
+        onClick={onEndEarly}
+        aria-label="End penalty early"
+        title="End early. Stays on the gamesheet."
+        className="px-1.5 py-1 text-xs font-semibold text-ink border border-line hover:border-ink rounded-sm shrink-0 transition-colors pointer-coarse:min-h-11"
+      >
+        End
       </button>
     </div>
   );
