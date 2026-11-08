@@ -67,6 +67,8 @@ Account REST routes keep requiring the owner's Google token. They do not accept 
 
 PINs, tokens and operator links are never logged. Log lines refer to the owner's `userId` and the socket id.
 
+The request log and Sentry events also keep sign-in credentials out, on every route. pino-http's serializers replace the `authorization` and `cookie` request headers and the `set-cookie` response header with `[hidden]`, working on a copy so the live request keeps its values. `scrubEvent` does the same for `event.request.headers` in any letter case and for each value in `event.request.cookies`, since the SDK's RequestData integration copies both onto every event.
+
 ### Accepted limit
 
 The server's permission boundary is the live game's state. Someone with the link and PIN and a modified client could change any patchable game field, such as a team name, even though the UI only offers Controls and Deck. Their patches pass through the same `sanitizeGamePatch` as the owner's, so they cannot reach account data, the saved game list or other games.

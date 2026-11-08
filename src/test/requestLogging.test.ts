@@ -6,8 +6,7 @@ import pinoHttp from "pino-http";
 import { createServer, type Server as HttpServer } from "http";
 import type { AddressInfo } from "net";
 import { Writable } from "stream";
-import { serializeRequest } from "../server/requestLogging";
-
+import { requestLogSerializers, serializeRequest } from "../server/requestLogging";
 
 describe("request logging", () => {
   let httpServer: HttpServer;
@@ -70,5 +69,64 @@ describe("request logging", () => {
     expect(req.remotePort).toEqual(expect.any(Number));
     expect(req.headers.referer).toBe(`${base}/operate/[hidden]`);
     expect(liveReferer).toBe(`${base}/operate/${id}`);
+  });
+
+  describe("sign-in credentials", () => {
+    const idToken = "firebase-id-token-value";
+    const sessionCookie = "session-cookie-value";
+    const issuedCookie = "issued-cookie-value";
+
+    // Sends one signed-in request through real pino-http, on a route with nothing to do
+    // with second operators, and returns what was logged and what the route saw.
+    const logSignedInRequest = async () => {
+      let output = "";
+      const stream = new Writable({
+        write(chunk, _enc, done) {
+          output += chunk.toString();
+          done();
+        },
+      });
+      const app = express();
+      app.use(pinoHttp({ logger: pino({ level: "info" }, stream), serializers: requestLogSerializers }));
+      const live: { authorization?: string; cookie?: string } = {};
+      app.get("/api/shortcuts", (req, res) => {
+        live.authorization = req.headers.authorization;
+        live.cookie = req.headers.cookie;
+        res.setHeader("Set-Cookie", [`session=${issuedCookie}`]);
+        res.setHeader("X-Kept", "kept-value");
+        res.json({});
+      });
+      httpServer = createServer(app);
+      await new Promise<void>((resolve) => httpServer.listen(0, "127.0.0.1", resolve));
+      const base = `http://127.0.0.1:${(httpServer.address() as AddressInfo).port}`;
+      await fetch(`${base}/api/shortcuts`, {
+        headers: { Authorization: `Bearer ${idToken}`, Cookie: `session=${sessionCookie}` },
+      });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return { output, line: JSON.parse(output.trim().split("\n")[0]), live };
+    };
+
+    it("masks the credentials in request headers and keeps the client address", async () => {
+      const { output, line } = await logSignedInRequest();
+      expect(output).not.toContain(idToken);
+      expect(output).not.toContain(sessionCookie);
+      expect(line.req.headers.authorization).toBe("[hidden]");
+      expect(line.req.headers.cookie).toBe("[hidden]");
+      expect(line.req.remoteAddress).toBe("127.0.0.1");
+    });
+
+    it("leaves the live request's headers alone", async () => {
+      const { live } = await logSignedInRequest();
+      expect(live.authorization).toBe(`Bearer ${idToken}`);
+      expect(live.cookie).toBe(`session=${sessionCookie}`);
+    });
+
+    it("masks a cookie the response sets and keeps its other headers", async () => {
+      const { output, line } = await logSignedInRequest();
+      expect(output).not.toContain(issuedCookie);
+      expect(line.res.headers["set-cookie"]).toBe("[hidden]");
+      expect(line.res.headers["x-kept"]).toBe("kept-value");
+      expect(line.res.statusCode).toBe(200);
+    });
   });
 });

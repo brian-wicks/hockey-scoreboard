@@ -68,8 +68,65 @@ describe("Sentry scrubbing", () => {
     expect(event.request.headers.referer).toBe(referer);
   });
 
+  it("masks sign-in headers on every route, in any case, and leaves other headers", () => {
+    const event: any = scrubEvent({
+      type: undefined,
+      request: {
+        url: "http://h/api/shortcuts",
+        headers: {
+          authorization: "Bearer lower-token",
+          Authorization: "Bearer title-token",
+          COOKIE: "session=upper-cookie",
+          "Set-Cookie": "session=issued-cookie",
+          accept: "application/json",
+        },
+      },
+    } as any);
+    expect(event.request.headers).toEqual({
+      authorization: "[hidden]",
+      Authorization: "[hidden]",
+      COOKIE: "[hidden]",
+      "Set-Cookie": "[hidden]",
+      accept: "application/json",
+    });
+  });
+
+  it("masks the value of every parsed cookie", () => {
+    const event: any = scrubEvent({
+      type: undefined,
+      request: { cookies: { session: "cookie-one", theme: "cookie-two" } },
+    } as any);
+    expect(event.request.cookies).toEqual({ session: "[hidden]", theme: "[hidden]" });
+  });
+
+  it("masks cookies that aren't a parsed object", () => {
+    const event: any = scrubEvent({ type: undefined, request: { cookies: "session=raw-cookie" } } as any);
+    expect(event.request.cookies).toBe("[hidden]");
+  });
+
+  it("handles an event with no headers or cookies", () => {
+    expect(scrubEvent({ type: undefined, request: { url: "http://h/a" } } as any).request).toEqual({ url: "http://h/a" });
+    expect(scrubEvent({ type: undefined } as any).request).toBeUndefined();
+  });
+
   describe("with the real SDK capturing a request", () => {
     afterEach(closeCapture);
+
+    const signedIn = { Authorization: "Bearer sdk-id-token", Cookie: "session=sdk-cookie-value" };
+
+    it("sends sign-in headers and cookies by default, which is what the masking guards against", async () => {
+      const sent = await captureFromPosts(id, {}, signedIn);
+      expect(sent.join()).toContain("sdk-id-token");
+      expect(sent.join()).toContain("sdk-cookie-value");
+    });
+
+    it("sends neither the ID token nor the cookie once scrubbed", async () => {
+      const sent = await captureFromPosts(id, { beforeSend: scrubEvent, beforeBreadcrumb: scrubBreadcrumb }, signedIn);
+      expect(sent).toHaveLength(2);
+      expect(sent.join()).not.toContain("sdk-id-token");
+      expect(sent.join()).not.toContain("sdk-cookie-value");
+      expect(sent.join()).toContain("[hidden]");
+    });
 
     it("captures bodies by default, which is what the scrubbing guards against", async () => {
       const sent = await captureFromPosts(id, {});

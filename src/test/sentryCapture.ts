@@ -16,7 +16,11 @@ export const closeCapture = async () => {
  * The SDK sets up its HTTP integration once per process, so a test file can only try
  * one set of HTTP integration options.
  */
-export const captureFromPosts = async (operatorId: string, options: Partial<Sentry.NodeOptions>) => {
+export const captureFromPosts = async (
+  operatorId: string,
+  options: Partial<Sentry.NodeOptions>,
+  headers: Record<string, string> = {},
+) => {
   const sent: string[] = [];
   Sentry.init({
     dsn: "https://key@example.invalid/1",
@@ -41,7 +45,7 @@ export const captureFromPosts = async (operatorId: string, options: Partial<Sent
   const post = (path: string, body: unknown) =>
     fetch(`${base}${path}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...headers },
       body: JSON.stringify(body),
     });
   await post(`/api/operator/${operatorId}/session`, { pin: "123456" });
