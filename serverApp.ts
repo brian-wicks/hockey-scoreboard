@@ -17,6 +17,7 @@ import { isLocalModeEnv, LOCAL_USER_ID } from "./src/lib/localMode.ts";
 import { applyGamePatch, type GamePatch, type PenaltyPatch, type TeamPatch } from "./src/utils/gamePatch.ts";
 import { serializeRequest } from "./src/server/requestLogging.ts";
 import { registerOperatorAccess } from "./src/server/operatorAccess.ts";
+import { OPERATOR_SESSION_ENDED_ERROR } from "./src/lib/operatorAccess.ts";
 import {
   getUserConfig, 
   setUserConfig, 
@@ -1186,6 +1187,22 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }, 100);
   }
 
+  // A user's saved config, or the global file for someone who hasn't saved one.
+  async function loadConfigWithFallback(userId: string, key: string, fallbackFile: string): Promise<unknown> {
+    const dataStr = await getUserConfig(userId, key);
+    if (dataStr) return JSON.parse(dataStr);
+    return existsSync(fallbackFile) ? JSON.parse(readFileSync(fallbackFile, "utf-8")) : null;
+  }
+
+  async function loadOperatorConfigValue(userId: string, key: string, fallbackFile: string): Promise<unknown> {
+    try {
+      return await loadConfigWithFallback(userId, key, fallbackFile);
+    } catch (error) {
+      logError("Error reading config for second operator", error, { userId, key });
+      return null;
+    }
+  }
+
   // Authentication Middleware for Socket.io
   io.use(async (socket, next) => {
     const token = socket.handshake.auth.token;
@@ -1201,6 +1218,28 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       }
       logger.warn({ shareId, socketId: socket.id }, "[Socket] Auth failed: invalid shareId");
       return next(new Error("Authentication error: Invalid share link"));
+    }
+
+    if (socket.handshake.auth.operatorId) {
+      try {
+        const ownerId = await operatorAccess.authenticateHandshake(
+          socket.handshake.auth.operatorId,
+          socket.handshake.auth.operatorToken,
+        );
+        if (!ownerId) {
+          logger.warn({ socketId: socket.id }, "[Socket] Auth failed: operator session ended");
+          return next(new Error(OPERATOR_SESSION_ENDED_ERROR));
+        }
+        socket.data.userId = ownerId;
+        socket.data.isViewer = false;
+        socket.data.isOperator = true;
+        logger.info({ userId: ownerId, socketId: socket.id }, "[Socket] Auth success: second operator connected");
+        return next();
+      } catch (error) {
+        // A different message from a rejected token, so the client keeps its token and retries.
+        logger.error({ err: error, socketId: socket.id }, "[Socket] Operator auth error");
+        return next(new Error("Authentication error: Could not check operator session"));
+      }
     }
 
     if (localMode) {
@@ -1307,6 +1346,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   io.on("connection", async (socket) => {
     const userId = socket.data.userId;
     const isViewer = socket.data.isViewer === true;
+    const isOperator = socket.data.isOperator === true;
     logger.info({ userId, socketId: socket.id, isViewer }, "User connected via socket");
 
     // Join a room for this user to enable per-user broadcasts
@@ -1319,6 +1359,10 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     onSocketEvent(socket, "updateGameState", async (updates: Partial<GameState>) => {
       if (isViewer) {
         logger.warn({ userId, socketId: socket.id }, "[Socket] Unauthorized update attempt from viewer");
+        return;
+      }
+      if (isOperator) {
+        logger.warn({ userId, socketId: socket.id }, "[Socket] Refused full state update from second operator");
         return;
       }
       const context = await getUserContext(userId);
@@ -1447,7 +1491,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         teams: { homeTeam?: TeamState; awayTeam?: TeamState } | undefined,
         callback?: (result: { gameId: string }) => void,
       ) => {
-        if (isViewer) return;
+        if (isViewer || isOperator) return;
         logger.info({ userId }, "User starting a new game");
         const context = await getUserContext(userId);
         if (context.clockInterval) {
@@ -1481,7 +1525,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       socket,
       "openGame",
       async (gameId: string, callback?: (result: { ok: boolean; error?: string }) => void) => {
-        if (isViewer) return;
+        if (isViewer || isOperator) return;
         if (typeof gameId !== "string" || !gameId) {
           if (typeof callback === "function") callback({ ok: false, error: "Invalid game id" });
           return;
@@ -1516,6 +1560,14 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       },
     );
 
+    if (isOperator) {
+      const [streamDeck, shortcuts] = await Promise.all([
+        loadOperatorConfigValue(userId, "streamdeck", STREAMDECK_FILE),
+        loadOperatorConfigValue(userId, "shortcuts", SHORTCUTS_FILE),
+      ]);
+      socket.emit("operatorConfig", { streamDeck, shortcuts });
+    }
+
     socket.on("disconnect", () => {
       logger.info({ userId, socketId: socket.id }, "User disconnected from socket");
     });
@@ -1524,18 +1576,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   app.get("/api/shortcuts", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
     try {
-      const dataStr = await getUserConfig(userId, "shortcuts");
-      if (dataStr) {
-        res.json(JSON.parse(dataStr));
-      } else {
-        // Fallback to global file
-        if (existsSync(SHORTCUTS_FILE)) {
-          const data = readFileSync(SHORTCUTS_FILE, "utf-8");
-          res.json(JSON.parse(data));
-        } else {
-          res.json(null);
-        }
-      }
+      res.json(await loadConfigWithFallback(userId, "shortcuts", SHORTCUTS_FILE));
     } catch (error) {
       logError("Error reading shortcuts", error, { userId });
       res.json(null);
@@ -1646,18 +1687,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   app.get("/api/streamdeck", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
     try {
-      const dataStr = await getUserConfig(userId, "streamdeck");
-      if (dataStr) {
-        res.json(JSON.parse(dataStr));
-      } else {
-        // Fallback to global file
-        if (existsSync(STREAMDECK_FILE)) {
-          const data = readFileSync(STREAMDECK_FILE, "utf-8");
-          res.json(JSON.parse(data));
-        } else {
-          res.json(null);
-        }
-      }
+      res.json(await loadConfigWithFallback(userId, "streamdeck", STREAMDECK_FILE));
     } catch (error) {
       logError("Error reading Stream Deck config", error, { userId });
       res.json(null);

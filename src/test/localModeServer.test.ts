@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "fs/promises";
 import { tmpdir } from "os";
 import path from "path";
+import { io as createClient } from "socket.io-client";
 
 vi.mock("firebase-admin/app", () => ({ initializeApp: vi.fn(), cert: vi.fn() }));
 vi.mock("firebase-admin/auth", () => ({
@@ -234,5 +235,17 @@ describe("local mode server auth", () => {
       body: JSON.stringify({ pin: "123456" }),
     });
     expect(session.status).toBe(404);
+  });
+
+  it("rejects an operator handshake in local mode", async () => {
+    running = await startServer(true);
+    const socket = createClient(`http://127.0.0.1:${running.port}`, {
+      auth: { operatorId: "3f2b8c1e-9a47-4d21-8f6e-0c1d2e3f4a5b", operatorToken: "token" },
+      transports: ["websocket"],
+      reconnection: false,
+    });
+    const message = await new Promise<string>((resolve) => socket.once("connect_error", (error) => resolve(error.message)));
+    socket.close();
+    expect(message).toBe("Authentication error: Operator session ended");
   });
 });

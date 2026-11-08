@@ -194,4 +194,262 @@ describe("second operator access", () => {
       expect((await limited.json()).retryAfterSeconds).toBe(900);
     });
   });
+
+  describe("operator socket", () => {
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    const signIn = async (operatorId: string, pin: string) => {
+      const res = await postPin(operatorId, pin);
+      return (await res.json()).token as string;
+    };
+
+    const connectWith = (auth: Record<string, unknown>) =>
+      new Promise<Socket>((resolve, reject) => {
+        const socket = createClient(baseUrl, { auth, transports: ["websocket"], reconnection: false });
+        openSockets.push(socket);
+        socket.once("connect", () => resolve(socket));
+        socket.once("connect_error", (error) => reject(error));
+      });
+
+    const connectOperator = async (operatorId: string, token: string) => connectWith({ operatorId, operatorToken: token });
+
+    const handshakeError = (auth: Record<string, unknown>) =>
+      connectWith(auth).then(
+        () => null,
+        (error: Error) => error.message,
+      );
+
+    const readState = async (userId: string) => {
+      const res = await fetch(`${baseUrl}/api/share`, { method: "POST", headers: { Authorization: `Bearer ${userId}` } });
+      const { shareId } = await res.json();
+      const read = async () => (await fetch(`${baseUrl}/api/share/${shareId}/state`)).json();
+      return { read, shareId: shareId as string };
+    };
+
+    const setup = async () => {
+      const { userId, operatorId, pin } = await createAccess();
+      const ownerSocket = await connectWith({ token: userId });
+      const token = await signIn(operatorId, pin);
+      const operator = await connectOperator(operatorId, token);
+      const { read, shareId } = await readState(userId);
+      return { userId, operatorId, pin, token, ownerSocket, operator, read, shareId };
+    };
+
+    const ENDED = "Authentication error: Operator session ended";
+
+    it("rejects missing, wrong and expired tokens", async () => {
+      const { operatorId, pin } = await createAccess();
+      const token = await signIn(operatorId, pin);
+      expect(await handshakeError({ operatorId, operatorToken: "wrong" })).toBe(ENDED);
+      expect(await handshakeError({ operatorId })).toBe(ENDED);
+      expect(await handshakeError({ operatorId: randomUUID(), operatorToken: token })).toBe(ENDED);
+
+      currentTime += ONE_DAY + 1;
+      expect(await handshakeError({ operatorId, operatorToken: token })).toBe(ENDED);
+    });
+
+    it("keeps five device tokens and drops the oldest", async () => {
+      const { operatorId, pin } = await createAccess();
+      const tokens: string[] = [];
+      for (let i = 0; i < 6; i += 1) {
+        tokens.push(await signIn(operatorId, pin));
+        currentTime += 1;
+      }
+      expect(await handshakeError({ operatorId, operatorToken: tokens[0] })).toBe(ENDED);
+      expect(await handshakeError({ operatorId, operatorToken: tokens[5] })).toBeNull();
+    });
+
+    it("doesn't accept a viewer share ID as an operator credential", async () => {
+      const { userId } = await createAccess();
+      const { shareId } = await readState(userId);
+      expect(await handshakeError({ operatorId: shareId, operatorToken: shareId })).toBe(ENDED);
+    });
+
+    it("lets the second operator change the owner's live game, and the owner sees it", async () => {
+      const { operator, ownerSocket, read } = await setup();
+      const seen = new Promise<any>((resolve) => {
+        ownerSocket.on("gameState", (state) => {
+          if (state.homeTeam.score === 1) resolve(state);
+        });
+      });
+
+      const ack = await new Promise((resolve) =>
+        operator.emit("applyGamePatch", { opId: "op-1", home: { scoreDelta: 1 } }, resolve),
+      );
+
+      expect(ack).toEqual({ ok: true });
+      await seen;
+      expect((await read()).homeTeam.score).toBe(1);
+    });
+
+    it("sends the owner's changes to the second operator", async () => {
+      const { operator, ownerSocket } = await setup();
+      const seen = new Promise<void>((resolve) => {
+        operator.on("gameState", (state) => {
+          if (state.awayTeam.score === 2) resolve();
+        });
+      });
+      ownerSocket.emit("applyGamePatch", { opId: "own-1", away: { scoreDelta: 2 } }, () => {});
+      await seen;
+    });
+
+    it("lets the second operator use the clock", async () => {
+      const { operator, read } = await setup();
+      operator.emit("startClock");
+      await sleep(50);
+      expect((await read()).clock.isRunning).toBe(true);
+      operator.emit("stopClock");
+      await sleep(50);
+      expect((await read()).clock.isRunning).toBe(false);
+      operator.emit("setClock", 90_000);
+      await sleep(50);
+      expect((await read()).clock.timeRemaining).toBe(90_000);
+      operator.emit("clockIncrease");
+      await sleep(50);
+      expect((await read()).clock.timeRemaining).toBe(91_000);
+      operator.emit("clockDecrease");
+      await sleep(50);
+      expect((await read()).clock.timeRemaining).toBe(90_000);
+    });
+
+    it("refuses a full state replacement", async () => {
+      const { operator, read } = await setup();
+      const before = (await read()).period;
+      const replacement = before === "2nd" ? "3rd" : "2nd";
+      operator.emit("updateGameState", { period: replacement });
+      await sleep(50);
+      expect((await read()).period).toBe(before);
+    });
+
+    it("refuses starting a new game", async () => {
+      const { operator, ownerSocket, read } = await setup();
+      await new Promise((resolve) => ownerSocket.emit("startNewGame", undefined, resolve));
+      await new Promise((resolve) => ownerSocket.emit("applyGamePatch", { opId: "own-2", home: { scoreDelta: 3 } }, resolve));
+
+      operator.emit("startNewGame", undefined);
+      await sleep(100);
+
+      expect((await read()).homeTeam.score).toBe(3);
+    });
+
+    it("refuses opening a saved game", async () => {
+      const { operator, ownerSocket } = await setup();
+      const first: any = await new Promise((resolve) => ownerSocket.emit("startNewGame", undefined, resolve));
+      await new Promise((resolve) => ownerSocket.emit("startNewGame", undefined, resolve));
+      const opened = vi.fn();
+      ownerSocket.on("activeGame", opened);
+
+      operator.emit("openGame", first.gameId);
+      await sleep(100);
+
+      expect(opened).not.toHaveBeenCalled();
+    });
+
+    it("doesn't accept an operator token on account routes", async () => {
+      const { token } = await setup();
+      const res = await fetch(`${baseUrl}/api/streamdeck`, { headers: { Authorization: `Bearer ${token}` } });
+      expect(res.status).toBe(401);
+    });
+
+    it("keeps viewer links read-only alongside a second operator", async () => {
+      const { shareId, read } = await setup();
+      const viewer = await connectWith({ shareId });
+      const result = await new Promise((resolve) =>
+        viewer.emit("applyGamePatch", { opId: "v-1", home: { scoreDelta: 5 } }, resolve),
+      );
+      expect(result).toEqual({ ok: false });
+      expect((await read()).homeTeam.score).toBe(0);
+    });
+
+    it("signs the second operator out on a new PIN, leaving the owner and viewers connected", async () => {
+      const { userId, operatorId, token, operator, ownerSocket, shareId } = await setup();
+      const viewer = await connectWith({ shareId });
+      const ended = new Promise<string>((resolve) => operator.on("disconnect", resolve));
+
+      await owner(userId, "POST");
+
+      expect(await ended).toBe("io server disconnect");
+      expect(ownerSocket.connected).toBe(true);
+      expect(viewer.connected).toBe(true);
+      expect(await handshakeError({ operatorId, operatorToken: token })).toBe(ENDED);
+    });
+
+    it("signs the second operator out on removal", async () => {
+      const { userId, operatorId, token, operator } = await setup();
+      const ended = new Promise<string>((resolve) => operator.on("disconnect", resolve));
+
+      await owner(userId, "DELETE");
+
+      expect(await ended).toBe("io server disconnect");
+      expect(await handshakeError({ operatorId, operatorToken: token })).toBe(ENDED);
+    });
+
+    it("sends the owner's Deck and shortcut config on connect", async () => {
+      const { userId, operatorId, pin } = await createAccess();
+      const streamDeck = { buttons: [{ id: "1", label: "Goal" }] };
+      const shortcuts = [{ key: "g", action: "homeScoreIncrease", description: "Goal" }];
+      const save = (route: string, body: unknown) =>
+        fetch(`${baseUrl}/api/${route}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${userId}` },
+          body: JSON.stringify(body),
+        });
+      await save("streamdeck", streamDeck);
+      await save("shortcuts", shortcuts);
+      const token = await signIn(operatorId, pin);
+
+      const socket = createClient(baseUrl, {
+        auth: { operatorId, operatorToken: token },
+        transports: ["websocket"],
+      });
+      openSockets.push(socket);
+      const config = await new Promise((resolve) => socket.once("operatorConfig", resolve));
+
+      expect(config).toEqual({ streamDeck, shortcuts });
+    });
+
+    it("falls back to the global config files", async () => {
+      const { operatorId, pin } = await createAccess();
+      const streamDeck = { buttons: [{ id: "global", label: "Global" }] };
+      await writeFile(path.join(dataDir, "streamdeck.json"), JSON.stringify(streamDeck));
+      const token = await signIn(operatorId, pin);
+
+      const socket = createClient(baseUrl, {
+        auth: { operatorId, operatorToken: token },
+        transports: ["websocket"],
+      });
+      openSockets.push(socket);
+      const config: any = await new Promise((resolve) => socket.once("operatorConfig", resolve));
+
+      expect(config.streamDeck).toEqual(streamDeck);
+    });
+
+    it("sends null for an unreadable config file, with the connection staying up", async () => {
+      const { operatorId, pin } = await createAccess();
+      await writeFile(path.join(dataDir, "streamdeck.json"), "{not json");
+      const token = await signIn(operatorId, pin);
+
+      const socket = createClient(baseUrl, {
+        auth: { operatorId, operatorToken: token },
+        transports: ["websocket"],
+      });
+      openSockets.push(socket);
+      const config: any = await new Promise((resolve) => socket.once("operatorConfig", resolve));
+
+      expect(config.streamDeck).toBeNull();
+      expect(socket.connected).toBe(true);
+    });
+
+    it("doesn't send operator config to owner or viewer sockets", async () => {
+      const { userId, shareId } = await setup();
+      const spy = vi.fn();
+      const ownerSocket = createClient(baseUrl, { auth: { token: userId }, transports: ["websocket"] });
+      const viewer = createClient(baseUrl, { auth: { shareId }, transports: ["websocket"] });
+      openSockets.push(ownerSocket, viewer);
+      ownerSocket.on("operatorConfig", spy);
+      viewer.on("operatorConfig", spy);
+      await sleep(150);
+      expect(spy).not.toHaveBeenCalled();
+    });
+  });
 });
