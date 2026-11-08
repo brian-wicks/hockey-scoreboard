@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GameState, KeyboardShortcut, ShortcutAction } from "../store";
 
 const listeners = new Map<string, (payload: any) => void>();
@@ -511,5 +511,237 @@ describe("store", () => {
     // splice an unrelated game's team/event data back into the just-opened game.
     expect(useStore.getState().undoStack).toEqual([]);
     expect(useStore.getState().gameState?.homeTeam.score).toBe(9);
+  });
+
+  describe("second operator", () => {
+    const operatorId = "3f2b8c1e-9a47-4d21-8f6e-0c1d2e3f4a5b";
+    const tokenKey = `scoreboard:operatorToken:${operatorId}`;
+
+    beforeEach(() => {
+      sessionStorage.clear();
+      window.history.pushState({}, "", `/operate/${operatorId}`);
+      (socketMock as any).connect = vi.fn();
+      (socketMock as any).active = false;
+    });
+
+    afterEach(() => {
+      window.history.pushState({}, "", "/");
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    });
+
+    const respondWith = (status: number, body: unknown) => {
+      const fetchMock = vi.fn().mockResolvedValue({ ok: status < 400, status, json: () => Promise.resolve(body) });
+      vi.stubGlobal("fetch", fetchMock);
+      return fetchMock;
+    };
+
+    it("asks for the PIN when there is no stored token", async () => {
+      const { useStore } = await import("../store");
+      ioMock.mockClear();
+      useStore.getState().ensureInitialized();
+      expect(useStore.getState().isOperator).toBe(true);
+      expect(useStore.getState().operatorId).toBe(operatorId);
+      expect(useStore.getState().operatorAuth).toEqual({ status: "needs-pin" });
+      expect(ioMock).not.toHaveBeenCalled();
+    });
+
+    it("reconnects with a stored token, for this link only", async () => {
+      sessionStorage.setItem(tokenKey, "stored-token");
+      const { useStore } = await import("../store");
+      ioMock.mockClear();
+      useStore.getState().ensureInitialized();
+      expect((ioMock.mock.calls.at(-1) as unknown[])[1]).toMatchObject({
+        auth: { operatorId, operatorToken: "stored-token" },
+        reconnectionAttempts: Infinity,
+      });
+    });
+
+    it("uses the PIN flow even when the owner is signed in on this browser", async () => {
+      const fetchMock = respondWith(200, {});
+      const { useStore } = await import("../store");
+      ioMock.mockClear();
+      useStore.setState({ user: mockUser as any });
+      useStore.getState().ensureInitialized();
+      expect(useStore.getState().operatorAuth).toEqual({ status: "needs-pin" });
+      expect(ioMock).not.toHaveBeenCalled();
+      expect(mockUser.getIdToken).not.toHaveBeenCalled();
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("stores the token and connects after a correct PIN", async () => {
+      const fetchMock = respondWith(200, { token: "new-token" });
+      const { useStore } = await import("../store");
+      useStore.getState().ensureInitialized();
+      ioMock.mockClear();
+
+      await useStore.getState().submitOperatorPin("123456");
+
+      expect(fetchMock.mock.calls[0][0]).toContain(`/api/operator/${operatorId}/session`);
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ pin: "123456" });
+      expect(sessionStorage.getItem(tokenKey)).toBe("new-token");
+      expect(useStore.getState().operatorAuth).toEqual({ status: "connecting" });
+      expect(ioMock).toHaveBeenCalledTimes(1);
+
+      listeners.get("connect")?.(undefined);
+      expect(useStore.getState().operatorAuth).toEqual({ status: "connected" });
+      expect(useStore.getState().isConnected).toBe(true);
+    });
+
+    it("reports each PIN failure", async () => {
+      const { useStore } = await import("../store");
+      useStore.getState().ensureInitialized();
+
+      respondWith(401, { attemptsLeft: 3 });
+      await useStore.getState().submitOperatorPin("000000");
+      expect(useStore.getState().operatorAuth).toEqual({ status: "wrong-pin", attemptsLeft: 3 });
+
+      respondWith(429, { retryAfterSeconds: 600 });
+      await useStore.getState().submitOperatorPin("000000");
+      expect(useStore.getState().operatorAuth).toEqual({ status: "locked", retryAfterSeconds: 600 });
+
+      respondWith(404, {});
+      await useStore.getState().submitOperatorPin("000000");
+      expect(useStore.getState().operatorAuth).toEqual({ status: "not-found" });
+
+      respondWith(500, {});
+      await useStore.getState().submitOperatorPin("000000");
+      expect(useStore.getState().operatorAuth).toEqual({ status: "error" });
+
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+      await useStore.getState().submitOperatorPin("000000");
+      expect(useStore.getState().operatorAuth).toEqual({ status: "error" });
+
+      expect(sessionStorage.getItem(tokenKey)).toBeNull();
+    });
+
+    it("ends the session when the token is rejected", async () => {
+      sessionStorage.setItem(tokenKey, "stale");
+      const { useStore } = await import("../store");
+      useStore.getState().ensureInitialized();
+      listeners.get("gameState")?.({ ...baseState, serverTime: 1 });
+
+      listeners.get("connect_error")?.(new Error("Authentication error: Operator session ended"));
+
+      expect(sessionStorage.getItem(tokenKey)).toBeNull();
+      expect(useStore.getState().operatorAuth).toEqual({ status: "needs-pin", sessionEnded: true });
+      expect(useStore.getState().gameState).toBeNull();
+      expect(useStore.getState().socket).toBeNull();
+      expect(socketMock.disconnect).toHaveBeenCalled();
+    });
+
+    it("ends the session when the server disconnects the socket", async () => {
+      sessionStorage.setItem(tokenKey, "good");
+      const { useStore } = await import("../store");
+      useStore.getState().ensureInitialized();
+      listeners.get("connect")?.(undefined);
+
+      listeners.get("disconnect")?.("io server disconnect");
+
+      expect(sessionStorage.getItem(tokenKey)).toBeNull();
+      expect(useStore.getState().operatorAuth).toEqual({ status: "needs-pin", sessionEnded: true });
+    });
+
+    it("keeps the token through a dropped connection", async () => {
+      sessionStorage.setItem(tokenKey, "good");
+      const { useStore } = await import("../store");
+      useStore.getState().ensureInitialized();
+      listeners.get("connect")?.(undefined);
+
+      listeners.get("disconnect")?.("transport close");
+
+      expect(sessionStorage.getItem(tokenKey)).toBe("good");
+      expect(useStore.getState().operatorAuth).toEqual({ status: "connected" });
+      expect(useStore.getState().isConnected).toBe(false);
+    });
+
+    it("retries after a server fault during the handshake, keeping the token", async () => {
+      sessionStorage.setItem(tokenKey, "good");
+      const { useStore } = await import("../store");
+      vi.useFakeTimers();
+      useStore.getState().ensureInitialized();
+
+      listeners.get("connect_error")?.(new Error("Authentication error: Could not check operator session"));
+
+      expect(sessionStorage.getItem(tokenKey)).toBe("good");
+      expect((socketMock as any).connect).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(2000);
+      expect((socketMock as any).connect).toHaveBeenCalledTimes(1);
+    });
+
+    it("leaves retries to Socket.IO when it is already reconnecting", async () => {
+      (socketMock as any).active = true;
+      sessionStorage.setItem(tokenKey, "good");
+      const { useStore } = await import("../store");
+      vi.useFakeTimers();
+      useStore.getState().ensureInitialized();
+
+      listeners.get("connect_error")?.(new Error("xhr poll error"));
+      vi.advanceTimersByTime(2000);
+
+      expect((socketMock as any).connect).not.toHaveBeenCalled();
+    });
+
+    it("doesn't touch the owner's local game cache", async () => {
+      localStorage.setItem("scoreboard:gameStateCache:v1", '{"period":"owner"}');
+      sessionStorage.setItem(tokenKey, "good");
+      const { useStore } = await import("../store");
+      useStore.getState().ensureInitialized();
+
+      listeners.get("gameState")?.({ ...baseState, serverTime: 1 });
+      useStore.getState().updateState({ period: "2nd" });
+
+      expect(useStore.getState().gameState?.period).toBe("2nd");
+      expect(localStorage.getItem("scoreboard:gameStateCache:v1")).toBe('{"period":"owner"}');
+    });
+
+    it("keeps a change on top of older server state until it is confirmed", async () => {
+      sessionStorage.setItem(tokenKey, "good");
+      const { useStore } = await import("../store");
+      useStore.getState().ensureInitialized();
+      listeners.get("gameState")?.({ ...baseState, serverTime: 1 });
+
+      useStore.getState().updateState({ period: "2nd" });
+      listeners.get("gameState")?.({ ...baseState, serverTime: 2 });
+
+      expect(useStore.getState().gameState?.period).toBe("2nd");
+    });
+
+    it("applies the owner's Deck and shortcut config, adding missing default shortcuts", async () => {
+      sessionStorage.setItem(tokenKey, "good");
+      const { useStore } = await import("../store");
+      useStore.getState().ensureInitialized();
+      const defaults = useStore.getState().keyboardShortcuts;
+      const streamDeck = { buttons: [{ id: "1", label: "Owner" }] };
+      const custom = { ...defaults[0], key: "z" };
+
+      listeners.get("operatorConfig")?.({ streamDeck, shortcuts: [custom] });
+
+      expect(useStore.getState().streamDeckConfig).toEqual(streamDeck);
+      expect(useStore.getState().keyboardShortcuts).toHaveLength(defaults.length);
+      expect(useStore.getState().keyboardShortcuts[0]).toEqual(custom);
+    });
+
+    it("keeps the defaults when the config is null", async () => {
+      sessionStorage.setItem(tokenKey, "good");
+      const { useStore } = await import("../store");
+      useStore.getState().ensureInitialized();
+      const { streamDeckConfig, keyboardShortcuts } = useStore.getState();
+
+      listeners.get("operatorConfig")?.({ streamDeck: null, shortcuts: null });
+
+      expect(useStore.getState().streamDeckConfig).toBe(streamDeckConfig);
+      expect(useStore.getState().keyboardShortcuts).toBe(keyboardShortcuts);
+    });
+
+    it("tracks the owner's active game", async () => {
+      sessionStorage.setItem(tokenKey, "good");
+      const { useStore } = await import("../store");
+      useStore.getState().ensureInitialized();
+      listeners.get("activeGame")?.(null);
+      expect(useStore.getState().activeGameId).toBeNull();
+      listeners.get("activeGame")?.("game-1");
+      expect(useStore.getState().activeGameId).toBe("game-1");
+    });
   });
 });

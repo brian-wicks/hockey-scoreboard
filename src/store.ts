@@ -3,6 +3,7 @@ import { io, Socket } from "socket.io-client";
 import { User, signInWithPopup, signOut } from "firebase/auth";
 import { auth, googleProvider } from "./lib/firebase";
 import { getBaseUrl, isLocalMode } from "./lib/localMode";
+import { OPERATOR_SESSION_ENDED_ERROR } from "./lib/operatorAccess";
 import { applyGamePatch, createDeleteEventPatch, createGamePatch, invertGamePatch, isUndoable, type GamePatch } from "./utils/gamePatch";
 
 const normalizeBaseUrl = (url: string) => url.replace(/\/+$/, "");
@@ -162,6 +163,16 @@ export interface StreamDeckConfig {
   buttons: StreamDeckButton[];
 }
 
+export type OperatorAuth =
+  | { status: "needs-pin"; sessionEnded?: boolean }
+  | { status: "submitting" }
+  | { status: "wrong-pin"; attemptsLeft: number }
+  | { status: "locked"; retryAfterSeconds: number }
+  | { status: "not-found" }
+  | { status: "error" }
+  | { status: "connecting" }
+  | { status: "connected" };
+
 interface StoreState {
   socket: Socket | null;
   gameState: GameState | null;
@@ -180,6 +191,9 @@ interface StoreState {
   authError: string | null;
   shareId: string | null;
   isViewer: boolean;
+  isOperator: boolean;
+  operatorId: string | null;
+  operatorAuth: OperatorAuth;
   savedGames: { id: string; name: string; createdAt: number; updatedAt: number }[];
   teamLibrary: SavedTeam[];
   // undefined = not yet known (still connecting); null = known to have no game open.
@@ -187,6 +201,8 @@ interface StoreState {
 
   connect: () => void;
   connectViewer: (shareId: string) => void;
+  connectOperator: (operatorId: string, token: string) => void;
+  submitOperatorPin: (pin: string) => Promise<void>;
   ensureInitialized: () => void;
   setAuthError: (error: string | null) => void;
   updateState: (updates: Partial<GameState>) => void;
@@ -409,7 +425,7 @@ const sendPatch = (
     gameState: newState,
     pendingPatches: [...get().pendingPatches, { patch, sentAt: Date.now() }],
   });
-  saveCachedState(newState);
+  cacheGameState(get, newState);
   socket.emit("applyGamePatch", patch, () => {
     set({ pendingPatches: get().pendingPatches.filter((pending) => pending.patch.opId !== patch.opId) });
   });
@@ -435,6 +451,60 @@ const saveCachedState = (state: GameState) => {
   }
 };
 
+// A second operator may be on the owner's computer, so their session leaves the cached game alone.
+const cacheGameState = (get: () => StoreState, state: GameState) => {
+  if (!get().isOperator) saveCachedState(state);
+};
+
+const receiveGameState = (
+  state: GameState,
+  get: () => StoreState,
+  set: (partial: Partial<StoreState>) => void,
+) => {
+  const serverTime = typeof state.serverTime === "number" ? state.serverTime : null;
+  const serverTimeOffsetMs = serverTime === null ? get().serverTimeOffsetMs : serverTime - Date.now();
+  // Clock ticks arrive up to 10 times a second, and can be from before the server saw
+  // the operator's latest change. Keep that change on top until the server confirms it.
+  const oldestPending = Date.now() - PENDING_PATCH_MAX_AGE_MS;
+  const pendingPatches = get().pendingPatches.filter((pending) => pending.sentAt >= oldestPending);
+  const gameState = pendingPatches.reduce((next, pending) => applyGamePatch(next, pending.patch), state);
+  set({ gameState, serverTimeOffsetMs, pendingPatches });
+  cacheGameState(get, gameState);
+};
+
+const withMissingDefaultShortcuts = (shortcuts: KeyboardShortcut[]): KeyboardShortcut[] => {
+  const existingActions = new Set(shortcuts.map((shortcut) => shortcut.action));
+  return [...shortcuts, ...defaultShortcuts.filter((shortcut) => !existingActions.has(shortcut.action))];
+};
+
+const operatorTokenKey = (operatorId: string) => `scoreboard:operatorToken:${operatorId}`;
+
+const loadOperatorToken = (operatorId: string): string | null => {
+  try {
+    return sessionStorage.getItem(operatorTokenKey(operatorId));
+  } catch {
+    return null;
+  }
+};
+
+const saveOperatorToken = (operatorId: string, token: string) => {
+  try {
+    sessionStorage.setItem(operatorTokenKey(operatorId), token);
+  } catch {
+    // The session still works until the page is reloaded.
+  }
+};
+
+const clearOperatorToken = (operatorId: string) => {
+  try {
+    sessionStorage.removeItem(operatorTokenKey(operatorId));
+  } catch {
+    // ignore storage failures
+  }
+};
+
+const OPERATOR_HANDSHAKE_RETRY_MS = 2000;
+
 export const useStore = create<StoreState>((set, get) => ({
   socket: null,
   gameState: null,
@@ -449,6 +519,9 @@ export const useStore = create<StoreState>((set, get) => ({
   authError: null,
   shareId: null,
   isViewer: false,
+  isOperator: false,
+  operatorId: null,
+  operatorAuth: { status: "needs-pin" },
   savedGames: [],
   teamLibrary: [],
   activeGameId: undefined,
@@ -645,6 +718,108 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
+  connectOperator: (operatorId: string, token: string) => {
+    get().socket?.disconnect();
+    set({ operatorAuth: { status: "connecting" } });
+
+    const socketUrl = BASE_URL === window.location.origin ? undefined : BASE_URL;
+    const socket = io(socketUrl, {
+      auth: { operatorId, operatorToken: token },
+      transports: ["polling", "websocket"],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+    });
+
+    const endSession = () => {
+      clearOperatorToken(operatorId);
+      socket.disconnect();
+      set({
+        socket: null,
+        isConnected: false,
+        gameState: null,
+        activeGameId: undefined,
+        undoStack: [],
+        pendingPatches: [],
+        operatorAuth: { status: "needs-pin", sessionEnded: true },
+      });
+    };
+
+    socket.on("connect", () => {
+      set({ isConnected: true, operatorAuth: { status: "connected" } });
+    });
+
+    socket.on("disconnect", (reason: string) => {
+      // Socket.IO won't reconnect by itself after this reason, and the owner only
+      // disconnects a second operator when signing them out.
+      if (reason === "io server disconnect") {
+        endSession();
+        return;
+      }
+      set({ isConnected: false, pendingPatches: [] });
+    });
+
+    socket.on("connect_error", (error: Error) => {
+      if (error.message === OPERATOR_SESSION_ENDED_ERROR) {
+        endSession();
+        return;
+      }
+      set({ isConnected: false });
+      // An error from server middleware stops Socket.IO retrying, and a database fault
+      // during the handshake shouldn't leave the second operator stuck.
+      if (!socket.active) {
+        setTimeout(() => {
+          if (get().socket === socket) socket.connect();
+        }, OPERATOR_HANDSHAKE_RETRY_MS);
+      }
+    });
+
+    socket.on("gameState", (state: GameState) => {
+      receiveGameState(state, get, set);
+    });
+
+    socket.on("activeGame", (gameId: string | null) => {
+      set({ activeGameId: gameId });
+    });
+
+    socket.on("operatorConfig", (config: { streamDeck: StreamDeckConfig | null; shortcuts: KeyboardShortcut[] | null }) => {
+      if (config.streamDeck?.buttons) set({ streamDeckConfig: config.streamDeck });
+      if (Array.isArray(config.shortcuts)) set({ keyboardShortcuts: withMissingDefaultShortcuts(config.shortcuts) });
+    });
+
+    set({ socket, isConnected: socket.connected });
+  },
+
+  submitOperatorPin: async (pin: string) => {
+    const { operatorId } = get();
+    if (!operatorId) return;
+    set({ operatorAuth: { status: "submitting" } });
+    try {
+      const apiUrl = BASE_URL === window.location.origin ? "" : BASE_URL;
+      const response = await fetch(`${apiUrl}/api/operator/${encodeURIComponent(operatorId)}/session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && typeof data.token === "string") {
+        saveOperatorToken(operatorId, data.token);
+        get().connectOperator(operatorId, data.token);
+      } else if (response.status === 401) {
+        set({ operatorAuth: { status: "wrong-pin", attemptsLeft: data.attemptsLeft } });
+      } else if (response.status === 429) {
+        set({ operatorAuth: { status: "locked", retryAfterSeconds: data.retryAfterSeconds } });
+      } else if (response.status === 404) {
+        set({ operatorAuth: { status: "not-found" } });
+      } else {
+        set({ operatorAuth: { status: "error" } });
+      }
+    } catch (error) {
+      console.error("Failed to check operator PIN:", error);
+      set({ operatorAuth: { status: "error" } });
+    }
+  },
+
   connectViewer: async (shareId: string) => {
     try {
       set({ shareId, isViewer: true, authLoading: true, authError: null });
@@ -759,15 +934,7 @@ export const useStore = create<StoreState>((set, get) => ({
       });
 
       socket.on("gameState", (state: GameState) => {
-        const serverTime = typeof state.serverTime === "number" ? state.serverTime : null;
-        const serverTimeOffsetMs = serverTime === null ? get().serverTimeOffsetMs : serverTime - Date.now();
-        // Clock ticks arrive up to 10 times a second, and can be from before the server saw
-        // the operator's latest change. Keep that change on top until the server confirms it.
-        const oldestPending = Date.now() - PENDING_PATCH_MAX_AGE_MS;
-        const pendingPatches = get().pendingPatches.filter((pending) => pending.sentAt >= oldestPending);
-        const gameState = pendingPatches.reduce((next, pending) => applyGamePatch(next, pending.patch), state);
-        set({ gameState, serverTimeOffsetMs, pendingPatches });
-        saveCachedState(gameState);
+        receiveGameState(state, get, set);
       });
 
       socket.on("activeGame", (gameId: string | null) => {
@@ -786,6 +953,16 @@ export const useStore = create<StoreState>((set, get) => ({
     
     // Check for share ID in URL
     const pathParts = window.location.pathname.split("/");
+    // Checked before the signed-in user, so this route never uses the owner's account.
+    if (pathParts[1] === "operate" && pathParts[2]) {
+      const operatorId = pathParts[2];
+      hasInitialized = true;
+      set({ isOperator: true, operatorId, authLoading: false });
+      const token = loadOperatorToken(operatorId);
+      if (token) get().connectOperator(operatorId, token);
+      return;
+    }
+
     const shareIndex = pathParts.indexOf("share");
     if (shareIndex !== -1 && pathParts[shareIndex + 1]) {
       const shareId = pathParts[shareIndex + 1];
@@ -950,9 +1127,7 @@ export const useStore = create<StoreState>((set, get) => ({
       });
       const data = await response.json();
       if (data && Array.isArray(data)) {
-        const existingActions = new Set(data.map((shortcut: KeyboardShortcut) => shortcut.action));
-        const missingDefaults = defaultShortcuts.filter((shortcut) => !existingActions.has(shortcut.action));
-        set({ keyboardShortcuts: [...data, ...missingDefaults] });
+        set({ keyboardShortcuts: withMissingDefaultShortcuts(data) });
       }
     } catch (error) {
       console.error("Failed to load shortcuts from server:", error);
