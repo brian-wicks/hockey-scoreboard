@@ -6,10 +6,18 @@ import { maskOperatorLinks } from "./src/lib/operatorAccess.ts";
 // explicit Sentry.captureException calls and the Express error handler in
 // serverApp.ts, not automatic instrumentation, so this only needs dsn/env.
 // Operator links are secrets in the URL, so they are masked in events and breadcrumbs.
+// Express matches routes in any case, so this does too. Masking leaves the path in
+// place, so the check works on a URL from before or after masking.
+const isOperatorApiPath = (text: unknown): boolean => typeof text === "string" && /\/api\/operator\//i.test(text);
+
 export function scrubEvent<T extends Sentry.Event>(event: T): T {
-  if (event.request?.url) event.request.url = maskOperatorLinks(event.request.url);
+  const request = event.request;
+  // Sentry attaches incoming request bodies, and the body on these routes holds the PIN.
+  if (request && (isOperatorApiPath(request.url) || isOperatorApiPath(event.transaction))) delete request.data;
+  if (request?.url) request.url = maskOperatorLinks(request.url);
+  if (typeof request?.query_string === "string") request.query_string = maskOperatorLinks(request.query_string);
   if (event.transaction) event.transaction = maskOperatorLinks(event.transaction);
-  if (event.request?.headers?.referer) event.request.headers.referer = maskOperatorLinks(event.request.headers.referer);
+  if (typeof request?.headers?.referer === "string") request.headers.referer = maskOperatorLinks(request.headers.referer);
   event.breadcrumbs?.forEach(scrubBreadcrumb);
   return event;
 }
@@ -22,6 +30,18 @@ export function scrubBreadcrumb(breadcrumb: Sentry.Breadcrumb): Sentry.Breadcrum
     }
   }
   return breadcrumb;
+}
+
+type Integration = Exclude<NonNullable<Sentry.NodeOptions["integrations"]>, (...args: never[]) => unknown>[number];
+
+// Stops the SDK capturing these bodies at all. scrubEvent still removes them, in case
+// an event reaches it some other way.
+export function filterOperatorBodies(defaults: Integration[]): Integration[] {
+  return defaults.map((integration) =>
+    integration.name === "Http"
+      ? Sentry.httpIntegration({ ignoreIncomingRequestBody: (url) => isOperatorApiPath(url) })
+      : integration,
+  );
 }
 
 if (process.env.SENTRY_DSN) {
@@ -37,7 +57,7 @@ if (process.env.SENTRY_DSN) {
     // serverApp.ts/server.ts are the real fix (catch and sanitize instead of
     // throwing), this just stops Sentry from exiting on whatever they didn't catch.
     integrations: (defaults) =>
-      defaults.map((integration) =>
+      filterOperatorBodies(defaults).map((integration) =>
         integration.name === "OnUncaughtException"
           ? Sentry.onUncaughtExceptionIntegration({ exitEvenIfOtherHandlersAreRegistered: false })
           : integration,
