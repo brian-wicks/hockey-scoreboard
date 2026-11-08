@@ -4,6 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useStore } from "../../store";
 import { getBaseUrl } from "../../lib/localMode";
 import { Button } from "./ui/primitives";
+import SecondOperatorSection from "./SecondOperatorSection";
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -82,7 +83,7 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
       />
       
       {/* Modal Content */}
-      <div className="relative w-full max-w-2xl bg-canvas border border-line rounded-sm duration-200 overflow-hidden">
+      <div className="relative w-full max-w-2xl max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] overflow-y-auto bg-canvas border border-line rounded-sm duration-200">
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-line">
           <h2 className="text-xl font-semibold flex items-center gap-2 text-ink">
             <Share2 className="text-ink" size={24} />
@@ -192,6 +193,8 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
               </div>
             </div>
           )}
+
+          <SecondOperatorSection />
         </div>
       </div>
     </div>

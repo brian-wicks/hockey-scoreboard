@@ -9,6 +9,10 @@ vi.mock("../../store", () => ({
   },
 }));
 
+vi.mock("../../components/control-panel/SecondOperatorSection", () => ({
+  default: () => <div>Second operator section</div>,
+}));
+
 describe("ShareModal Component", () => {
   const mockOnClose = vi.fn();
 
@@ -95,6 +99,22 @@ describe("ShareModal Component", () => {
     fireEvent.click(copyButtons[0]);
 
     expect(navigator.clipboard.writeText).toHaveBeenCalled();
+  });
+
+  it("shows the second operator section with or without viewer links", async () => {
+    vi.mocked(useStore.getState).mockReturnValue({ user: mockUser } as any);
+    vi.mocked(global.fetch).mockResolvedValueOnce({ ok: false } as any);
+    const { unmount } = render(<ShareModal isOpen={true} onClose={mockOnClose} />);
+    expect(screen.getByText("Second operator section")).toBeInTheDocument();
+    unmount();
+
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ shareId: "existing-id" }),
+    } as any);
+    render(<ShareModal isOpen={true} onClose={mockOnClose} />);
+    await screen.findByText("existing-id");
+    expect(screen.getByText("Second operator section")).toBeInTheDocument();
   });
 
   it("calls onClose when backdrop is clicked", () => {
