@@ -131,18 +131,17 @@ export const setOperatorAccess = async (access: OperatorAccess): Promise<void> =
   const snap = await userRef.get();
   const oldOperatorId = snap.data()?.operatorId;
 
+  // A batch, because a record whose user doc no longer points at it can't be found
+  // again, yet its PIN and device tokens would still work.
+  const batch = firestore().batch();
   // One link per account: drop the previous operator record so its PIN and
   // device tokens stop working once a new link is issued.
-  const removeOld =
-    typeof oldOperatorId === "string" && oldOperatorId !== access.operatorId
-      ? operatorsCollection().doc(oldOperatorId).delete()
-      : Promise.resolve();
-
-  await Promise.all([
-    removeOld,
-    operatorsCollection().doc(access.operatorId).set(access),
-    userRef.set({ operatorId: access.operatorId }, { merge: true }),
-  ]);
+  if (typeof oldOperatorId === "string" && oldOperatorId !== access.operatorId) {
+    batch.delete(operatorsCollection().doc(oldOperatorId));
+  }
+  batch.set(operatorsCollection().doc(access.operatorId), access);
+  batch.set(userRef, { operatorId: access.operatorId }, { merge: true });
+  await batch.commit();
 };
 
 export const deleteOperatorAccess = async (userId: string): Promise<void> => {
@@ -150,10 +149,10 @@ export const deleteOperatorAccess = async (userId: string): Promise<void> => {
   const snap = await userRef.get();
   const operatorId = snap.data()?.operatorId;
 
-  await Promise.all([
-    typeof operatorId === "string" ? operatorsCollection().doc(operatorId).delete() : Promise.resolve(),
-    userRef.set({ operatorId: null }, { merge: true }),
-  ]);
+  const batch = firestore().batch();
+  if (typeof operatorId === "string") batch.delete(operatorsCollection().doc(operatorId));
+  batch.set(userRef, { operatorId: null }, { merge: true });
+  await batch.commit();
 };
 
 // Costs exactly one read (hit or miss, same billing) and doesn't require any

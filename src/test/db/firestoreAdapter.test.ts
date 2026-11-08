@@ -4,8 +4,11 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 // translated to Firestore's path-based API: collectionSpy/docSpy/orderBySpy record
 // the chain of .collection()/.doc()/.orderBy() calls, while mockGet/mockSet/mockDelete
 // stand in for the terminal document/query operations.
-const { mockGet, mockSet, mockUpdate, mockDelete, mockOrderByGet, collectionSpy, docSpy, orderBySpy } = vi.hoisted(() => {
+const { mockGet, mockSet, mockUpdate, mockDelete, mockOrderByGet, collectionSpy, docSpy, orderBySpy, batchSet, batchDelete, batchCommit } = vi.hoisted(() => {
   return {
+    batchSet: vi.fn(),
+    batchDelete: vi.fn(),
+    batchCommit: vi.fn(),
     mockGet: vi.fn(),
     mockSet: vi.fn(),
     mockUpdate: vi.fn(),
@@ -17,8 +20,9 @@ const { mockGet, mockSet, mockUpdate, mockDelete, mockOrderByGet, collectionSpy,
   };
 });
 
-function makeDocRef() {
+function makeDocRef(id?: string) {
   return {
+    id,
     get: mockGet,
     set: mockSet,
     update: mockUpdate,
@@ -34,7 +38,7 @@ function makeCollectionRef() {
   return {
     doc: (id: string) => {
       docSpy(id);
-      return makeDocRef();
+      return makeDocRef(id);
     },
     orderBy: (field: string, direction: string) => {
       orderBySpy(field, direction);
@@ -49,6 +53,7 @@ vi.mock("firebase-admin/firestore", () => ({
       collectionSpy(name);
       return makeCollectionRef();
     },
+    batch: () => ({ set: batchSet, delete: batchDelete, commit: batchCommit }),
   }),
 }));
 
@@ -254,27 +259,60 @@ describe("firestore adapter", () => {
     expect(await getUserOperatorAccess("user-1")).toBeNull();
   });
 
-  it("saves operator access as a record plus a user doc field", async () => {
+  const expectOnlyBatchWrites = () => {
+    expect(mockSet).not.toHaveBeenCalled();
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(batchCommit).toHaveBeenCalledTimes(1);
+  };
+
+  it("saves operator access as a record plus a user doc field, in one batch", async () => {
     mockGet.mockResolvedValue({ data: () => ({}) });
     await setOperatorAccess(operatorAccess);
-    expect(mockSet).toHaveBeenCalledWith(operatorAccess);
-    expect(mockSet).toHaveBeenCalledWith({ operatorId: "op-1" }, { merge: true });
-    expect(mockDelete).not.toHaveBeenCalled();
+    expect(batchSet).toHaveBeenCalledWith(expect.objectContaining({ id: "op-1" }), operatorAccess);
+    expect(batchSet).toHaveBeenCalledWith(expect.objectContaining({ id: "user-1" }), { operatorId: "op-1" }, { merge: true });
+    expect(batchDelete).not.toHaveBeenCalled();
+    expectOnlyBatchWrites();
   });
 
-  it("removes the previous record when an account gets a different link", async () => {
+  it("removes the previous record in the same batch when an account gets a different link", async () => {
     mockGet.mockResolvedValue({ data: () => ({ operatorId: "op-old" }) });
     await setOperatorAccess(operatorAccess);
-    expect(docSpy).toHaveBeenCalledWith("op-old");
-    expect(mockDelete).toHaveBeenCalledTimes(1);
+    expect(batchDelete).toHaveBeenCalledTimes(1);
+    expect(batchDelete).toHaveBeenCalledWith(expect.objectContaining({ id: "op-old" }));
+    expect(batchSet).toHaveBeenCalledTimes(2);
+    expectOnlyBatchWrites();
   });
 
-  it("deletes operator access and clears the user doc field", async () => {
+  it("keeps the record when an account saves the same link again", async () => {
+    mockGet.mockResolvedValue({ data: () => ({ operatorId: "op-1" }) });
+    await setOperatorAccess(operatorAccess);
+    expect(batchDelete).not.toHaveBeenCalled();
+    expectOnlyBatchWrites();
+  });
+
+  it("deletes operator access and clears the user doc field, in one batch", async () => {
     mockGet.mockResolvedValue({ data: () => ({ operatorId: "op-1" }) });
     await deleteOperatorAccess("user-1");
-    expect(docSpy).toHaveBeenCalledWith("op-1");
-    expect(mockDelete).toHaveBeenCalledTimes(1);
-    expect(mockSet).toHaveBeenCalledWith({ operatorId: null }, { merge: true });
+    expect(batchDelete).toHaveBeenCalledTimes(1);
+    expect(batchDelete).toHaveBeenCalledWith(expect.objectContaining({ id: "op-1" }));
+    expect(batchSet).toHaveBeenCalledWith(expect.objectContaining({ id: "user-1" }), { operatorId: null }, { merge: true });
+    expectOnlyBatchWrites();
+  });
+
+  it("reads the user doc before writing anything to the batch", async () => {
+    mockGet.mockImplementation(async () => {
+      expect(batchSet).not.toHaveBeenCalled();
+      expect(batchDelete).not.toHaveBeenCalled();
+      return { data: () => ({ operatorId: "op-1" }) };
+    });
+    await deleteOperatorAccess("user-1");
+    expect(mockGet).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects when the batch fails, so removal can't report success", async () => {
+    mockGet.mockResolvedValue({ data: () => ({ operatorId: "op-1" }) });
+    batchCommit.mockRejectedValueOnce(new Error("commit failed"));
+    await expect(deleteOperatorAccess("user-1")).rejects.toThrow("commit failed");
   });
 
   it("pings healthy when the read succeeds", async () => {
