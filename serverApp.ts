@@ -1352,6 +1352,25 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     // Join a room for this user to enable per-user broadcasts
     socket.join(userId);
 
+    if (isOperator) {
+      // A revocation that committed while the handshake was reading its record missed
+      // this socket, since it wasn't in the room yet. Check again now that it is.
+      try {
+        const stillAllowed = await operatorAccess.authenticateHandshake(
+          socket.handshake.auth.operatorId,
+          socket.handshake.auth.operatorToken,
+        );
+        if (!stillAllowed) {
+          socket.disconnect(true);
+          return;
+        }
+      } catch (error) {
+        logError("Error re-checking second operator session, disconnecting", error, { userId, socketId: socket.id });
+        socket.disconnect(true);
+        return;
+      }
+    }
+
     const initialContext = await getUserContext(userId);
     emitGameStateTo(socket, initialContext.gameState);
     socket.emit("activeGame", initialContext.gameId);
