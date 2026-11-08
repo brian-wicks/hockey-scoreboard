@@ -41,4 +41,34 @@ describe("request logging", () => {
     expect(output).toContain("/operate/[hidden]");
     expect(output).toContain("/api/operator/[hidden]/session");
   });
+
+  it("keeps the client address and leaves the live request alone", async () => {
+    const id = "3f2b8c1e-9a47-4d21-8f6e-0c1d2e3f4a5b";
+    let output = "";
+    const stream = new Writable({
+      write(chunk, _enc, done) {
+        output += chunk.toString();
+        done();
+      },
+    });
+    const app = express();
+    app.use(pinoHttp({ logger: pino({ level: "info" }, stream), serializers: { req: serializeRequest } }));
+    let liveReferer: unknown;
+    app.get("/operate/:operatorId", (req, res) => {
+      liveReferer = req.headers.referer;
+      res.send("page");
+    });
+    httpServer = createServer(app);
+    await new Promise<void>((resolve) => httpServer.listen(0, "127.0.0.1", resolve));
+    const base = `http://127.0.0.1:${(httpServer.address() as AddressInfo).port}`;
+
+    await fetch(`${base}/operate/${id}`, { headers: { Referer: `${base}/operate/${id}` } });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const { req } = JSON.parse(output.trim().split("\n")[0]);
+    expect(req.remoteAddress).toBe("127.0.0.1");
+    expect(req.remotePort).toEqual(expect.any(Number));
+    expect(req.headers.referer).toBe(`${base}/operate/[hidden]`);
+    expect(liveReferer).toBe(`${base}/operate/${id}`);
+  });
 });
