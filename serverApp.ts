@@ -1237,7 +1237,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         return next();
       } catch (error) {
         // A different message from a rejected token, so the client keeps its token and retries.
-        logger.error({ err: error, socketId: socket.id }, "[Socket] Operator auth error");
+        logError("[Socket] Operator auth error", error, { socketId: socket.id });
         return next(new Error("Authentication error: Could not check operator session"));
       }
     }

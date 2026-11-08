@@ -6,6 +6,7 @@ import { tmpdir } from "os";
 import path from "path";
 import { io as createClient, type Socket } from "socket.io-client";
 import { createScoreboardServer } from "../../serverApp";
+import { OPERATOR_SESSION_ENDED_ERROR } from "../lib/operatorAccess";
 
 vi.mock("firebase-admin/app", () => ({ initializeApp: vi.fn(), cert: vi.fn() }));
 vi.mock("firebase-admin/auth", () => ({
@@ -339,6 +340,26 @@ describe("second operator session races", () => {
     const second = startOperator(operatorId, token);
     await new Promise((resolve) => second.socket.once("gameState", resolve));
     expect(second.socket.connected).toBe(true);
+  });
+
+  it("reports a database fault at the handshake as something other than a sign-out", async () => {
+    const { operatorId, token } = await createAccess();
+    gate.plans.push(async () => {
+      throw new Error("read failed");
+    });
+    const socket = createClient(baseUrl, {
+      auth: { operatorId, operatorToken: token },
+      transports: ["websocket"],
+      reconnection: false,
+    });
+    openSockets.push(socket);
+    const error = await new Promise<Error>((resolve) => socket.once("connect_error", resolve));
+    expect(error.message).toBe("Authentication error: Could not check operator session");
+    expect(error.message).not.toBe(OPERATOR_SESSION_ENDED_ERROR);
+    expect(captureException).toHaveBeenCalledTimes(1);
+    const reported = JSON.stringify(captureException.mock.calls[0][1]);
+    expect(reported).not.toContain(operatorId);
+    expect(reported).not.toContain(token);
   });
 
   it("keeps a normal operator connected after reading the record twice", async () => {
