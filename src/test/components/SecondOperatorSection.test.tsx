@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import SecondOperatorSection from "../../components/control-panel/SecondOperatorSection";
 import { isLocalMode } from "../../lib/localMode";
@@ -64,6 +64,36 @@ describe("SecondOperatorSection", () => {
     const link = `${window.location.origin}/operate/op-1`;
     expect(container.querySelector("code")?.textContent).toBe(link);
     expect(container.querySelector("svg[data-qr-value]")?.getAttribute("data-qr-value")).toBe(link);
+  });
+
+  it("hides setup until the first load succeeds", async () => {
+    let resolveLoad: (value: unknown) => void = () => {};
+    fetchMock.mockReturnValueOnce(new Promise((resolve) => (resolveLoad = resolve)));
+    render(<SecondOperatorSection />);
+    expect(screen.queryByRole("button", { name: "Set up second operator" })).not.toBeInTheDocument();
+    expect(screen.getByText("Loading second operator access...")).toBeInTheDocument();
+
+    await act(async () => resolveLoad(respond(200, { operatorId: null })));
+    expect(await screen.findByRole("button", { name: "Set up second operator" })).toBeInTheDocument();
+    expect(screen.queryByText("Loading second operator access...")).not.toBeInTheDocument();
+  });
+
+  it("shows no setup button when the load responds with an error", async () => {
+    fetchMock.mockResolvedValueOnce(respond(500, {}));
+    render(<SecondOperatorSection />);
+    expect(await screen.findByText(/couldn't load second operator access/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Set up second operator" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Loading second operator access...")).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.every(([, init]) => init.method === "GET")).toBe(true);
+  });
+
+  it("shows no setup button when the load request fails", async () => {
+    fetchMock.mockRejectedValueOnce(new Error("offline"));
+    render(<SecondOperatorSection />);
+    expect(await screen.findByText(/couldn't load second operator access/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Set up second operator" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Loading second operator access...")).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.every(([, init]) => init.method === "GET")).toBe(true);
   });
 
   it("shows the link without a PIN when reopened", async () => {

@@ -13,6 +13,7 @@ const LOAD_ERROR = "Couldn't load second operator access. Check your connection 
 export default function SecondOperatorSection() {
   const localMode = isLocalMode();
   const [operatorId, setOperatorId] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [pin, setPin] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +36,10 @@ export default function SecondOperatorSection() {
   useEffect(() => {
     if (localMode) return;
     request("GET")
-      .then((data) => setOperatorId(data.operatorId ?? null))
+      .then((data) => {
+        setOperatorId(data.operatorId ?? null);
+        setLoaded(true);
+      })
       .catch((loadError) => {
         console.error("Failed to load operator access:", loadError);
         setError(LOAD_ERROR);
@@ -92,7 +96,11 @@ export default function SecondOperatorSection() {
         <p className="text-sm text-muted mt-1">
           {link
             ? "Anyone with this link and the PIN can change the live game from the Controls and Deck tabs."
-            : "Give one other person the Controls and Deck tabs for your live game. They need a link and a PIN."}
+            : loaded
+              ? "Give one other person the Controls and Deck tabs for your live game. They need a link and a PIN."
+              : error
+                ? null
+                : "Loading second operator access..."}
         </p>
       </div>
 
@@ -103,12 +111,13 @@ export default function SecondOperatorSection() {
         </p>
       )}
 
-      {!link ? (
+      {!link && loaded && (
         <Button onClick={createPin} disabled={isBusy} variant="primary">
           <UserPlus size={16} />
           Set up second operator
         </Button>
-      ) : (
+      )}
+      {link && (
         <>
           <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
             <div className="bg-white p-2 rounded-sm self-center shrink-0">
