@@ -155,4 +155,25 @@ describe("StreamDeckPanel Component", () => {
       expect(await screen.findByPlaceholderText("#")).toHaveFocus();
     });
   });
+
+  it("lets a second operator press buttons but not edit them", async () => {
+    const handleAction = vi.fn();
+    vi.mocked(useSharedActions).mockReturnValue({ handleAction } as any);
+    vi.mocked(useStore).mockReturnValue({
+      gameState: mockGameState,
+      streamDeckConfig: mockConfig,
+      updateStreamDeckButton: vi.fn(),
+      updateState: vi.fn(),
+      ensureInitialized: vi.fn(),
+      isOperator: true,
+    } as any);
+
+    render(<StreamDeckPanel />);
+
+    const button = await screen.findByText("Goal Home");
+    expect(screen.queryByTitle('Edit "Goal Home"')).not.toBeInTheDocument();
+    fireEvent.click(button);
+    expect(handleAction).toHaveBeenCalledWith("homeScoreIncrease");
+  });
+
 });

@@ -19,6 +19,10 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
   const user = useStore((state) => state.user);
   const logout = useStore((state) => state.logout);
   const isViewer = useStore((state) => state.isViewer);
+  // These checks can't use `user`: an owner signed in on this browser would bring their
+  // account menu into a second operator's session.
+  const isOperator = useStore((state) => state.isOperator);
+  const showsOwnerActions = !isViewer && !isOperator;
   const shareId = useStore((state) => state.shareId);
 
   const [imageError, setImageError] = useState(false);
@@ -34,7 +38,7 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
       <div className="px-3 py-2 sm:px-6 sm:py-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 sm:gap-3">
           <h1 className="text-lg flex items-center gap-2 min-w-0">
-            {isViewer ? (
+            {isViewer || isOperator ? (
               <Wordmark className="truncate" />
             ) : (
               <Link to="/" className="truncate rounded-sm hover:underline" title="Back to Dashboard">
@@ -69,7 +73,7 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
         {/* Desktop Navigation */}
         <div className="hidden lg:flex items-center gap-4">
           <div className="flex gap-2">
-            {!isViewer && (
+            {showsOwnerActions && (
               <Link
                 to="/"
                 className="flex items-center gap-2 px-3 py-2 bg-canvas hover:bg-surface border border-line rounded-sm text-sm font-semibold text-ink transition-colors"
@@ -79,25 +83,29 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
                 <span>Close</span>
               </Link>
             )}
-            <a
-              href={overlayPath}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-2 px-3 py-2 bg-canvas hover:bg-surface border border-line rounded-sm text-sm font-semibold text-ink transition-colors"
-            >
-              <LayoutPanelTop size={16} />
-              <span>Overlay</span>
-            </a>
-            <a
-              href={jumbotronPath}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-2 px-3 py-2 bg-canvas hover:bg-surface border border-line rounded-sm text-sm font-semibold text-ink transition-colors"
-            >
-              <PresentationIcon size={16} />
-              <span>Jumbotron</span>
-            </a>
-            {!isViewer && (
+            {!isOperator && (
+              <>
+                <a
+                  href={overlayPath}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 bg-canvas hover:bg-surface border border-line rounded-sm text-sm font-semibold text-ink transition-colors"
+                >
+                  <LayoutPanelTop size={16} />
+                  <span>Overlay</span>
+                </a>
+                <a
+                  href={jumbotronPath}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 bg-canvas hover:bg-surface border border-line rounded-sm text-sm font-semibold text-ink transition-colors"
+                >
+                  <PresentationIcon size={16} />
+                  <span>Jumbotron</span>
+                </a>
+              </>
+            )}
+            {showsOwnerActions && (
               <a
                 href={resultsPath}
                 target="_blank"
@@ -108,7 +116,7 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
                 <span>Results</span>
               </a>
             )}
-            {!isViewer && onShare && (
+            {showsOwnerActions && onShare && (
               <Button onClick={onShare} variant="primary">
                 <Share2 size={16} />
                 <span>Share</span>
@@ -116,7 +124,7 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
             )}
           </div>
 
-          {user && !isViewer && (
+          {user && showsOwnerActions && (
             <div className="flex items-center gap-3 pl-4 border-l border-line">
               <div className="flex items-center gap-2 group cursor-default">
                 {user.photoURL && !imageError ? (
@@ -153,7 +161,7 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
 
         {/* Mobile Menu Button */}
         <div className="lg:hidden flex items-center gap-2">
-          {user && !isViewer && (
+          {user && showsOwnerActions && (
              <div className="flex items-center mr-1">
                {user.photoURL && !imageError ? (
                  <img
@@ -174,13 +182,15 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
                )}
              </div>
           )}
-          <button
-            onClick={toggleMenu}
-            className="p-2 text-muted hover:text-ink hover:bg-surface rounded-sm transition-colors"
-            aria-label="Toggle menu"
-          >
-            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+          {!isOperator && (
+            <button
+              onClick={toggleMenu}
+              className="p-2 text-muted hover:text-ink hover:bg-surface rounded-sm transition-colors"
+              aria-label="Toggle menu"
+            >
+              {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          )}
         </div>
       </div>
 
@@ -188,7 +198,7 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
       {isMenuOpen && (
         <div className="lg:hidden absolute top-full left-0 right-0 bg-canvas border-b border-line">
           <div className="p-4 flex flex-col gap-2">
-            {!isViewer && (
+            {showsOwnerActions && (
               <Link
                 to="/"
                 onClick={() => setIsMenuOpen(false)}
@@ -198,27 +208,31 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
                 <span>Close</span>
               </Link>
             )}
-            <a
-              href={overlayPath}
-              target="_blank"
-              rel="noreferrer"
-              onClick={() => setIsMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 bg-canvas hover:bg-surface border border-line rounded-sm text-sm font-semibold text-ink transition-colors"
-            >
-              <LayoutPanelTop size={18} />
-              <span>Overlay</span>
-            </a>
-            <a
-              href={jumbotronPath}
-              target="_blank"
-              rel="noreferrer"
-              onClick={() => setIsMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 bg-canvas hover:bg-surface border border-line rounded-sm text-sm font-semibold text-ink transition-colors"
-            >
-              <PresentationIcon size={18} />
-              <span>Jumbotron</span>
-            </a>
-            {!isViewer && (
+            {!isOperator && (
+              <>
+                <a
+                  href={overlayPath}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 bg-canvas hover:bg-surface border border-line rounded-sm text-sm font-semibold text-ink transition-colors"
+                >
+                  <LayoutPanelTop size={18} />
+                  <span>Overlay</span>
+                </a>
+                <a
+                  href={jumbotronPath}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 bg-canvas hover:bg-surface border border-line rounded-sm text-sm font-semibold text-ink transition-colors"
+                >
+                  <PresentationIcon size={18} />
+                  <span>Jumbotron</span>
+                </a>
+              </>
+            )}
+            {showsOwnerActions && (
               <a
                 href={resultsPath}
                 target="_blank"
@@ -230,7 +244,7 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
                 <span>Results</span>
               </a>
             )}
-            {!isViewer && onShare && (
+            {showsOwnerActions && onShare && (
               <button
                 onClick={() => {
                   onShare();
@@ -243,7 +257,7 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
               </button>
             )}
 
-            {user && !isViewer && (
+            {user && showsOwnerActions && (
               <div className="mt-2 pt-2 border-t border-line flex items-center justify-between px-2">
                 <span className="text-sm font-semibold text-muted truncate max-w-[200px]">
                   {user.displayName}

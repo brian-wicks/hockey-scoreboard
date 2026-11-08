@@ -294,7 +294,7 @@ function EditModal({ button, index, onClose, onSave }: EditModalProps) {
 }
 
 export default function StreamDeckPanel() {
-  const { gameState, streamDeckConfig, updateStreamDeckButton, updateState } = useStore();
+  const { gameState, streamDeckConfig, updateStreamDeckButton, updateState, isOperator } = useStore();
   const { handleAction } = useSharedActions();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [focusPenaltyId, setFocusPenaltyId] = useState<string | null>(null);
@@ -424,14 +424,16 @@ export default function StreamDeckPanel() {
                 </div>
               </button>
 
-              <button
-                onClick={() => setEditingIndex(index)}
-                className="absolute -top-1.5 -right-1.5 p-1.5 bg-canvas border border-line text-muted rounded-full border border-line opacity-0 group-hover:opacity-100 transition-opacity hover:text-ink hover:bg-surface z-20"
-                title={`Edit "${button.label}"`}
-                aria-label={`Edit "${button.label}"`}
-              >
-                <Settings size={14} />
-              </button>
+              {!isOperator && (
+                <button
+                  onClick={() => setEditingIndex(index)}
+                  className="absolute -top-1.5 -right-1.5 p-1.5 bg-canvas border border-line text-muted rounded-full border border-line opacity-0 group-hover:opacity-100 transition-opacity hover:text-ink hover:bg-surface z-20"
+                  title={`Edit "${button.label}"`}
+                  aria-label={`Edit "${button.label}"`}
+                >
+                  <Settings size={14} />
+                </button>
+              )}
             </div>
           );
         })}

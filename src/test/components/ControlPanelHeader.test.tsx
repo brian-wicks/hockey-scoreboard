@@ -63,5 +63,29 @@ describe("ControlPanelHeader", () => {
     expect(mockLogout).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Sign out")).toBeNull();
   });
+
+  it("shows a second operator only the status and Undo, even with an owner signed in", () => {
+    vi.mocked(useStore).mockImplementation((selector: any) =>
+      selector({
+        user: { displayName: "Owner Name", photoURL: null },
+        logout: mockLogout,
+        isViewer: false,
+        isOperator: true,
+        shareId: null,
+      }),
+    );
+
+    render(<ControlPanelHeader isConnected={true} onUndo={vi.fn()} canUndo={true} />, { wrapper: MemoryRouter });
+
+    expect(screen.getByTitle(/undo last/i)).toBeInTheDocument();
+    expect(screen.getByTitle("Connected to server")).toBeInTheDocument();
+    for (const label of ["Close", "Overlay", "Jumbotron", "Results", "Share", "Owner Name"]) {
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
+    }
+    expect(screen.queryByTitle("Sign out")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Toggle menu")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
 });
 

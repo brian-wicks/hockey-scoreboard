@@ -16,17 +16,21 @@ const NAV_ITEMS: NavItem[] = [
   { id: "streamdeck", label: "Deck", icon: LayoutGrid },
 ];
 
+export const OPERATOR_TABS: ActiveTab[] = ["controls", "streamdeck"];
+
 interface AppSidebarProps {
   activeTab: ActiveTab;
   onSelectTab: (tab: ActiveTab) => void;
+  tabs?: ActiveTab[];
 }
 
-export default function AppSidebar({ activeTab, onSelectTab }: AppSidebarProps) {
+export default function AppSidebar({ activeTab, onSelectTab, tabs }: AppSidebarProps) {
+  const items = tabs ? NAV_ITEMS.filter((item) => tabs.includes(item.id)) : NAV_ITEMS;
   return (
     <>
       {/* Desktop: persistent vertical rail */}
       <nav aria-label="Primary" className="ui-dark hidden md:flex flex-col w-20 shrink-0 bg-ink px-2 py-4 gap-1">
-        {NAV_ITEMS.map((item) => {
+        {items.map((item) => {
           const Icon = item.icon;
           const isActive = item.id === activeTab;
           return (
@@ -48,7 +52,7 @@ export default function AppSidebar({ activeTab, onSelectTab }: AppSidebarProps) 
 
       {/* Mobile: collapses to a fixed bottom bar */}
       <nav aria-label="Primary" className="ui-dark md:hidden fixed bottom-0 inset-x-0 z-40 flex bg-ink">
-        {NAV_ITEMS.map((item) => {
+        {items.map((item) => {
           const Icon = item.icon;
           const isActive = item.id === activeTab;
           return (

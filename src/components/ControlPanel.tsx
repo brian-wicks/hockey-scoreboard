@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useStore } from "../store";
-import AppSidebar, { ActiveTab } from "./control-panel/AppSidebar";
+import AppSidebar, { ActiveTab, OPERATOR_TABS } from "./control-panel/AppSidebar";
 import ClockControl from "./control-panel/ClockControl";
 import ControlPanelHeader from "./control-panel/ControlPanelHeader";
 import EventLogPanel from "./control-panel/EventLogPanel";
@@ -27,12 +27,13 @@ export default function ControlPanel() {
     undoLastUpdate,
     undoStack = [],
     isViewer,
+    isOperator,
     activeGameId,
   } = useStore();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
-  const validTabs: ActiveTab[] = ["controls", "settings", "presets", "streamdeck"];
+  const validTabs: ActiveTab[] = isOperator ? OPERATOR_TABS : ["controls", "settings", "presets", "streamdeck"];
   const initialTab = validTabs.includes(requestedTab as ActiveTab) ? (requestedTab as ActiveTab) : "controls";
   const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -45,16 +46,16 @@ export default function ControlPanel() {
   // has never opened/created a game — there's nothing to control here, so bounce back
   // to the Dashboard's file browser rather than operating on an unsaved phantom game.
   useEffect(() => {
-    if (!isViewer && activeGameId === null) {
+    if (!isViewer && !isOperator && activeGameId === null) {
       navigate("/", { replace: true });
     }
-  }, [isViewer, activeGameId, navigate]);
+  }, [isViewer, isOperator, activeGameId, navigate]);
 
   if (!gameState) {
     return <div className="ui flex items-center justify-center h-screen bg-canvas">Connecting...</div>;
   }
 
-  if (!isViewer && activeGameId === null) {
+  if (!isViewer && !isOperator && activeGameId === null) {
     return null;
   }
 
@@ -77,7 +78,7 @@ export default function ControlPanel() {
           onUndo={undoLastUpdate}
           canUndo={undoStack.length > 0 && !isViewer}
           undoCount={undoStack.length}
-          onShare={() => setIsShareModalOpen(true)}
+          onShare={isOperator ? undefined : () => setIsShareModalOpen(true)}
         />
 
         {isViewer && (
@@ -86,8 +87,14 @@ export default function ControlPanel() {
           </div>
         )}
 
+        {isOperator && (
+          <div className="bg-ink py-1.5 px-4 text-center">
+            <p className="text-xs font-semibold text-canvas">Second operator: changes here go live</p>
+          </div>
+        )}
+
         <div className="flex-1 flex">
-          {!isViewer && <AppSidebar activeTab={activeTab} onSelectTab={setActiveTab} />}
+          {!isViewer && <AppSidebar activeTab={activeTab} onSelectTab={setActiveTab} tabs={isOperator ? OPERATOR_TABS : undefined} />}
 
           <main className="flex-1 min-w-0 p-3 sm:p-6 pb-20 md:pb-6 max-w-7xl mx-auto w-full">
             {activeTab === "controls" || isViewer ? (
@@ -137,10 +144,12 @@ export default function ControlPanel() {
         </div>
       </div>
 
-      <ShareModal
-        isOpen={isShareModalOpen}
-        onClose={() => setIsShareModalOpen(false)}
-      />
+      {!isOperator && (
+        <ShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

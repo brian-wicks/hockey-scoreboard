@@ -14,7 +14,7 @@ An operator uses the app during a live game, often on a laptop next to OBS or vM
 |---|---|---|
 | Signed-out home page | `/` when signed out | Split layout with a black panel and a white content area |
 | Dashboard | `/` when signed in | Top navigation bar, white content |
-| Control panel | `/game`, `/share/:shareId` | Black icon sidebar, white content |
+| Control panel | `/game`, `/share/:shareId`, `/operate/:operatorId` | Black icon sidebar, white content |
 | Team library | `/teams` | Top navigation bar, white content |
 | New game wizard | Modal from the dashboard | White modal with selection cards |
 | Overlay, jumbotron, results | `/overlay`, `/jumbotron`, `/results` and their share routes | No change; see [Screens outside this redesign](#screens-outside-this-redesign) |
@@ -56,6 +56,7 @@ Running, stopped and read-only states use labels and shape first, so they still 
 | Clock stopped | Start button in action fill, labelled Start |
 | Active penalty | Error red row with white text |
 | Read-only share view | Ink bar with white text saying "Viewer mode: read only" |
+| Second operator view | Ink bar with white text saying "Second operator: changes here go live" |
 | Saved or copied | Ink text with a check icon |
 | Failed to connect or save | Error text with an icon and a next step |
 

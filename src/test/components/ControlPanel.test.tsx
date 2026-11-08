@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import ControlPanel from "../../components/ControlPanel";
 import { useStore } from "../../store";
@@ -112,4 +112,65 @@ describe("ControlPanel Component", () => {
 
     expect(screen.getByText("Connecting...")).toBeInTheDocument();
   });
+
+  describe("second operator", () => {
+    const renderAt = (path: string, state: Record<string, unknown> = {}) => {
+      vi.mocked(useStore).mockReturnValue({
+        gameState: baseGameState,
+        updateState: vi.fn(),
+        isViewer: false,
+        isOperator: true,
+        user: null,
+        activeGameId: "game-1",
+        ensureInitialized: vi.fn(),
+        ...state,
+      } as any);
+      return render(
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route path="/operate/:operatorId" element={<ControlPanel />} />
+            <Route path="/" element={<div>Dashboard page</div>} />
+          </Routes>
+        </MemoryRouter>,
+      );
+    };
+
+    it("shows the bar and only the Controls and Deck tabs", () => {
+      renderAt("/operate/op-1");
+      expect(screen.getByText("Second operator: changes here go live")).toBeInTheDocument();
+      expect(screen.getAllByText("Deck")).toHaveLength(2);
+      expect(screen.queryByText("Teams")).not.toBeInTheDocument();
+    });
+
+    it("stays on Controls when the URL asks for a tab they can't use", () => {
+      for (const tab of ["settings", "presets"]) {
+        const { unmount } = renderAt(`/operate/op-1?tab=${tab}`);
+        expect(screen.getByText("Clock")).toBeInTheDocument();
+        expect(screen.queryByText("Presets")).not.toBeInTheDocument();
+        expect(screen.queryByText("Settings")).not.toBeInTheDocument();
+        unmount();
+      }
+    });
+
+    it("can open Deck from the URL", () => {
+      renderAt("/operate/op-1?tab=streamdeck");
+      expect(screen.getByText("StreamDeck")).toBeInTheDocument();
+    });
+
+    it("doesn't redirect to the Dashboard when no game is open", () => {
+      renderAt("/operate/op-1", { activeGameId: null });
+      expect(screen.queryByText("Dashboard page")).not.toBeInTheDocument();
+    });
+
+    it("doesn't render the share sheet", () => {
+      renderAt("/operate/op-1");
+      expect(screen.queryByText("ShareModal")).not.toBeInTheDocument();
+    });
+
+    it("keeps the controls interactive", () => {
+      const { container } = renderAt("/operate/op-1");
+      expect(container.querySelector(".pointer-events-none")).toBeNull();
+    });
+  });
+
 });
