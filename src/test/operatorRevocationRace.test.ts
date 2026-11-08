@@ -138,7 +138,8 @@ describe("second operator revoked during a handshake", () => {
     const { socket, ended, connected } = startOperator(operatorId, token);
     await connected;
     socket.emit("applyGamePatch", { opId: "late-2", home: { scoreDelta: 1 } }, () => {});
-    expect(await ended).toBe("io server disconnect");
+    // A database fault isn't a sign-out, so the client sees a dropped connection and keeps its token.
+    expect(await ended).toBe("transport close");
     expect(await readScore(userId)).toBe(0);
   });
 

@@ -1366,7 +1366,8 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         }
       } catch (error) {
         logError("Error re-checking second operator session, disconnecting", error, { userId, socketId: socket.id });
-        socket.disconnect(true);
+        // Closing the transport, not disconnecting, so the client reconnects and keeps its token.
+        socket.conn.close();
         return;
       }
     }

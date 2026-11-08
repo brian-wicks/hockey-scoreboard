@@ -734,6 +734,44 @@ describe("store", () => {
       expect(useStore.getState().keyboardShortcuts).toBe(keyboardShortcuts);
     });
 
+    it("clears undo and pending patches when the owner switches games", async () => {
+      sessionStorage.setItem(tokenKey, "good");
+      const { useStore } = await import("../store");
+      useStore.getState().ensureInitialized();
+      listeners.get("activeGame")?.("game-1");
+      useStore.setState({ undoStack: [{ opId: "u" }] as any, pendingPatches: [{ patch: { opId: "p" }, sentAt: Date.now() }] as any });
+
+      listeners.get("activeGame")?.("game-2");
+
+      expect(useStore.getState().undoStack).toEqual([]);
+      expect(useStore.getState().pendingPatches).toEqual([]);
+    });
+
+    it("keeps undo and pending patches when the active game is unchanged", async () => {
+      sessionStorage.setItem(tokenKey, "good");
+      const { useStore } = await import("../store");
+      useStore.getState().ensureInitialized();
+      listeners.get("activeGame")?.("game-1");
+      useStore.setState({ undoStack: [{ opId: "u" }] as any, pendingPatches: [{ patch: { opId: "p" }, sentAt: Date.now() }] as any });
+
+      listeners.get("activeGame")?.("game-1");
+
+      expect(useStore.getState().undoStack).toHaveLength(1);
+      expect(useStore.getState().pendingPatches).toHaveLength(1);
+    });
+
+    it("keeps undo and pending patches when the first active game arrives", async () => {
+      sessionStorage.setItem(tokenKey, "good");
+      const { useStore } = await import("../store");
+      useStore.getState().ensureInitialized();
+      useStore.setState({ undoStack: [{ opId: "u" }] as any, pendingPatches: [{ patch: { opId: "p" }, sentAt: Date.now() }] as any });
+
+      listeners.get("activeGame")?.("game-1");
+
+      expect(useStore.getState().undoStack).toHaveLength(1);
+      expect(useStore.getState().pendingPatches).toHaveLength(1);
+    });
+
     it("tracks the owner's active game", async () => {
       sessionStorage.setItem(tokenKey, "good");
       const { useStore } = await import("../store");

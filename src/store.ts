@@ -779,6 +779,12 @@ export const useStore = create<StoreState>((set, get) => ({
     });
 
     socket.on("activeGame", (gameId: string | null) => {
+      const previous = get().activeGameId;
+      if (previous !== undefined && previous !== gameId) {
+        // Patches carry no game ID, so undoing or replaying them would change the new game.
+        set({ activeGameId: gameId, undoStack: [], pendingPatches: [] });
+        return;
+      }
       set({ activeGameId: gameId });
     });
 
