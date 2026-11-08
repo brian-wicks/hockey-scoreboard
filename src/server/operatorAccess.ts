@@ -33,6 +33,18 @@ export interface OperatorAccessOptions {
   logError: (msg: string, error: unknown, context?: Record<string, unknown>) => void;
 }
 
+export interface OperatorAccessControls {
+  authenticateHandshake(operatorId: unknown, token: unknown): Promise<string | null>;
+  resetForNewGame(userId: string): Promise<void>;
+}
+
+/**
+ * The room that reaches every second operator socket of an owner, including one still
+ * waiting on its session re-check. Those sockets join the owner's own room, which carries
+ * the game state, only once the re-check passes.
+ */
+export const operatorRoom = (userId: string) => `operators:${userId}`;
+
 export function registerOperatorAccess({
   app,
   io,
@@ -41,14 +53,14 @@ export function registerOperatorAccess({
   localMode,
   now,
   logError,
-}: OperatorAccessOptions): { authenticateHandshake(operatorId: unknown, token: unknown): Promise<string | null> } {
+}: OperatorAccessOptions): OperatorAccessControls {
   // Local mode has one operator and no way to tell two people apart, and its server
   // only listens on loopback. The explicit 404 stops GETs reaching the SPA catch-all.
   if (localMode) {
     app.use(["/api/operator-access", "/api/operator"], (_req, res) => {
       res.status(404).json({ error: "Not found" });
     });
-    return { authenticateHandshake: async () => null };
+    return { authenticateHandshake: async () => null, resetForNewGame: async () => {} };
   }
 
   // Every read-then-write of a record runs through this queue. Parallel PIN guesses
@@ -67,7 +79,7 @@ export function registerOperatorAccess({
   }
 
   async function disconnectOperators(userId: string) {
-    const sockets = await io.in(userId).fetchSockets();
+    const sockets = await io.in(operatorRoom(userId)).fetchSockets();
     for (const socket of sockets) {
       if (socket.data.isOperator) socket.disconnect(true);
     }
@@ -85,7 +97,7 @@ export function registerOperatorAccess({
     const userId = (req as any).user.uid;
     try {
       const access = await getUserOperatorAccess(userId);
-      res.json({ operatorId: access?.operatorId ?? null });
+      res.json({ operatorId: access?.operatorId ?? null, needsPin: access?.pinHash === "" });
     } catch (error) {
       logError("Error reading operator access", error, { userId });
       res.status(500).json({ error: "Failed to read operator access" });
@@ -152,6 +164,10 @@ export function registerOperatorAccess({
           res.status(404).json({ error: "Unknown link" });
           return;
         }
+        if (access.pinHash === "") {
+          res.status(409).json({ error: "No PIN for this game" });
+          return;
+        }
 
         const nowMs = now();
         if (access.lockedUntil !== null && access.lockedUntil > nowMs) {
@@ -190,6 +206,32 @@ export function registerOperatorAccess({
       if (!isValidOperatorId(operatorId) || typeof token !== "string") return null;
       const access = await getOperatorAccess(operatorId);
       return access && hasValidDeviceToken(access.tokens, token, now()) ? access.userId : null;
+    },
+
+    // Never rejects, because the owner's game has to change whatever happens here. If
+    // the write fails the old PIN and tokens stay valid until the owner creates a new
+    // PIN, and the second operator is still signed out of this connection.
+    async resetForNewGame(userId: string): Promise<void> {
+      let hasRecord = true;
+      try {
+        hasRecord = await runExclusive(`user:${userId}`, async () => {
+          const existing = await getUserOperatorAccess(userId);
+          if (!existing) return false;
+          const { operatorId } = existing;
+          await runExclusive(operatorId, () =>
+            setOperatorAccess({ operatorId, userId, pinHash: "", pinSalt: "", failedAttempts: 0, lockedUntil: null, tokens: [] }),
+          );
+          return true;
+        });
+      } catch (error) {
+        logError("Error clearing second operator PIN for a new game", error, { userId });
+      }
+      if (!hasRecord) return;
+      try {
+        await disconnectOperators(userId);
+      } catch (error) {
+        logError("Error signing out second operators for a new game", error, { userId });
+      }
     },
   };
 }

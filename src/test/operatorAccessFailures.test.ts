@@ -12,9 +12,13 @@ const db = vi.hoisted(() => ({
   deleteOperatorAccess: vi.fn(),
 }));
 vi.mock("../db/database.ts", () => db);
+vi.mock("../server/operatorCredentials.ts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../server/operatorCredentials.ts")>();
+  return { ...actual, verifyPin: vi.fn(actual.verifyPin) };
+});
 
 import { registerOperatorAccess } from "../server/operatorAccess";
-import { hashPin } from "../server/operatorCredentials";
+import { hashPin, verifyPin } from "../server/operatorCredentials";
 
 describe("second operator access when the database fails", () => {
   let httpServer: HttpServer;
@@ -86,6 +90,110 @@ describe("second operator access when the database fails", () => {
     await postPin("654321");
     expect(JSON.stringify(logError.mock.calls)).not.toContain("654321");
     expect(JSON.stringify(logError.mock.calls)).not.toContain(operatorId);
+  });
+
+  it("says there is no PIN without running scrypt or counting an attempt", async () => {
+    db.getOperatorAccess.mockResolvedValue({ ...(await storedAccess()), pinHash: "", pinSalt: "" });
+    const res = await postPin("654321");
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "No PIN for this game" });
+    expect(verifyPin).not.toHaveBeenCalled();
+    expect(db.setOperatorAccess).not.toHaveBeenCalled();
+  });
+
+  describe("resetForNewGame", () => {
+    const disconnect = vi.fn();
+    const fetchSockets = vi.fn();
+    const failure = new Error("database fault");
+
+    const register = (localMode = false) =>
+      registerOperatorAccess({
+        app: express(),
+        io: { in: () => ({ fetchSockets }) } as any,
+        authenticate: (_req, _res, next) => next(),
+        creationLimiter: (_req, _res, next) => next(),
+        localMode,
+        now: Date.now,
+        logError,
+      });
+
+    const record = () => ({
+      operatorId,
+      userId: "user-1",
+      pinHash: "hash",
+      pinSalt: "salt",
+      failedAttempts: 3,
+      lockedUntil: 12345,
+      tokens: [{ tokenHash: "token-hash", expiresAt: 99 }],
+    });
+
+    beforeEach(() => {
+      db.setOperatorAccess.mockReset();
+      db.setOperatorAccess.mockResolvedValue(undefined);
+      db.getUserOperatorAccess.mockReset();
+      fetchSockets.mockReset();
+      fetchSockets.mockResolvedValue([{ data: { isOperator: true }, disconnect }, { data: {}, disconnect: vi.fn() }]);
+    });
+
+    it("clears the PIN, tokens and lock, keeps the link, then signs second operators out", async () => {
+      db.getUserOperatorAccess.mockResolvedValue(record());
+      const order: string[] = [];
+      db.setOperatorAccess.mockImplementation(async () => void order.push("write"));
+      fetchSockets.mockImplementation(async () => {
+        order.push("disconnect");
+        return [{ data: { isOperator: true }, disconnect }];
+      });
+
+      await register().resetForNewGame("user-1");
+
+      expect(db.setOperatorAccess).toHaveBeenCalledWith({
+        operatorId,
+        userId: "user-1",
+        pinHash: "",
+        pinSalt: "",
+        failedAttempts: 0,
+        lockedUntil: null,
+        tokens: [],
+      });
+      expect(order).toEqual(["write", "disconnect"]);
+      expect(disconnect).toHaveBeenCalledWith(true);
+    });
+
+    it("does nothing when the user has no record", async () => {
+      db.getUserOperatorAccess.mockResolvedValue(null);
+      await register().resetForNewGame("user-1");
+      expect(db.setOperatorAccess).not.toHaveBeenCalled();
+      expect(fetchSockets).not.toHaveBeenCalled();
+    });
+
+    it("does nothing in local mode", async () => {
+      await register(true).resetForNewGame("user-1");
+      expect(db.getUserOperatorAccess).not.toHaveBeenCalled();
+      expect(fetchSockets).not.toHaveBeenCalled();
+    });
+
+    it("logs a failed write with the user ID alone and still signs second operators out", async () => {
+      db.getUserOperatorAccess.mockResolvedValue(record());
+      db.setOperatorAccess.mockRejectedValue(failure);
+      await expect(register().resetForNewGame("user-1")).resolves.toBeUndefined();
+      expect(logError).toHaveBeenCalledWith(expect.any(String), failure, { userId: "user-1" });
+      expect(disconnect).toHaveBeenCalledWith(true);
+    });
+
+    it("logs a failed read with the user ID alone and still signs second operators out", async () => {
+      db.getUserOperatorAccess.mockRejectedValue(failure);
+      await expect(register().resetForNewGame("user-1")).resolves.toBeUndefined();
+      expect(logError).toHaveBeenCalledWith(expect.any(String), failure, { userId: "user-1" });
+      expect(disconnect).toHaveBeenCalledWith(true);
+    });
+
+    it("never rejects when signing out fails", async () => {
+      db.getUserOperatorAccess.mockResolvedValue(record());
+      fetchSockets.mockRejectedValue(failure);
+      await expect(register().resetForNewGame("user-1")).resolves.toBeUndefined();
+      expect(logError).toHaveBeenCalledWith(expect.any(String), failure, { userId: "user-1" });
+    });
+
   });
 
   describe("owner requests racing each other", () => {

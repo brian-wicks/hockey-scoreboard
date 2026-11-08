@@ -16,7 +16,7 @@ import * as Sentry from "@sentry/node";
 import { isLocalModeEnv, LOCAL_USER_ID } from "./src/lib/localMode.ts";
 import { applyGamePatch, type GamePatch, type PenaltyPatch, type TeamPatch } from "./src/utils/gamePatch.ts";
 import { requestLogSerializers } from "./src/server/requestLogging.ts";
-import { registerOperatorAccess } from "./src/server/operatorAccess.ts";
+import { operatorRoom, registerOperatorAccess } from "./src/server/operatorAccess.ts";
 import { OPERATOR_SESSION_ENDED_ERROR } from "./src/lib/operatorAccess.ts";
 import {
   getUserConfig, 
@@ -1375,14 +1375,25 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   }
 
+  // Each game gets its own PIN. Runs while the old game is still live, so no second
+  // operator from that game is connected once the new one exists. With no previous
+  // game, a PIN set up ahead of the first game carries over to it.
+  async function resetOperatorAccessIfGameChanges(userId: string, context: UserContext, nextGameId: string) {
+    if (context.gameId !== null && context.gameId !== nextGameId) {
+      await operatorAccess.resetForNewGame(userId);
+    }
+  }
+
   io.on("connection", async (socket) => {
     const userId = socket.data.userId;
     const isViewer = socket.data.isViewer === true;
     const isOperator = socket.data.isOperator === true;
     logger.info({ userId, socketId: socket.id, isViewer }, "User connected via socket");
 
-    // Join a room for this user to enable per-user broadcasts
-    socket.join(userId);
+    // Join a room for this user to enable per-user broadcasts. A second operator joins
+    // it after the re-check below, so a session from the previous game can't be sent the
+    // next game's state. The sign-out room reaches the socket in the meantime.
+    socket.join(isOperator ? operatorRoom(userId) : userId);
 
     // Every handler below is registered before the first await. Socket.IO discards an
     // event with no listener, and a reconnecting client flushes its buffer on connect.
@@ -1540,6 +1551,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         appendEvent(gameState, createPeriodStartEvent(gameState));
         const name = `${gameState.homeTeam.name} vs ${gameState.awayTeam.name}`.trim() || "New Game";
         const gameId = await createSavedGame(userId, name, JSON.stringify(gameState));
+        await resetOperatorAccessIfGameChanges(userId, context, gameId);
         context.gameState = gameState;
         context.gameId = gameId;
         await setUserConfig(userId, "activeGameId", gameId);
@@ -1578,6 +1590,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         }
         logger.info({ userId, gameId }, "User opening a saved game");
         const context = await getUserContext(userId);
+        await resetOperatorAccessIfGameChanges(userId, context, gameId);
         if (context.clockInterval) {
           clearInterval(context.clockInterval);
           context.clockInterval = null;
@@ -1597,6 +1610,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     });
 
     if (!(await socket.data.sessionCheck)) return;
+    if (isOperator) socket.join(userId);
 
     let initialContext: UserContext;
     try {

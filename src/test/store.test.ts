@@ -734,6 +734,15 @@ describe("store", () => {
       expect(useStore.getState().keyboardShortcuts).toBe(keyboardShortcuts);
     });
 
+    it("reports that the game has no PIN yet on a 409", async () => {
+      const { useStore } = await import("../store");
+      useStore.getState().ensureInitialized();
+      respondWith(409, { error: "No PIN for this game" });
+      await useStore.getState().submitOperatorPin("123456");
+      expect(useStore.getState().operatorAuth).toEqual({ status: "no-pin" });
+      expect(sessionStorage.getItem(tokenKey)).toBeNull();
+    });
+
     it("clears undo and pending patches when the owner switches games", async () => {
       sessionStorage.setItem(tokenKey, "good");
       const { useStore } = await import("../store");

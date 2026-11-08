@@ -26,6 +26,9 @@ const gate = vi.hoisted(() => ({
   calls: 0,
   failGameLoadFor: null as string | null,
   afterPinHashed: null as (() => void) | null,
+  writePlans: [] as unknown[],
+  userReadPlans: [] as unknown[],
+  beforeActiveGameSaved: null as (() => Promise<void>) | null,
 }));
 const captureException = vi.hoisted(() => vi.fn());
 
@@ -60,6 +63,20 @@ vi.mock("../db/database.ts", async () => {
       if (userId === gate.failGameLoadFor) throw new Error("read failed");
       return actual.getUserConfig(userId, key);
     }),
+    getUserOperatorAccess: vi.fn(async (userId: string) => {
+      const plan = gate.userReadPlans.shift() as ReadPlan | undefined;
+      const read = () => actual.getUserOperatorAccess(userId);
+      return plan ? plan(read) : read();
+    }),
+    setOperatorAccess: vi.fn(async (access: Parameters<typeof actual.setOperatorAccess>[0]) => {
+      const plan = gate.writePlans.shift() as ReadPlan | undefined;
+      const write = () => actual.setOperatorAccess(access);
+      return plan ? plan(write) : write();
+    }),
+    setUserConfig: vi.fn(async (userId: string, key: string, value: string) => {
+      if (key === "activeGameId" && gate.beforeActiveGameSaved) await gate.beforeActiveGameSaved();
+      return actual.setUserConfig(userId, key, value);
+    }),
   };
 });
 
@@ -76,6 +93,9 @@ describe("second operator session races", () => {
     gate.calls = 0;
     gate.failGameLoadFor = null;
     gate.afterPinHashed = null;
+    gate.writePlans = [];
+    gate.userReadPlans = [];
+    gate.beforeActiveGameSaved = null;
     captureException.mockClear();
     dataDir = await mkdtemp(path.join(tmpdir(), "scoreboard-race-"));
     server = createScoreboardServer({ dataDir });
@@ -423,5 +443,167 @@ describe("second operator session races", () => {
     expect(gate.calls - before).toBe(2);
     expect(socket.connected).toBe(true);
     expect(await readScore(userId)).toBe(1);
+  });
+
+  describe("when the owner's game changes", () => {
+    const NEXT_GAME = "Next game team";
+    const nextGameTeams = {
+      homeTeam: { name: NEXT_GAME, abbreviation: "NXT", score: 0, shots: 0, timeouts: 1, logo: "", color: "#000000", penalties: [], players: [] },
+    };
+
+    const connectOwner = async (userId: string) => {
+      const socket = createClient(baseUrl, { auth: { token: userId }, transports: ["websocket"], reconnection: false });
+      openSockets.push(socket);
+      await new Promise<void>((resolve) => socket.once("connect", () => resolve()));
+      return socket;
+    };
+
+    const startNewGame = (socket: Socket, teams?: unknown) =>
+      new Promise<{ gameId: string }>((resolve) => socket.emit("startNewGame", teams, resolve));
+
+    // An owner in a game, with a second operator who has finished connecting.
+    const setupInGame = async () => {
+      const userId = newUser();
+      const ownerSocket = await connectOwner(userId);
+      const first = await startNewGame(ownerSocket);
+      const { pin, operatorId } = await (await owner(userId, "POST")).json();
+      const { token } = await (
+        await fetch(`${baseUrl}/api/operator/${operatorId}/session`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pin }),
+        })
+      ).json();
+      return { userId, ownerSocket, firstGameId: first.gameId, operatorId: operatorId as string, token: token as string, pin: pin as string };
+    };
+
+    const startOperatorAndRecord = (operatorId: string, token: string) => {
+      const operator = startOperator(operatorId, token);
+      const states: { homeTeam: { name: string } }[] = [];
+      const activeGames: unknown[] = [];
+      operator.socket.on("gameState", (state) => states.push(state));
+      operator.socket.on("activeGame", (gameId) => activeGames.push(gameId));
+      return { ...operator, states, activeGames };
+    };
+
+    const holdNextWrite = () => {
+      let release!: () => void;
+      let held!: () => void;
+      const heldPromise = new Promise<void>((resolve) => (held = resolve));
+      const released = new Promise<void>((resolve) => (release = resolve));
+      gate.writePlans.push(async (write: () => Promise<unknown>) => {
+        held();
+        await released;
+        return write();
+      });
+      return { held: heldPromise, release };
+    };
+
+    it("signs the second operator out before anyone gets the new game's state", async () => {
+      const { userId, ownerSocket, firstGameId, operatorId, token } = await setupInGame();
+      const operator = startOperatorAndRecord(operatorId, token);
+      await new Promise((resolve) => operator.socket.once("operatorConfig", resolve));
+      const ownerStates: { homeTeam: { name: string } }[] = [];
+      ownerSocket.on("gameState", (state) => ownerStates.push(state));
+
+      const { held, release } = holdNextWrite();
+      const started = startNewGame(ownerSocket, nextGameTeams);
+      await held;
+      await drain();
+
+      // While the reset is held, the old game is still the live one for everybody.
+      expect(ownerStates.map((state) => state.homeTeam.name)).not.toContain(NEXT_GAME);
+      expect((await readState(userId)).homeTeam.name).not.toBe(NEXT_GAME);
+      expect(operator.socket.connected).toBe(true);
+
+      release();
+      expect(await operator.ended).toBe("io server disconnect");
+      const { gameId } = await started;
+      expect(ownerStates.map((state) => state.homeTeam.name)).toContain(NEXT_GAME);
+      await drain();
+      expect(operator.states.map((state) => state.homeTeam.name)).not.toContain(NEXT_GAME);
+      expect(operator.activeGames).toEqual([firstGameId]);
+      expect(operator.activeGames).not.toContain(gameId);
+    });
+
+    it("sends the new game to no one who connected on a session from the old game", async () => {
+      const { ownerSocket, operatorId, token } = await setupInGame();
+
+      // The handshake reads the old record and stays held while the whole reset runs.
+      const handshake = holdNextRead();
+      const recheck = holdReadThen();
+      const operator = startOperatorAndRecord(operatorId, token);
+      await handshake.held;
+
+      let releaseSave!: () => void;
+      let saveHeld!: () => void;
+      const reachedSave = new Promise<void>((resolve) => (saveHeld = resolve));
+      gate.beforeActiveGameSaved = () =>
+        new Promise<void>((resolve) => {
+          saveHeld();
+          releaseSave = resolve;
+        });
+      const started = startNewGame(ownerSocket, nextGameTeams);
+      await reachedSave;
+
+      // The socket now joins, after the reset's sign-out and before the new game goes out.
+      handshake.release();
+      await operator.connected;
+      releaseSave();
+      await started;
+      await drain();
+
+      recheck.release();
+      expect(await operator.ended).toBe("io server disconnect");
+      await drain();
+      expect(operator.states).toEqual([]);
+      expect(operator.activeGames).toEqual([]);
+    });
+
+    it("still changes the owner's game when the reset can't be saved, and logs no credentials", async () => {
+      const { userId, ownerSocket, operatorId, token, pin } = await setupInGame();
+      const operator = startOperatorAndRecord(operatorId, token);
+      await new Promise((resolve) => operator.socket.once("operatorConfig", resolve));
+      captureException.mockClear();
+      gate.writePlans.push(async () => {
+        throw new Error("write failed");
+      });
+      const activeGame = new Promise<string>((resolve) => ownerSocket.once("activeGame", resolve));
+
+      const { gameId } = await startNewGame(ownerSocket, nextGameTeams);
+
+      expect(await activeGame).toBe(gameId);
+      expect((await readState(userId)).homeTeam.name).toBe(NEXT_GAME);
+      expect(await operator.ended).toBe("io server disconnect");
+      expect(captureException).toHaveBeenCalledTimes(1);
+      expect(captureException.mock.calls[0][1]).toEqual({ extra: { userId } });
+      const reported = JSON.stringify(captureException.mock.calls[0]);
+      for (const secret of [operatorId, token, pin]) expect(reported).not.toContain(secret);
+    });
+
+    it("still opens the owner's game when the record can't be read", async () => {
+      const { userId, ownerSocket, firstGameId, operatorId } = await setupInGame();
+      await startNewGame(ownerSocket);
+      const { pin } = await (await owner(userId, "POST")).json();
+      const { token: fresh } = await (
+        await fetch(`${baseUrl}/api/operator/${operatorId}/session`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pin }),
+        })
+      ).json();
+      const operator = startOperatorAndRecord(operatorId, fresh);
+      await new Promise((resolve) => operator.socket.once("operatorConfig", resolve));
+      captureException.mockClear();
+      gate.userReadPlans.push(async () => {
+        throw new Error("read failed");
+      });
+
+      const result = await new Promise((resolve) => ownerSocket.emit("openGame", firstGameId, resolve));
+
+      expect(result).toEqual({ ok: true });
+      expect(await operator.ended).toBe("io server disconnect");
+      expect(captureException.mock.calls[0][1]).toEqual({ extra: { userId } });
+    });
   });
 });

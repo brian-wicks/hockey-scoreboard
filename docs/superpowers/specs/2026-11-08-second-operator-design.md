@@ -15,6 +15,7 @@ Access needs a link and a PIN. The owner can sign the second operator out at any
 | --- | --- |
 | Authorisation | Separate link plus a six-digit PIN. No Google account needed |
 | After the PIN | The PIN is exchanged for a device token, which is used for reconnects |
+| PIN lifetime | One PIN per game. When the owner's active game changes to a different one, the PIN stops working and the second operator is signed out. The link stays the same |
 | Tabs available | Controls and Deck |
 | Deck | Buttons can be pressed but not edited |
 | Keyboard shortcuts | The owner's shortcuts, read-only |
@@ -51,6 +52,14 @@ Comparisons of PIN hashes use `crypto.timingSafeEqual`.
 ### Removing access
 
 "Create new PIN" keeps the link, replaces the PIN, deletes all device tokens and clears any lock. "Remove access" deletes the record. Both immediately disconnect live sockets that were authenticated through that record.
+
+### A new PIN for each game
+
+When the owner's active game changes from a known game to a different one, through `startNewGame` or through `openGame` with a different ID, the server calls `resetForNewGame(userId)`. It stores `pinHash: ""`, `pinSalt: ""`, `tokens: []`, `failedAttempts: 0` and `lockedUntil: null` under the same locks as the owner routes, then disconnects second operator sockets. The empty values mean "no PIN for this game", so there is no schema change, and the link is kept.
+
+The reset runs while the old game is still live, before the new game is assigned to the owner's context or sent to anyone. A second operator therefore never receives the next game's state on a session from the previous game. A socket whose handshake read the old record could join the room after the disconnect, so operator sockets start in a separate `operators:{userId}` room that only the disconnect uses, and join the owner's room once the session re-check has passed.
+
+Reopening the same game changes nothing. With no previous game (`context.gameId` is null) nothing changes either, so a PIN set up before the very first game and the waiting screen keep working.
 
 ### Server permissions
 
@@ -109,7 +118,7 @@ The electron stubs need no new behaviour, because the routes return 404 in local
 
 | Route | Auth | Behaviour |
 | --- | --- | --- |
-| `GET /api/operator-access` | Owner | `{ operatorId }`, or `{ operatorId: null }` |
+| `GET /api/operator-access` | Owner | `{ operatorId, needsPin }`, with `needsPin` true when the current game has no PIN yet, or `{ operatorId: null, needsPin: false }` |
 | `POST /api/operator-access` | Owner | Creates the link if needed and issues a new PIN. Returns `{ operatorId, pin }`. Deletes tokens, clears any lock and disconnects live sockets |
 | `DELETE /api/operator-access` | Owner | Deletes the record and disconnects live sockets |
 | `POST /api/operator/:operatorId/session` | Link holder | Body `{ pin }`. See the responses below |
@@ -122,6 +131,7 @@ Session responses:
 | 400 | `{ error }` | PIN is not six digits. Does not count as an attempt |
 | 401 | `{ error, attemptsLeft }` | Wrong PIN |
 | 404 | `{ error }` | Unknown link |
+| 409 | `{ error: "No PIN for this game" }` | The owner has changed game and not created a new PIN. Checked after the link and PIN format. Does not count as an attempt or run `scrypt` |
 | 429 | `{ error, retryAfterSeconds }` | Locked, or the per-IP limit was reached |
 
 The owner `POST` uses the existing `shareCreationLimiter`. The session route gets its own per-IP limiter of 30 requests per 15 minutes. All four routes return 404 in local mode.
@@ -151,8 +161,9 @@ A token that expires while its socket is connected has no immediate effect. The 
 | No access yet | A line explaining the feature and a "Set up second operator" button |
 | Just created, or new PIN | Link, QR code and the PIN in large digits, with a note that the PIN will not be shown again |
 | Reopened later | Link and QR code, with "Create new PIN" and "Remove access" |
+| Reopened after the game changed | "This game has no PIN yet. Create one and give it to the second operator." with the link, QR code, "Create new PIN" and "Remove access" |
 
-"Create new PIN" and "Remove access" go through the existing `ConfirmDialog`, because both sign the second operator out mid-game.
+"Create new PIN" and "Remove access" go through the existing `ConfirmDialog`, because both sign the second operator out mid-game. The exception is "Create new PIN" when the game has no PIN, which creates one directly because nobody can be signed in.
 
 The existing warning stays as it is, because it describes the viewer links.
 
@@ -167,6 +178,7 @@ The existing warning stays as it is, because it describes the viewer links.
 | Locked | PIN screen with the time to wait |
 | Unknown or removed link | A message asking them to get a new link from the main operator |
 | Signed out by the owner, or token rejected | PIN screen with a message saying the session ended |
+| The current game has no PIN yet | PIN screen with "This game needs a new PIN. Ask the main operator for it." |
 | Connected, no active game | "Waiting for a game to start" |
 | Connected, active game | `ControlPanel` |
 
@@ -207,6 +219,9 @@ Export PDF in the event log uses the layout saved in the second operator's own b
 | Network failure | The token is kept and the socket keeps retrying, so a wifi drop does not sign anyone out |
 | Server restart | Tokens and lockouts persist in the database, so the second operator reconnects without the PIN |
 | Server disconnects the socket on revocation | Socket.IO does not reconnect after a server-side disconnect, so the client treats this reason as a session end and shows the PIN screen |
+| Owner's game changes | The PIN stops working and the second operator is signed out before the new game's state is sent |
+| PIN sent for a game with no PIN yet | 409 and the gate asks for a new PIN. Nothing is counted, and the form stays usable |
+| Database fault while resetting for a new game | Logged with the `userId` only. The second operator is still disconnected and the owner's game still changes. The old PIN and tokens stay valid until the owner creates a new PIN, because they could not be cleared |
 | Owner signs out or closes their browser | The second operator stays connected and the clock keeps running, because `userContexts` entries in `serverApp.ts` are not removed on disconnect |
 
 ## Documentation

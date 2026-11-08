@@ -56,6 +56,15 @@ describe("OperatorGate", () => {
     expect(screen.getByText("That PIN is wrong. 1 attempt left.")).toBeInTheDocument();
   });
 
+  it("says the game needs a new PIN, and keeps the form usable", () => {
+    renderWith({ operatorAuth: { status: "no-pin" } });
+    expect(screen.getByRole("alert")).toHaveTextContent("This game needs a new PIN. Ask the main operator for it.");
+
+    fireEvent.change(pinInput(), { target: { value: "654321" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(submitOperatorPin).toHaveBeenCalledWith("654321");
+  });
+
   it("clears the input after a wrong PIN", () => {
     const state: Record<string, unknown> = { operatorAuth: { status: "needs-pin" } };
     const { rerender } = renderWith(state);

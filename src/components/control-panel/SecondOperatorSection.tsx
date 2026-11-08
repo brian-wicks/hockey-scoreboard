@@ -14,6 +14,7 @@ export default function SecondOperatorSection() {
   const localMode = isLocalMode();
   const [operatorId, setOperatorId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [needsPin, setNeedsPin] = useState(false);
   const [pin, setPin] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +39,7 @@ export default function SecondOperatorSection() {
     request("GET")
       .then((data) => {
         setOperatorId(data.operatorId ?? null);
+        setNeedsPin(data.needsPin === true);
         setLoaded(true);
       })
       .catch((loadError) => {
@@ -54,6 +56,7 @@ export default function SecondOperatorSection() {
       const data = await request("POST");
       setOperatorId(data.operatorId);
       setPin(data.pin);
+      setNeedsPin(false);
     } catch (changeError) {
       console.error("Failed to create operator PIN:", changeError);
       setError(CHANGE_ERROR);
@@ -70,6 +73,7 @@ export default function SecondOperatorSection() {
       await request("DELETE");
       setOperatorId(null);
       setPin(null);
+      setNeedsPin(false);
     } catch (changeError) {
       console.error("Failed to remove operator access:", changeError);
       setError(CHANGE_ERROR);
@@ -81,6 +85,7 @@ export default function SecondOperatorSection() {
   if (localMode) return null;
 
   const link = operatorId ? `${window.location.origin}/operate/${operatorId}` : null;
+  const showNoPin = needsPin && !pin;
 
   const copyLink = () => {
     if (!link) return;
@@ -94,13 +99,15 @@ export default function SecondOperatorSection() {
       <div>
         <h3 className="text-sm font-semibold text-ink">Second operator</h3>
         <p className="text-sm text-muted mt-1">
-          {link
-            ? "Anyone with this link and the PIN can change the live game from the Controls and Deck tabs."
-            : loaded
-              ? "Give one other person the Controls and Deck tabs for your live game. They need a link and a PIN."
-              : error
-                ? null
-                : "Loading second operator access..."}
+          {showNoPin
+            ? "This game has no PIN yet. Create one and give it to the second operator."
+            : link
+              ? "Anyone with this link and the PIN can change the live game from the Controls and Deck tabs."
+              : loaded
+                ? "Give one other person the Controls and Deck tabs for your live game. They need a link and a PIN."
+                : error
+                  ? null
+                  : "Loading second operator access..."}
         </p>
       </div>
 
@@ -156,7 +163,8 @@ export default function SecondOperatorSection() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => setConfirming("new-pin")} disabled={isBusy} variant="secondary">
+            {/* With no PIN, nobody can be signed in, so there's nothing to confirm. */}
+            <Button onClick={() => (showNoPin ? void createPin() : setConfirming("new-pin"))} disabled={isBusy} variant="secondary">
               Create new PIN
             </Button>
             <Button onClick={() => setConfirming("remove")} disabled={isBusy} variant="secondary">

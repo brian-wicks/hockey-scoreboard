@@ -169,6 +169,7 @@ export type OperatorAuth =
   | { status: "wrong-pin"; attemptsLeft: number }
   | { status: "locked"; retryAfterSeconds: number }
   | { status: "not-found" }
+  | { status: "no-pin" }
   | { status: "error" }
   | { status: "connecting" }
   | { status: "connected" };
@@ -817,6 +818,8 @@ export const useStore = create<StoreState>((set, get) => ({
         set({ operatorAuth: { status: "locked", retryAfterSeconds: data.retryAfterSeconds } });
       } else if (response.status === 404) {
         set({ operatorAuth: { status: "not-found" } });
+      } else if (response.status === 409) {
+        set({ operatorAuth: { status: "no-pin" } });
       } else {
         set({ operatorAuth: { status: "error" } });
       }

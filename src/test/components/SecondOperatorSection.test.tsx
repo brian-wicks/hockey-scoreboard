@@ -121,6 +121,74 @@ describe("SecondOperatorSection", () => {
     expect(screen.queryByText("Create a new PIN?")).not.toBeInTheDocument();
   });
 
+  describe("when the current game has no PIN", () => {
+    const NO_PIN_TEXT = "This game has no PIN yet. Create one and give it to the second operator.";
+
+    const renderNeedingPin = async () => {
+      fetchMock.mockResolvedValueOnce(respond(200, { operatorId: "op-1", needsPin: true }));
+      const view = render(<SecondOperatorSection />);
+      await screen.findByText(NO_PIN_TEXT);
+      return view;
+    };
+
+    it("says so, with the link and QR code", async () => {
+      const { container } = await renderNeedingPin();
+      const link = `${window.location.origin}/operate/op-1`;
+      expect(screen.getByText(link)).toBeInTheDocument();
+      expect(container.querySelector("svg[data-qr-value]")?.getAttribute("data-qr-value")).toBe(link);
+      expect(screen.queryByText(/anyone with this link/i)).not.toBeInTheDocument();
+    });
+
+    it("creates the PIN straight away, with no confirm dialog", async () => {
+      await renderNeedingPin();
+      fetchMock.mockResolvedValueOnce(respond(200, { operatorId: "op-1", pin: "424242" }));
+
+      fireEvent.click(screen.getByRole("button", { name: "Create new PIN" }));
+
+      expect(screen.queryByText("Create a new PIN?")).not.toBeInTheDocument();
+      expect(await screen.findByText("424242")).toBeInTheDocument();
+      expect(lastCall()[1].method).toBe("POST");
+      expect(screen.queryByText(NO_PIN_TEXT)).not.toBeInTheDocument();
+    });
+
+    it("confirms the next new PIN once one has been created", async () => {
+      await renderNeedingPin();
+      fetchMock.mockResolvedValueOnce(respond(200, { operatorId: "op-1", pin: "424242" }));
+      fireEvent.click(screen.getByRole("button", { name: "Create new PIN" }));
+      await screen.findByText("424242");
+
+      fireEvent.click(screen.getByRole("button", { name: "Create new PIN" }));
+
+      expect(screen.getByText("Create a new PIN?")).toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("keeps the message and shows an error when creating fails", async () => {
+      await renderNeedingPin();
+      fetchMock.mockResolvedValueOnce(respond(500, {}));
+      fireEvent.click(screen.getByRole("button", { name: "Create new PIN" }));
+      expect(await screen.findByText(/couldn't update second operator access/i)).toBeInTheDocument();
+      expect(screen.getByText(NO_PIN_TEXT)).toBeInTheDocument();
+    });
+
+    it("still confirms before removing access", async () => {
+      await renderNeedingPin();
+      fireEvent.click(screen.getByRole("button", { name: "Remove access" }));
+      expect(screen.getByText("Remove second operator access?")).toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("offers setup again after removal, not the no-PIN message", async () => {
+      await renderNeedingPin();
+      fireEvent.click(screen.getByRole("button", { name: "Remove access" }));
+      fetchMock.mockResolvedValueOnce(respond(200, { success: true }));
+      const buttons = screen.getAllByRole("button", { name: "Remove access" });
+      fireEvent.click(buttons[buttons.length - 1]);
+      expect(await screen.findByRole("button", { name: "Set up second operator" })).toBeInTheDocument();
+      expect(screen.queryByText(NO_PIN_TEXT)).not.toBeInTheDocument();
+    });
+  });
+
   it("does nothing when a confirmation is cancelled", async () => {
     fetchMock.mockResolvedValueOnce(respond(200, { operatorId: "op-1" }));
     render(<SecondOperatorSection />);

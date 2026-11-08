@@ -69,13 +69,13 @@ describe("second operator access", () => {
 
     it("reports no access, then the link, and never the PIN", async () => {
       const userId = newUser();
-      expect(await (await owner(userId, "GET")).json()).toEqual({ operatorId: null });
+      expect(await (await owner(userId, "GET")).json()).toEqual({ operatorId: null, needsPin: false });
 
       const { operatorId, pin } = await createAccess(userId);
       expect(pin).toMatch(/^\d{6}$/);
 
       const body = await (await owner(userId, "GET")).json();
-      expect(body).toEqual({ operatorId });
+      expect(body).toEqual({ operatorId, needsPin: false });
     });
 
     it("keeps the link and replaces the PIN on a new PIN", async () => {
@@ -93,7 +93,7 @@ describe("second operator access", () => {
       const { userId, operatorId, pin } = await createAccess();
       expect((await owner(userId, "DELETE")).status).toBe(200);
       expect((await postPin(operatorId, pin)).status).toBe(404);
-      expect(await (await owner(userId, "GET")).json()).toEqual({ operatorId: null });
+      expect(await (await owner(userId, "GET")).json()).toEqual({ operatorId: null, needsPin: false });
     });
 
     it("keeps each account's access separate", async () => {
@@ -371,6 +371,135 @@ describe("second operator access", () => {
 
       expect(await ended).toBe("io server disconnect");
       expect(await handshakeError({ operatorId, operatorToken: token })).toBe(ENDED);
+    });
+
+    describe("a new PIN for each game", () => {
+      const startNewGame = (ownerSocket: Socket) =>
+        new Promise<{ gameId: string }>((resolve) => ownerSocket.emit("startNewGame", undefined, resolve));
+
+      const openGame = (ownerSocket: Socket, gameId: string) =>
+        new Promise<{ ok: boolean }>((resolve) => ownerSocket.emit("openGame", gameId, resolve));
+
+      // The owner has `games` saved games and is in the last one, with a second operator signed in.
+      const setupInGame = async (games = 1) => {
+        const userId = newUser();
+        const ownerSocket = await connectWith({ token: userId });
+        const gameIds: string[] = [];
+        for (let i = 0; i < games; i++) gameIds.push((await startNewGame(ownerSocket)).gameId);
+        const { operatorId, pin } = await createAccess(userId);
+        const token = await signIn(operatorId, pin);
+        const operator = await connectOperator(operatorId, token);
+        const ended = new Promise<string>((resolve) => operator.on("disconnect", resolve));
+        return { userId, ownerSocket, gameIds, operatorId, pin, token, operator, ended };
+      };
+
+      const expectNoPinUntilANewOneIsCreated = async (userId: string, operatorId: string, pin: string, token: string) => {
+        expect(await handshakeError({ operatorId, operatorToken: token })).toBe(ENDED);
+        expect(await (await owner(userId, "GET")).json()).toEqual({ operatorId, needsPin: true });
+
+        // More tries than the limit, which never counts them or locks the link.
+        for (let i = 0; i < 6; i++) {
+          const res = await postPin(operatorId, pin);
+          expect(res.status).toBe(409);
+          expect(await res.json()).toEqual({ error: "No PIN for this game" });
+        }
+
+        const created = await createAccess(userId);
+        expect(created.operatorId).toBe(operatorId);
+        expect(await (await owner(userId, "GET")).json()).toEqual({ operatorId, needsPin: false });
+        const wrong = await postPin(operatorId, wrongPinFor(created.pin));
+        expect((await wrong.json()).attemptsLeft).toBe(4);
+        expect((await postPin(operatorId, created.pin)).status).toBe(200);
+      };
+
+      it("ends the PIN and every session when the owner starts another game", async () => {
+        const { userId, ownerSocket, operatorId, pin, token, ended } = await setupInGame();
+        await startNewGame(ownerSocket);
+        expect(await ended).toBe("io server disconnect");
+        await expectNoPinUntilANewOneIsCreated(userId, operatorId, pin, token);
+      });
+
+      it("ends the PIN and every session when the owner opens a different game", async () => {
+        const { userId, ownerSocket, gameIds, operatorId, pin, token, ended } = await setupInGame(2);
+        expect(await openGame(ownerSocket, gameIds[0])).toEqual({ ok: true });
+        expect(await ended).toBe("io server disconnect");
+        await expectNoPinUntilANewOneIsCreated(userId, operatorId, pin, token);
+      });
+
+      it("changes nothing when the owner reopens the same game", async () => {
+        const { ownerSocket, gameIds, operatorId, pin, token, operator } = await setupInGame();
+        expect(await openGame(ownerSocket, gameIds[0])).toEqual({ ok: true });
+        expect(operator.connected).toBe(true);
+        expect((await postPin(operatorId, pin)).status).toBe(200);
+        const again = await connectOperator(operatorId, token);
+        expect(again.connected).toBe(true);
+      });
+
+      it("changes nothing when opening a game fails", async () => {
+        const { ownerSocket, operatorId, pin, operator } = await setupInGame();
+        expect((await openGame(ownerSocket, randomUUID())).ok).toBe(false);
+        expect(operator.connected).toBe(true);
+        expect((await postPin(operatorId, pin)).status).toBe(200);
+      });
+
+      it("keeps a PIN and session from before the very first game", async () => {
+        const userId = newUser();
+        const ownerSocket = await connectWith({ token: userId });
+        const { operatorId, pin } = await createAccess(userId);
+        const operator = await connectOperator(operatorId, await signIn(operatorId, pin));
+        const gotGame = new Promise<string>((resolve) =>
+          operator.on("activeGame", (gameId) => {
+            if (gameId) resolve(gameId);
+          }),
+        );
+
+        const { gameId } = await startNewGame(ownerSocket);
+
+        expect(await gotGame).toBe(gameId);
+        expect(operator.connected).toBe(true);
+        expect((await postPin(operatorId, pin)).status).toBe(200);
+        expect(await (await owner(userId, "GET")).json()).toEqual({ operatorId, needsPin: false });
+      });
+
+      it("clears a lock along with the PIN", async () => {
+        const { ownerSocket, operatorId, pin } = await setupInGame();
+        for (let i = 0; i < 5; i++) await postPin(operatorId, wrongPinFor(pin));
+        expect((await postPin(operatorId, pin)).status).toBe(429);
+        await startNewGame(ownerSocket);
+        expect((await postPin(operatorId, pin)).status).toBe(409);
+      });
+
+      it("checks the PIN format and the link before saying there is no PIN", async () => {
+        const { ownerSocket, operatorId, pin } = await setupInGame();
+        await startNewGame(ownerSocket);
+        expect((await postPin(operatorId, "12")).status).toBe(400);
+        expect((await postPin("not-a-uuid", pin)).status).toBe(404);
+        expect((await postPin(randomUUID(), pin)).status).toBe(404);
+      });
+
+      it("leaves the owner, viewers and other accounts connected", async () => {
+        const { userId, ownerSocket, ended } = await setupInGame();
+        const { shareId } = await readState(userId);
+        const viewer = await connectWith({ shareId });
+        const other = await setupInGame();
+
+        await startNewGame(ownerSocket);
+
+        expect(await ended).toBe("io server disconnect");
+        expect(ownerSocket.connected).toBe(true);
+        expect(viewer.connected).toBe(true);
+        expect(other.operator.connected).toBe(true);
+        expect((await postPin(other.operatorId, other.pin)).status).toBe(200);
+      });
+
+      it("does nothing for an owner with no second operator", async () => {
+        const userId = newUser();
+        const ownerSocket = await connectWith({ token: userId });
+        await startNewGame(ownerSocket);
+        const { gameId } = await startNewGame(ownerSocket);
+        expect(gameId).toEqual(expect.any(String));
+        expect(await (await owner(userId, "GET")).json()).toEqual({ operatorId: null, needsPin: false });
+      });
     });
 
     it("sends the owner's Deck and shortcut config on connect", async () => {
