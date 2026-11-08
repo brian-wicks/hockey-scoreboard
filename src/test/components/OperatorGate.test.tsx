@@ -91,9 +91,23 @@ describe("OperatorGate", () => {
     expect(screen.getByText("Couldn't reach the server. Check your connection and try again.")).toBeInTheDocument();
   });
 
-  it("disables the form while checking the PIN", () => {
-    renderWith({ operatorAuth: { status: "submitting" } });
+  it("ignores submits while checking the PIN", () => {
+    const { rerender } = renderWith({ operatorAuth: { status: "needs-pin" } });
+    fireEvent.change(pinInput(), { target: { value: "123456" } });
+
+    vi.mocked(useStore).mockImplementation((selector: any) =>
+      selector({ submitOperatorPin, gameState: null, activeGameId: undefined, operatorAuth: { status: "submitting" } }),
+    );
+    rerender(
+      <OperatorGate>
+        <div>Controls</div>
+      </OperatorGate>,
+    );
+
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    expect(pinInput().value).toBe("123456");
+    fireEvent.submit(pinInput().closest("form") as HTMLFormElement);
+    expect(submitOperatorPin).not.toHaveBeenCalled();
   });
 
   it("explains an unknown or removed link, without a PIN form", () => {
