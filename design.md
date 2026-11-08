@@ -56,7 +56,6 @@ Running, stopped and read-only states use labels and shape first, so they still 
 | Clock stopped | Start button in action fill, labelled Start |
 | Active penalty | Error red row with white text |
 | Read-only share view | Ink bar with white text saying "Viewer mode: read only" |
-| Second operator view | Ink bar with white text saying "Second operator: changes here go live" |
 | Saved or copied | Ink text with a check icon |
 | Failed to connect or save | Error text with an icon and a next step |
 

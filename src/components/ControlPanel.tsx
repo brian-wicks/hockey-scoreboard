@@ -87,12 +87,6 @@ export default function ControlPanel() {
           </div>
         )}
 
-        {isOperator && (
-          <div className="bg-ink py-1.5 px-4 text-center">
-            <p className="text-xs font-semibold text-canvas">Second operator: changes here go live</p>
-          </div>
-        )}
-
         <div className="flex-1 flex">
           {!isViewer && <AppSidebar activeTab={activeTab} onSelectTab={setActiveTab} tabs={isOperator ? OPERATOR_TABS : undefined} />}
 

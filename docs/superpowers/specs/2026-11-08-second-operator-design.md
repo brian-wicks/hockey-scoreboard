@@ -172,7 +172,7 @@ The existing warning stays as it is, because it describes the viewer links.
 
 ### Control panel
 
-`ControlPanel` skips its redirect to the Dashboard for a second operator, because `OperatorGate` handles the no-game state. A bar in the same style as the viewer bar reads "Second operator: changes here go live".
+`ControlPanel` skips its redirect to the Dashboard for a second operator, because `OperatorGate` handles the no-game state.
 
 `AppSidebar` takes the list of tabs to show, which is Controls and Deck for a second operator. `StreamDeckPanel` hides the edit button.
 
@@ -209,7 +209,7 @@ Export PDF in the event log uses the layout saved in the second operator's own b
 
 ## Documentation
 
-`design.md` gets the `/operate/:operatorId` route and the second operator bar. All new copy follows `tropes.md`.
+`design.md` gets the `/operate/:operatorId` route. All new copy follows `tropes.md`.
 
 ## Testing
 

@@ -135,9 +135,9 @@ describe("ControlPanel Component", () => {
       );
     };
 
-    it("shows the bar and only the Controls and Deck tabs", () => {
+    it("shows only the Controls and Deck tabs, with no banner", () => {
       renderAt("/operate/op-1");
-      expect(screen.getByText("Second operator: changes here go live")).toBeInTheDocument();
+      expect(screen.queryByText("Second operator: changes here go live")).not.toBeInTheDocument();
       expect(screen.getAllByText("Deck")).toHaveLength(2);
       expect(screen.queryByText("Teams")).not.toBeInTheDocument();
     });
