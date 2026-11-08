@@ -95,15 +95,21 @@ export function registerOperatorAccess({
   app.post("/api/operator-access", creationLimiter, authenticate, async (req, res) => {
     const userId = (req as any).user.uid;
     try {
-      const existing = await getUserOperatorAccess(userId);
-      const operatorId = existing?.operatorId ?? randomUUID();
-      const pin = generatePin();
-      const credentials = await hashPin(pin);
-      await runExclusive(operatorId, () =>
-        setOperatorAccess({ operatorId, userId, ...credentials, failedAttempts: 0, lockedUntil: null, tokens: [] }),
-      );
+      // The whole request holds the owner's lock, so two requests can't both see no
+      // record and pick different links, and a removal can't be undone by a request
+      // that read the record before it. Lock order is always owner, then operator.
+      const result = await runExclusive(`user:${userId}`, async () => {
+        const existing = await getUserOperatorAccess(userId);
+        const operatorId = existing?.operatorId ?? randomUUID();
+        const pin = generatePin();
+        const credentials = await hashPin(pin);
+        await runExclusive(operatorId, () =>
+          setOperatorAccess({ operatorId, userId, ...credentials, failedAttempts: 0, lockedUntil: null, tokens: [] }),
+        );
+        return { operatorId, pin };
+      });
       await disconnectOperators(userId);
-      res.json({ operatorId, pin });
+      res.json(result);
     } catch (error) {
       logError("Error saving operator access", error, { userId });
       res.status(500).json({ error: "Failed to save operator access" });
@@ -113,10 +119,12 @@ export function registerOperatorAccess({
   app.delete("/api/operator-access", authenticate, async (req, res) => {
     const userId = (req as any).user.uid;
     try {
-      const existing = await getUserOperatorAccess(userId);
-      if (existing) {
-        await runExclusive(existing.operatorId, () => deleteOperatorAccess(userId));
-      }
+      await runExclusive(`user:${userId}`, async () => {
+        const existing = await getUserOperatorAccess(userId);
+        if (existing) {
+          await runExclusive(existing.operatorId, () => deleteOperatorAccess(userId));
+        }
+      });
       await disconnectOperators(userId);
       res.json({ success: true });
     } catch (error) {

@@ -15,6 +15,7 @@ import pinoHttp from "pino-http";
 import * as Sentry from "@sentry/node";
 import { isLocalModeEnv, LOCAL_USER_ID } from "./src/lib/localMode.ts";
 import { applyGamePatch, type GamePatch, type PenaltyPatch, type TeamPatch } from "./src/utils/gamePatch.ts";
+import { serializeRequest } from "./src/server/requestLogging.ts";
 import { registerOperatorAccess } from "./src/server/operatorAccess.ts";
 import {
   getUserConfig, 
@@ -222,7 +223,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   app.set("trust proxy", 1);
 
   // Structured request logger (method/url/status/response time as JSON per request).
-  app.use(pinoHttp({ logger }));
+  app.use(pinoHttp({ logger, serializers: { req: serializeRequest } }));
 
   // signInWithPopup's cross-window relay (separate from the popup window itself) loads
   // Google's gapi client script and an invisible iframe hosted at the Firebase project's

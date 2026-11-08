@@ -6,3 +6,7 @@ export const OPERATOR_SESSION_ENDED_ERROR = "Authentication error: Operator sess
 
 export const isValidOperatorPin = (pin: unknown): pin is string =>
   typeof pin === "string" && /^\d{6}$/.test(pin);
+
+/** Replaces the link ID in operator paths, inside a path or a full URL, so logs and error reports never hold it. */
+export const maskOperatorLinks = (text: string): string =>
+  text.replace(/(\/(?:api\/operator|operate)\/)[^/?#\s"'\\]+/g, "$1[hidden]");

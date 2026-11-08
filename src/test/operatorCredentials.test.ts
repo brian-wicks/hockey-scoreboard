@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { isValidOperatorPin } from "../lib/operatorAccess";
+import { isValidOperatorPin, maskOperatorLinks } from "../lib/operatorAccess";
 import {
   DEVICE_TOKEN_TTL_MS,
   MAX_DEVICE_TOKENS,
@@ -68,5 +68,16 @@ describe("operator credentials", () => {
 
     const afterExpiry = issueDeviceToken(tokens, DEVICE_TOKEN_TTL_MS + 100);
     expect(afterExpiry.tokens).toHaveLength(1);
+  });
+
+  it("masks the link in operator paths and URLs and leaves other text alone", () => {
+    const id = "3f2b8c1e-9a47-4d21-8f6e-0c1d2e3f4a5b";
+    expect(maskOperatorLinks(`/operate/${id}`)).toBe("/operate/[hidden]");
+    expect(maskOperatorLinks(`/api/operator/${id}/session`)).toBe("/api/operator/[hidden]/session");
+    expect(maskOperatorLinks(`https://x.example/operate/${id}?a=1#b`)).toBe("https://x.example/operate/[hidden]?a=1#b");
+    expect(maskOperatorLinks(`POST /api/operator/${id}/session 200`)).toBe("POST /api/operator/[hidden]/session 200");
+    for (const same of ["/api/operator-access", "/api/games/abc", "plain text", ""]) {
+      expect(maskOperatorLinks(same)).toBe(same);
+    }
   });
 });
