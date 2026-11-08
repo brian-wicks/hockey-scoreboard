@@ -1,6 +1,6 @@
 import { getFirestore } from "firebase-admin/firestore";
 import { randomUUID } from "crypto";
-import type { SavedGame } from "./types.ts";
+import type { OperatorAccess, SavedGame } from "./types.ts";
 
 // Reuses the firebase-admin app serverApp.ts already initializes from
 // FIREBASE_SERVICE_ACCOUNT for auth — no separate credential wiring needed here.
@@ -12,8 +12,11 @@ const firestore = () => getFirestore();
 //   users/{userId}/savedGames/{id}   { name, state, createdAt }
 //   shares/{shareId}                 { userId }
 //   users/{userId}.shareId           (field on the user doc, avoids a where() query)
+//   operators/{operatorId}           OperatorAccess
+//   users/{userId}.operatorId        (field on the user doc, avoids a where() query)
 const usersCollection = () => firestore().collection("users");
 const sharesCollection = () => firestore().collection("shares");
+const operatorsCollection = () => firestore().collection("operators");
 
 export const getUserConfig = async (userId: string, key: string): Promise<string | null> => {
   const snap = await usersCollection().doc(userId).collection("configs").doc(key).get();
@@ -109,6 +112,48 @@ export const setUserIdShare = async (userId: string, shareId: string): Promise<v
       : Promise.resolve();
 
   await Promise.all([revokeOld, sharesCollection().doc(shareId).set({ userId }), userRef.set({ shareId }, { merge: true })]);
+};
+
+export const getOperatorAccess = async (operatorId: string): Promise<OperatorAccess | null> => {
+  const snap = await operatorsCollection().doc(operatorId).get();
+  const data = snap.data();
+  return data ? (data as OperatorAccess) : null;
+};
+
+export const getUserOperatorAccess = async (userId: string): Promise<OperatorAccess | null> => {
+  const snap = await usersCollection().doc(userId).get();
+  const operatorId = snap.data()?.operatorId;
+  return typeof operatorId === "string" ? getOperatorAccess(operatorId) : null;
+};
+
+export const setOperatorAccess = async (access: OperatorAccess): Promise<void> => {
+  const userRef = usersCollection().doc(access.userId);
+  const snap = await userRef.get();
+  const oldOperatorId = snap.data()?.operatorId;
+
+  // One link per account: drop the previous operator record so its PIN and
+  // device tokens stop working once a new link is issued.
+  const removeOld =
+    typeof oldOperatorId === "string" && oldOperatorId !== access.operatorId
+      ? operatorsCollection().doc(oldOperatorId).delete()
+      : Promise.resolve();
+
+  await Promise.all([
+    removeOld,
+    operatorsCollection().doc(access.operatorId).set(access),
+    userRef.set({ operatorId: access.operatorId }, { merge: true }),
+  ]);
+};
+
+export const deleteOperatorAccess = async (userId: string): Promise<void> => {
+  const userRef = usersCollection().doc(userId);
+  const snap = await userRef.get();
+  const operatorId = snap.data()?.operatorId;
+
+  await Promise.all([
+    typeof operatorId === "string" ? operatorsCollection().doc(operatorId).delete() : Promise.resolve(),
+    userRef.set({ operatorId: null }, { merge: true }),
+  ]);
 };
 
 // Costs exactly one read (hit or miss, same billing) and doesn't require any

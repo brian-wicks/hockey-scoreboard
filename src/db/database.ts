@@ -1,6 +1,6 @@
 import type { DbAdapter } from "./types.ts";
 
-export type { DBConfig, SavedGame } from "./types.ts";
+export type { DBConfig, SavedGame, OperatorAccess, OperatorDeviceToken } from "./types.ts";
 
 // DB_BACKEND selects the persistence backend: "firestore" opts in explicitly;
 // anything else (unset, "sqlite", a typo) falls back to sqlite, so local dev
@@ -33,4 +33,8 @@ export const deleteSavedGame = adapter.deleteSavedGame;
 export const getShareUserId = adapter.getShareUserId;
 export const getUserIdShare = adapter.getUserIdShare;
 export const setUserIdShare = adapter.setUserIdShare;
+export const getOperatorAccess = adapter.getOperatorAccess;
+export const getUserOperatorAccess = adapter.getUserOperatorAccess;
+export const setOperatorAccess = adapter.setOperatorAccess;
+export const deleteOperatorAccess = adapter.deleteOperatorAccess;
 export const pingDatabase = adapter.pingDatabase;

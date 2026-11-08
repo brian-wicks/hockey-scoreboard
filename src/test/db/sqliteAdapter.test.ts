@@ -41,7 +41,11 @@ import {
   getGameState,
   getShareUserId,
   getUserIdShare,
-  setUserIdShare
+  setUserIdShare,
+  getOperatorAccess,
+  getUserOperatorAccess,
+  setOperatorAccess,
+  deleteOperatorAccess,
 } from "../../db/sqliteAdapter";
 
 describe("sqlite adapter", () => {
@@ -95,5 +99,47 @@ describe("sqlite adapter", () => {
     await setUserIdShare("user-ghi", "share-789");
     expect(mockPrepare).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO user_shares"));
     expect(mockRun).toHaveBeenCalledWith("share-789", "user-ghi");
+  });
+
+  const operatorRow = {
+    operatorId: "op-1",
+    userId: "user-1",
+    pinHash: "hash",
+    pinSalt: "salt",
+    failedAttempts: 2,
+    lockedUntil: null,
+    tokens: JSON.stringify([{ tokenHash: "t", expiresAt: 5 }]),
+  };
+  const operatorAccess = { ...operatorRow, tokens: [{ tokenHash: "t", expiresAt: 5 }] };
+
+  it("reads operator access by link, parsing its tokens", async () => {
+    mockGet.mockReturnValue(operatorRow);
+    expect(await getOperatorAccess("op-1")).toEqual(operatorAccess);
+    expect(mockPrepare).toHaveBeenCalledWith("SELECT * FROM operator_access WHERE operatorId = ?");
+    expect(mockGet).toHaveBeenCalledWith("op-1");
+  });
+
+  it("reads operator access by account", async () => {
+    mockGet.mockReturnValue(operatorRow);
+    expect(await getUserOperatorAccess("user-1")).toEqual(operatorAccess);
+    expect(mockPrepare).toHaveBeenCalledWith("SELECT * FROM operator_access WHERE userId = ?");
+  });
+
+  it("returns null when no operator access exists", async () => {
+    mockGet.mockReturnValue(undefined);
+    expect(await getOperatorAccess("missing")).toBeNull();
+    expect(await getUserOperatorAccess("missing")).toBeNull();
+  });
+
+  it("replaces an account's operator access on save", async () => {
+    await setOperatorAccess(operatorAccess);
+    expect(mockPrepare.mock.calls.at(-1)?.[0]).toContain("INSERT OR REPLACE INTO operator_access");
+    expect(mockRun).toHaveBeenCalledWith("op-1", "user-1", "hash", "salt", 2, null, operatorRow.tokens);
+  });
+
+  it("deletes operator access by account", async () => {
+    await deleteOperatorAccess("user-1");
+    expect(mockPrepare).toHaveBeenCalledWith("DELETE FROM operator_access WHERE userId = ?");
+    expect(mockRun).toHaveBeenCalledWith("user-1");
   });
 });

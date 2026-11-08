@@ -66,6 +66,10 @@ import {
   getUserIdShare,
   setUserIdShare,
   pingDatabase,
+  getOperatorAccess,
+  getUserOperatorAccess,
+  setOperatorAccess,
+  deleteOperatorAccess,
 } from "../../db/firestoreAdapter";
 
 describe("firestore adapter", () => {
@@ -212,6 +216,65 @@ describe("firestore adapter", () => {
     await setUserIdShare("user-ghi", "share-same");
 
     expect(mockDelete).not.toHaveBeenCalled();
+  });
+
+  const operatorAccess = {
+    operatorId: "op-1",
+    userId: "user-1",
+    pinHash: "hash",
+    pinSalt: "salt",
+    failedAttempts: 0,
+    lockedUntil: null,
+    tokens: [],
+  };
+
+  it("reads operator access from operators/{operatorId}", async () => {
+    mockGet.mockResolvedValue({ data: () => operatorAccess });
+    expect(await getOperatorAccess("op-1")).toEqual(operatorAccess);
+    expect(collectionSpy).toHaveBeenNthCalledWith(1, "operators");
+    expect(docSpy).toHaveBeenNthCalledWith(1, "op-1");
+  });
+
+  it("returns null for an unknown operator link", async () => {
+    mockGet.mockResolvedValue({ data: () => undefined });
+    expect(await getOperatorAccess("missing")).toBeNull();
+  });
+
+  it("finds an account's operator access through the user doc field", async () => {
+    mockGet
+      .mockResolvedValueOnce({ data: () => ({ operatorId: "op-1" }) })
+      .mockResolvedValueOnce({ data: () => operatorAccess });
+    expect(await getUserOperatorAccess("user-1")).toEqual(operatorAccess);
+    expect(docSpy).toHaveBeenCalledWith("user-1");
+    expect(docSpy).toHaveBeenCalledWith("op-1");
+  });
+
+  it("returns null when the user doc has no operator link", async () => {
+    mockGet.mockResolvedValue({ data: () => ({ operatorId: null }) });
+    expect(await getUserOperatorAccess("user-1")).toBeNull();
+  });
+
+  it("saves operator access as a record plus a user doc field", async () => {
+    mockGet.mockResolvedValue({ data: () => ({}) });
+    await setOperatorAccess(operatorAccess);
+    expect(mockSet).toHaveBeenCalledWith(operatorAccess);
+    expect(mockSet).toHaveBeenCalledWith({ operatorId: "op-1" }, { merge: true });
+    expect(mockDelete).not.toHaveBeenCalled();
+  });
+
+  it("removes the previous record when an account gets a different link", async () => {
+    mockGet.mockResolvedValue({ data: () => ({ operatorId: "op-old" }) });
+    await setOperatorAccess(operatorAccess);
+    expect(docSpy).toHaveBeenCalledWith("op-old");
+    expect(mockDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("deletes operator access and clears the user doc field", async () => {
+    mockGet.mockResolvedValue({ data: () => ({ operatorId: "op-1" }) });
+    await deleteOperatorAccess("user-1");
+    expect(docSpy).toHaveBeenCalledWith("op-1");
+    expect(mockDelete).toHaveBeenCalledTimes(1);
+    expect(mockSet).toHaveBeenCalledWith({ operatorId: null }, { merge: true });
   });
 
   it("pings healthy when the read succeeds", async () => {

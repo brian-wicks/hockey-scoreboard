@@ -46,5 +46,9 @@ export interface DbAdapter {
   getShareUserId(shareId: string): Promise<string | null>;
   getUserIdShare(userId: string): Promise<string | null>;
   setUserIdShare(userId: string, shareId: string): Promise<void>;
+  getOperatorAccess(operatorId: string): Promise<OperatorAccess | null>;
+  getUserOperatorAccess(userId: string): Promise<OperatorAccess | null>;
+  setOperatorAccess(access: OperatorAccess): Promise<void>;
+  deleteOperatorAccess(userId: string): Promise<void>;
   pingDatabase(): Promise<boolean>;
 }

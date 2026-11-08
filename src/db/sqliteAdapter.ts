@@ -3,7 +3,7 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { existsSync, mkdirSync } from "fs";
 import { randomUUID } from "crypto";
-import type { SavedGame } from "./types.ts";
+import type { OperatorAccess, SavedGame } from "./types.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -46,6 +46,16 @@ db.exec(`
     name TEXT,
     state TEXT,
     createdAt INTEGER
+  );
+
+  CREATE TABLE IF NOT EXISTS operator_access (
+    operatorId TEXT PRIMARY KEY,
+    userId TEXT UNIQUE,
+    pinHash TEXT,
+    pinSalt TEXT,
+    failedAttempts INTEGER,
+    lockedUntil INTEGER,
+    tokens TEXT
   );
 `);
 
@@ -140,6 +150,42 @@ export const setUserIdShare = async (userId: string, shareId: string): Promise<v
     ON CONFLICT(userId) DO UPDATE SET shareId = excluded.shareId
   `);
   stmt.run(shareId, userId);
+};
+
+type OperatorAccessRow = Omit<OperatorAccess, "tokens"> & { tokens: string };
+
+const rowToOperatorAccess = (row: OperatorAccessRow | undefined): OperatorAccess | null =>
+  row ? { ...row, tokens: JSON.parse(row.tokens) } : null;
+
+export const getOperatorAccess = async (operatorId: string): Promise<OperatorAccess | null> => {
+  const stmt = db.prepare("SELECT * FROM operator_access WHERE operatorId = ?");
+  return rowToOperatorAccess(stmt.get(operatorId) as OperatorAccessRow | undefined);
+};
+
+export const getUserOperatorAccess = async (userId: string): Promise<OperatorAccess | null> => {
+  const stmt = db.prepare("SELECT * FROM operator_access WHERE userId = ?");
+  return rowToOperatorAccess(stmt.get(userId) as OperatorAccessRow | undefined);
+};
+
+export const setOperatorAccess = async (access: OperatorAccess): Promise<void> => {
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO operator_access (operatorId, userId, pinHash, pinSalt, failedAttempts, lockedUntil, tokens)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  stmt.run(
+    access.operatorId,
+    access.userId,
+    access.pinHash,
+    access.pinSalt,
+    access.failedAttempts,
+    access.lockedUntil,
+    JSON.stringify(access.tokens),
+  );
+};
+
+export const deleteOperatorAccess = async (userId: string): Promise<void> => {
+  const stmt = db.prepare("DELETE FROM operator_access WHERE userId = ?");
+  stmt.run(userId);
 };
 
 export const pingDatabase = async (): Promise<boolean> => {
