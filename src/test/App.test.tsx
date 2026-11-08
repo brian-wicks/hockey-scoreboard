@@ -21,6 +21,7 @@ vi.mock("../components/JumbotronScoreboard", () => ({ default: () => <div>Jumbot
 vi.mock("../components/Login", () => ({ Login: () => <div>Login Screen</div> }));
 vi.mock("../components/ResultsPage", () => ({ default: () => <div>Results Page</div> }));
 vi.mock("../components/ChangelogPage", () => ({ default: () => <div>Changelog Page</div> }));
+vi.mock("../components/control-panel/OperatorGate", () => ({ default: () => <div>Operator Gate</div> }));
 
 describe("App Component", () => {
   beforeEach(() => {
@@ -244,5 +245,51 @@ describe("App Component", () => {
     render(<App />);
 
     expect(await screen.findByText("Control Panel")).toBeInTheDocument();
+  });
+
+  describe("second operator route", () => {
+    const useOperatorRoute = (state: Record<string, unknown>) => {
+      window.history.pushState({}, "Operate", "/operate/op-1");
+      vi.mocked(useStore).mockImplementation((selector: any) =>
+        selector({
+          user: null,
+          isViewer: false,
+          authLoading: false,
+          authError: null,
+          gameState: null,
+          setUser: vi.fn(),
+          setAuthLoading: vi.fn(),
+          ensureInitialized: vi.fn(),
+          ...state,
+        }),
+      );
+    };
+
+    it("opens the gate with nobody signed in", async () => {
+      useOperatorRoute({});
+      render(<App />);
+      expect(await screen.findByText("Operator Gate")).toBeInTheDocument();
+      expect(screen.queryByText("Login Screen")).not.toBeInTheDocument();
+    });
+
+    it("doesn't wait for Firebase sign-in to finish", async () => {
+      useOperatorRoute({ authLoading: true });
+      render(<App />);
+      expect(await screen.findByText("Operator Gate")).toBeInTheDocument();
+    });
+
+    it("doesn't show the share link error screen", async () => {
+      useOperatorRoute({ authError: "Connection error: offline" });
+      render(<App />);
+      expect(await screen.findByText("Operator Gate")).toBeInTheDocument();
+      expect(screen.queryByText("Connection failed")).not.toBeInTheDocument();
+    });
+
+    it("leaves the footer off", async () => {
+      useOperatorRoute({});
+      render(<App />);
+      await screen.findByText("Operator Gate");
+      expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
+    });
   });
 });

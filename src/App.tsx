@@ -20,6 +20,7 @@ const Overlay = lazy(() => import('./components/Overlay'));
 const JumbotronScoreboard = lazy(() => import('./components/JumbotronScoreboard'));
 const ChangelogPage = lazy(() => import('./components/ChangelogPage'));
 const ResultsPage = lazy(() => import('./components/ResultsPage'));
+const OperatorGate = lazy(() => import('./components/control-panel/OperatorGate'));
 
 function AppRoutes() {
   const location = useLocation();
@@ -59,13 +60,17 @@ function AppRoutes() {
     : 'ui min-h-screen bg-canvas flex items-center justify-center';
 
   const isShareRoute = location.pathname.startsWith('/share/');
+  // A second operator's session runs on its own token, so Firebase's loading state,
+  // errors and signed-out screen don't apply here.
+  const isOperatorRoute = location.pathname.startsWith('/operate/');
   const showFooter =
+    !isOperatorRoute &&
     !isShareRoute &&
     location.pathname !== '/overlay' &&
     location.pathname !== '/jumbotron' &&
     location.pathname !== '/results';
 
-  if (authError && !gameState) {
+  if (authError && !gameState && !isOperatorRoute) {
     const err = authError.toLowerCase();
     const isNotFound = err.includes("not found") || err.includes("invalid") || err.includes("expired") || err.includes("no shareid");
     
@@ -104,7 +109,7 @@ function AppRoutes() {
     );
   }
 
-  if (authLoading && !gameState) {
+  if (authLoading && !gameState && !isOperatorRoute) {
     return (
       <div className={screenClass}>
         <div className="flex flex-col items-center gap-4">
@@ -115,7 +120,7 @@ function AppRoutes() {
     );
   }
 
-  if (!user && !isViewer) {
+  if (!user && !isViewer && !isOperatorRoute) {
     // The footer's version badge links here even when signed out, so it has to
     // work without an account — it's static data, nothing behind it needs auth.
     if (location.pathname === '/changelog') {
@@ -153,6 +158,9 @@ function AppRoutes() {
           <Route path="/share/:shareId" element={<ControlPanel />} />
           <Route path="/share/:shareId/overlay" element={<Overlay />} />
           <Route path="/share/:shareId/jumbotron" element={<JumbotronScoreboard />} />
+
+          {/* Second operator */}
+          <Route path="/operate/:operatorId" element={<OperatorGate><ControlPanel /></OperatorGate>} />
         </Routes>
       </Suspense>
       {showFooter && <AppFooter />}
