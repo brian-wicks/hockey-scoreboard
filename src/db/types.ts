@@ -13,6 +13,21 @@ export interface SavedGame {
   updatedAt: number;
 }
 
+export interface OperatorDeviceToken {
+  tokenHash: string;
+  expiresAt: number;
+}
+
+export interface OperatorAccess {
+  operatorId: string;
+  userId: string;
+  pinHash: string;
+  pinSalt: string;
+  failedAttempts: number;
+  lockedUntil: number | null;
+  tokens: OperatorDeviceToken[];
+}
+
 // Both src/db/sqliteAdapter.ts and src/db/firestoreAdapter.ts export exactly these
 // functions by name — src/db/database.ts picks one module at startup (via DB_BACKEND)
 // and re-exports it. Keep both adapters' signatures in sync with this interface.

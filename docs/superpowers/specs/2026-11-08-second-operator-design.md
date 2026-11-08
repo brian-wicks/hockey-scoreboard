@@ -180,13 +180,15 @@ The existing warning stays as it is, because it describes the viewer links.
 
 ### Store
 
-New state: `isOperator`, `operatorId` and `operatorAuthStatus`.
+New state: `isOperator`, `operatorId` and `operatorAuth`, an object holding the status plus attempts left or the wait time.
 
 New actions: `submitOperatorPin(pin)` and `connectOperator(operatorId, token)`. `ensureInitialized` checks for the `/operate/` path before it looks at the signed-in user, so this route always uses the PIN and never the owner's account.
 
 The token is kept in `sessionStorage` under a key that includes the `operatorId`. A reload stays signed in, and closing the tab means entering the PIN again.
 
 `connect` and `connectOperator` share their `gameState` handling and in-transit change tracking through one extracted helper, so a second operator on a poor connection gets the same behaviour as the owner. Only `connect` touches the local game state cache, so a second operator on a shared computer cannot overwrite a cached game.
+
+Export PDF in the event log uses the layout saved in the second operator's own browser, or the default layout, because `loadPdfLayout` does not read the owner's account.
 
 `updateState`, undo and clock actions work unchanged over the socket. Undo reverses only that device's changes, because each device keeps its own undo stack. The `operatorConfig` event fills `streamDeckConfig` and `keyboardShortcuts`, and the REST config loaders are not called.
 
@@ -195,6 +197,8 @@ The token is kept in `sessionStorage` under a key that includes the `operatorId`
 | Case | Behaviour |
 | --- | --- |
 | Parallel PIN guesses | Checked one at a time per link through an in-process queue, so they cannot exceed the limit |
+| New PIN or removal while a guess is in flight | Owner writes use the same queue, so a guess cannot save a stale copy over the new record |
+| Database fault during the handshake | The handshake fails with a different message, the token is kept, and the client retries after two seconds, because Socket.IO does not retry server middleware errors itself |
 | Attempt count cannot be saved | The PIN is refused with a 500, so a database fault cannot remove the limit |
 | Database error while reading the record | 500. Does not count as an attempt |
 | Token rejected on reconnect | The stored token is cleared and the PIN screen appears |
