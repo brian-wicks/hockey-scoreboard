@@ -16,7 +16,7 @@ function pinMessage(auth: OperatorAuth): string | null {
       return `Too many wrong PINs. Try again in ${minutes} ${minutes === 1 ? "minute" : "minutes"}.`;
     }
     case "error":
-      return "Couldn't reach the server. Check your connection and try again.";
+      return "Couldn't check the PIN. Try again in a moment.";
     case "needs-pin":
       return auth.sessionEnded ? "Your session ended. Enter the current PIN to continue." : null;
     default:

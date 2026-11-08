@@ -86,9 +86,9 @@ describe("OperatorGate", () => {
     expect(screen.getByText("Your session ended. Enter the current PIN to continue.")).toBeInTheDocument();
   });
 
-  it("explains a connection problem", () => {
+  it("explains a PIN check that failed", () => {
     renderWith({ operatorAuth: { status: "error" } });
-    expect(screen.getByText("Couldn't reach the server. Check your connection and try again.")).toBeInTheDocument();
+    expect(screen.getByText("Couldn't check the PIN. Try again in a moment.")).toBeInTheDocument();
   });
 
   it("ignores submits while checking the PIN", () => {
