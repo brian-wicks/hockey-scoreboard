@@ -872,7 +872,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     if (input.noLog === true) patch.noLog = true;
 
     if (input.fields && typeof input.fields === "object") {
-      const { homeTeam: _home, awayTeam: _away, eventLog: _log, ...fields } = input.fields as Record<string, unknown>;
+      const { homeTeam: _home, awayTeam: _away, eventLog: _log, gameId: _gameId, ...fields } = input.fields as Record<string, unknown>;
       patch.fields = fields as GamePatch["fields"];
     }
 
@@ -1399,6 +1399,16 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     // event with no listener, and a reconnecting client flushes its buffer on connect.
     socket.data.sessionCheck = isOperator ? checkOperatorSession(socket) : Promise.resolve(true);
 
+    // A client names the game each change was made for, so one buffered through a dropped
+    // connection or in flight during a switch can't land in the next game. An event that
+    // names no game is accepted, so a tab still open across a deploy keeps working.
+    const isForAnotherGame = (context: UserContext, scope: unknown, event: string) => {
+      const gameId = scope && typeof scope === "object" ? (scope as { gameId?: unknown }).gameId : undefined;
+      if (typeof gameId !== "string" || gameId === context.gameId) return false;
+      logger.warn({ userId, socketId: socket.id }, `[Socket] Dropped ${event} made for a game that isn't active`);
+      return true;
+    };
+
     onSocketEvent(socket, "updateGameState", async (updates: Partial<GameState>) => {
       if (isViewer) {
         logger.warn({ userId, socketId: socket.id }, "[Socket] Unauthorized update attempt from viewer");
@@ -1448,6 +1458,12 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         return;
       }
       const context = await getUserContext(userId);
+      if (isForAnotherGame(context, rawPatch, "applyGamePatch")) {
+        respond({ ok: false });
+        // The sender has already shown this change, and no broadcast is coming to replace it.
+        emitGameStateTo(socket, context.gameState);
+        return;
+      }
       applyPatchToGame(context, patch);
       if (patch.fields?.clock) {
         reconcileRunningClock(userId, context.gameState);
@@ -1458,12 +1474,13 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       emitGameState(userId);
     });
 
-    onSocketEvent(socket, "startClock", async () => {
+    onSocketEvent(socket, "startClock", async (scope?: unknown) => {
       if (isViewer) {
         logger.warn({ userId, socketId: socket.id }, "[Socket] Unauthorized startClock attempt from viewer");
         return;
       }
       const context = await getUserContext(userId);
+      if (isForAnotherGame(context, scope, "startClock")) return;
       const { gameState } = context;
       if (!gameState.clock.isRunning && gameState.clock.timeRemaining > 0) {
         gameState.clock.isRunning = true;
@@ -1473,12 +1490,13 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       }
     });
 
-    onSocketEvent(socket, "stopClock", async () => {
+    onSocketEvent(socket, "stopClock", async (scope?: unknown) => {
       if (isViewer) {
         logger.warn({ userId, socketId: socket.id }, "[Socket] Unauthorized stopClock attempt from viewer");
         return;
       }
       const context = await getUserContext(userId);
+      if (isForAnotherGame(context, scope, "stopClock")) return;
       const { gameState } = context;
       if (gameState.clock.isRunning) {
         const currentTime = now();
@@ -1492,36 +1510,39 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       }
     });
 
-    onSocketEvent(socket, "setClock", async (timeMs: number) => {
+    onSocketEvent(socket, "setClock", async (timeMs: number, scope?: unknown) => {
       if (isViewer) {
         logger.warn({ userId, socketId: socket.id }, "[Socket] Unauthorized setClock attempt from viewer");
         return;
       }
       if (!Number.isFinite(timeMs)) return;
       const context = await getUserContext(userId);
+      if (isForAnotherGame(context, scope, "setClock")) return;
       const { gameState } = context;
       gameState.clock.timeRemaining = Math.max(0, timeMs);
       gameState.clock.lastUpdate = now();
       emitGameState(userId);
     });
 
-    onSocketEvent(socket, "clockIncrease", async () => {
+    onSocketEvent(socket, "clockIncrease", async (scope?: unknown) => {
       if (isViewer) {
         logger.warn({ userId, socketId: socket.id }, "[Socket] Unauthorized clockIncrease attempt from viewer");
         return;
       }
       const context = await getUserContext(userId);
+      if (isForAnotherGame(context, scope, "clockIncrease")) return;
       const { gameState } = context;
       gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining + 1000);
       emitGameState(userId);
     });
 
-    onSocketEvent(socket, "clockDecrease", async () => {
+    onSocketEvent(socket, "clockDecrease", async (scope?: unknown) => {
       if (isViewer) {
         logger.warn({ userId, socketId: socket.id }, "[Socket] Unauthorized clockDecrease attempt from viewer");
         return;
       }
       const context = await getUserContext(userId);
+      if (isForAnotherGame(context, scope, "clockDecrease")) return;
       const { gameState } = context;
       gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining - 1000);
       emitGameState(userId);

@@ -271,3 +271,17 @@ describe("createDeleteEventPatch", () => {
     expect(createDeleteEventPatch(state(), "missing")).toBeNull();
   });
 });
+
+describe("the game ID on a patch", () => {
+  it("does not end up in the state", () => {
+    const next = applyGamePatch(state(), { opId: "a", gameId: "game-1", home: { scoreDelta: 1 } });
+    expect(next).not.toHaveProperty("gameId");
+    expect(next.homeTeam.score).toBe(3);
+  });
+
+  it("does not carry over to the inverse", () => {
+    const inverse = invertGamePatch({ opId: "a", gameId: "game-1", home: { scoreDelta: 1 } }, state());
+    expect(inverse).not.toHaveProperty("gameId");
+    expect(inverse.home?.scoreDelta).toBe(-1);
+  });
+});

@@ -29,6 +29,8 @@ export interface EventLogPatch {
 
 export interface GamePatch {
   opId: string;
+  /** The game this change was made for. The server drops the patch if another game is active. */
+  gameId?: string;
   /** Set when this patch undoes an earlier one. The server also drops the events that one logged. */
   undoOf?: string;
   /** Stops the server logging events for this patch's score and penalty changes. */

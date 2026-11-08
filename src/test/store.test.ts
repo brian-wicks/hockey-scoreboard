@@ -513,6 +513,135 @@ describe("store", () => {
     expect(useStore.getState().gameState?.homeTeam.score).toBe(9);
   });
 
+  describe("changes scoped to a game", () => {
+    const connectOwner = async () => {
+      const { useStore } = await import("../store");
+      useStore.setState({ user: mockUser as any });
+      await useStore.getState().connect();
+      listeners.get("gameState")?.(baseState);
+      socketMock.emit.mockClear();
+      return useStore;
+    };
+
+    const lastPatch = () => socketMock.emit.mock.calls.filter(([event]) => event === "applyGamePatch").at(-1)![1];
+    const score = (useStore: Awaited<ReturnType<typeof connectOwner>>) => ({
+      homeTeam: { ...useStore.getState().gameState!.homeTeam, score: useStore.getState().gameState!.homeTeam.score + 1 },
+    });
+
+    it("stamps patches with the active game", async () => {
+      const useStore = await connectOwner();
+      listeners.get("activeGame")?.("game-1");
+      useStore.getState().updateState(score(useStore));
+      expect(lastPatch().gameId).toBe("game-1");
+      expect(useStore.getState().pendingPatches[0].patch.gameId).toBe("game-1");
+    });
+
+    it("leaves the game ID out when no game is known", async () => {
+      const useStore = await connectOwner();
+      useStore.getState().updateState(score(useStore));
+      expect(lastPatch()).not.toHaveProperty("gameId");
+
+      listeners.get("activeGame")?.(null);
+      useStore.getState().updateState(score(useStore));
+      expect(lastPatch()).not.toHaveProperty("gameId");
+    });
+
+    it("keeps the game ID out of the local game state", async () => {
+      const useStore = await connectOwner();
+      listeners.get("activeGame")?.("game-1");
+      useStore.getState().updateState(score(useStore));
+      listeners.get("gameState")?.(baseState);
+      expect(useStore.getState().gameState).not.toHaveProperty("gameId");
+      expect(useStore.getState().gameState!.homeTeam.score).toBe(1);
+    });
+
+    it("stamps an undo with the game it runs in", async () => {
+      const useStore = await connectOwner();
+      listeners.get("activeGame")?.("game-1");
+      useStore.getState().updateState(score(useStore));
+      expect(useStore.getState().undoStack[0]).not.toHaveProperty("gameId");
+      useStore.getState().undoLastUpdate();
+      expect(lastPatch().gameId).toBe("game-1");
+    });
+
+    it("stamps a deleted event with the active game", async () => {
+      const useStore = await connectOwner();
+      listeners.get("activeGame")?.("game-1");
+      listeners.get("gameState")?.({
+        ...baseState,
+        eventLog: [{ id: "e1", type: "shot_on_goal", team: "home" }],
+      });
+      useStore.getState().deleteEvent("e1");
+      expect(lastPatch().gameId).toBe("game-1");
+    });
+
+    it("passes the active game after the clock arguments", async () => {
+      const useStore = await connectOwner();
+      listeners.get("activeGame")?.("game-1");
+      const { startClock, stopClock, setClock, clockIncrease, clockDecrease } = useStore.getState();
+      startClock();
+      stopClock();
+      setClock(5000);
+      clockIncrease();
+      clockDecrease();
+      const scope = { gameId: "game-1" };
+      expect(socketMock.emit.mock.calls).toEqual([
+        ["startClock", scope],
+        ["stopClock", scope],
+        ["setClock", 5000, scope],
+        ["clockIncrease", scope],
+        ["clockDecrease", scope],
+      ]);
+    });
+
+    it("emits the clock events as before when no game is known", async () => {
+      const useStore = await connectOwner();
+      for (const activeGame of [undefined, null]) {
+        if (activeGame === null) listeners.get("activeGame")?.(null);
+        socketMock.emit.mockClear();
+        const { startClock, stopClock, setClock, clockIncrease, clockDecrease } = useStore.getState();
+        startClock();
+        stopClock();
+        setClock(5000);
+        clockIncrease();
+        clockDecrease();
+        expect(socketMock.emit.mock.calls).toEqual([["startClock"], ["stopClock"], ["setClock", 5000], ["clockIncrease"], ["clockDecrease"]]);
+      }
+    });
+
+    describe("undo and pending patches on the owner's connection", () => {
+      const held = () => ({ undoStack: [{ opId: "u" }] as any, pendingPatches: [{ patch: { opId: "p" }, sentAt: Date.now() }] as any });
+
+      it("clears them when another device changes the game", async () => {
+        const useStore = await connectOwner();
+        listeners.get("activeGame")?.("game-1");
+        useStore.setState(held());
+        listeners.get("activeGame")?.("game-2");
+        expect(useStore.getState().activeGameId).toBe("game-2");
+        expect(useStore.getState().undoStack).toEqual([]);
+        expect(useStore.getState().pendingPatches).toEqual([]);
+      });
+
+      it("keeps them when the game is unchanged", async () => {
+        const useStore = await connectOwner();
+        listeners.get("activeGame")?.("game-1");
+        useStore.setState(held());
+        listeners.get("activeGame")?.("game-1");
+        expect(useStore.getState().undoStack).toHaveLength(1);
+        expect(useStore.getState().pendingPatches).toHaveLength(1);
+      });
+
+      it("keeps them when the first active game arrives", async () => {
+        const useStore = await connectOwner();
+        useStore.setState(held());
+        listeners.get("activeGame")?.("game-1");
+        expect(useStore.getState().activeGameId).toBe("game-1");
+        expect(useStore.getState().undoStack).toHaveLength(1);
+        expect(useStore.getState().pendingPatches).toHaveLength(1);
+      });
+    });
+  });
+
   describe("second operator", () => {
     const operatorId = "3f2b8c1e-9a47-4d21-8f6e-0c1d2e3f4a5b";
     const tokenKey = `scoreboard:operatorToken:${operatorId}`;

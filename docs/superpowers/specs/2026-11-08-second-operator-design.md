@@ -15,6 +15,7 @@ Access needs a link and a PIN. The owner can sign the second operator out at any
 | --- | --- |
 | Authorisation | Separate link plus a six-digit PIN. No Google account needed |
 | After the PIN | The PIN is exchanged for a device token, which is used for reconnects |
+| Changes and games | Every game-changing event a client sends names the game it was made for, and the server drops it if that game isn't active |
 | PIN lifetime | One PIN per game. When the owner's active game changes to a different one, the PIN stops working and the second operator is signed out. The link stays the same |
 | Tabs available | Controls and Deck |
 | Deck | Buttons can be pressed but not edited |
@@ -77,6 +78,18 @@ Account REST routes keep requiring the owner's Google token. They do not accept 
 PINs, tokens and operator links are never logged. Log lines refer to the owner's `userId` and the socket id.
 
 The request log and Sentry events also keep sign-in credentials out, on every route. pino-http's serializers replace the `authorization` and `cookie` request headers and the `set-cookie` response header with `[hidden]`, working on a copy so the live request keeps its values. `scrubEvent` does the same for `event.request.headers` in any letter case and for each value in `event.request.cookies`, since the SDK's RequestData integration copies both onto every event.
+
+### Game scoping
+
+This applies to the owner and the second operator alike, and covers events buffered through a dropped connection and events in flight during a switch.
+
+`applyGamePatch` patches carry `gameId`, and the five clock events carry a trailing `{ gameId }`, with `setClock(timeMs, scope)` keeping `timeMs` first. The client adds these whenever `activeGameId` is a string. The server compares a string `gameId` with `context.gameId` after loading the context, then logs a mismatch with the `userId` and socket id only and drops the event.
+
+A dropped patch is acknowledged with `{ ok: false }`, and the sender alone is sent the current `gameState`, because it has already shown the change and no broadcast would replace it. Clock events have no ack and change nothing on the client until the server responds, so they just return.
+
+A missing `gameId` is accepted, so a browser tab still open across a deploy keeps working. A non-object or malformed scope counts as no scope. `gameId` never reaches game state: `sanitizeGamePatch` leaves out the top-level value and removes one sent inside `fields`.
+
+`updateGameState` isn't scoped. Second operators are refused it, and no client code sends it today.
 
 ### Accepted limit
 
@@ -204,7 +217,7 @@ The token is kept in `sessionStorage` under a key that includes the `operatorId`
 
 Export PDF in the event log uses the layout saved in the second operator's own browser, or the default layout, because `loadPdfLayout` does not read the owner's account.
 
-`updateState`, undo and clock actions work unchanged over the socket. Undo reverses only that device's changes, because each device keeps its own undo stack. The `operatorConfig` event fills `streamDeckConfig` and `keyboardShortcuts`, and the REST config loaders are not called.
+`updateState`, undo and clock actions work over the socket as they do for the owner, and all of them name the active game as described in "Game scoping". Undo reverses only that device's changes, because each device keeps its own undo stack. When `activeGame` changes to a different game, `connect` and `connectOperator` both clear the undo stack and in-transit changes through one shared helper, so an owner on two devices can't undo into the wrong game either. The `operatorConfig` event fills `streamDeckConfig` and `keyboardShortcuts`, and the REST config loaders are not called.
 
 ## Failure cases
 
@@ -219,6 +232,7 @@ Export PDF in the event log uses the layout saved in the second operator's own b
 | Network failure | The token is kept and the socket keeps retrying, so a wifi drop does not sign anyone out |
 | Server restart | Tokens and lockouts persist in the database, so the second operator reconnects without the PIN |
 | Server disconnects the socket on revocation | Socket.IO does not reconnect after a server-side disconnect, so the client treats this reason as a session end and shows the PIN screen |
+| Change made for a game that is no longer active | Dropped by the server. See "Game scoping" |
 | Owner's game changes | The PIN stops working and the second operator is signed out before the new game's state is sent |
 | PIN sent for a game with no PIN yet | 409 and the gate asks for a new PIN. Nothing is counted, and the form stays usable |
 | Database fault while resetting for a new game | Logged with the `userId` only. The second operator is still disconnected and the owner's game still changes. The old PIN and tokens stay valid until the owner creates a new PIN, because they could not be cleared |
@@ -243,6 +257,8 @@ Server tests in `src/test/server.test.ts`:
 - Viewer links staying read-only, and their share ID being refused as an operator credential
 - `operatorConfig` contents and fallback
 - All routes returning 404 in local mode, using `src/test/localModeServer.test.ts`
+
+Sign-in masking in `src/test/requestLogging.test.ts` and `src/test/sentryScrub.test.ts`, using real pino-http output and the real SDK. Per-game PINs in `src/test/operatorAccess.test.ts` and `src/test/operatorRevocationRace.test.ts`. Game scoping in `src/test/gameScoping.test.ts`, which also covers a patch buffered through a dropped connection.
 
 Adapter tests in `src/test/db/`: the same behaviour on SQLite and Firestore.
 

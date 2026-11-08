@@ -421,15 +421,35 @@ const sendPatch = (
   get: () => StoreState,
   set: (partial: Partial<StoreState>) => void,
 ) => {
-  const newState = applyGamePatch(get().gameState!, patch);
+  const { activeGameId } = get();
+  const stamped: GamePatch = typeof activeGameId === "string" ? { ...patch, gameId: activeGameId } : patch;
+  const newState = applyGamePatch(get().gameState!, stamped);
   set({
     gameState: newState,
-    pendingPatches: [...get().pendingPatches, { patch, sentAt: Date.now() }],
+    pendingPatches: [...get().pendingPatches, { patch: stamped, sentAt: Date.now() }],
   });
   cacheGameState(get, newState);
-  socket.emit("applyGamePatch", patch, () => {
-    set({ pendingPatches: get().pendingPatches.filter((pending) => pending.patch.opId !== patch.opId) });
+  socket.emit("applyGamePatch", stamped, () => {
+    set({ pendingPatches: get().pendingPatches.filter((pending) => pending.patch.opId !== stamped.opId) });
   });
+};
+
+// The trailing argument on a clock event, naming the game it was made for.
+const clockScope = (state: StoreState): [{ gameId: string }] | [] =>
+  typeof state.activeGameId === "string" ? [{ gameId: state.activeGameId }] : [];
+
+const receiveActiveGame = (
+  gameId: string | null,
+  get: () => StoreState,
+  set: (partial: Partial<StoreState>) => void,
+) => {
+  const previous = get().activeGameId;
+  if (previous !== undefined && previous !== gameId) {
+    // These were worked out against the old game, and undoing or replaying them would change the new one.
+    set({ activeGameId: gameId, undoStack: [], pendingPatches: [] });
+    return;
+  }
+  set({ activeGameId: gameId });
 };
 
 const loadCachedState = (): GameState | null => {
@@ -780,13 +800,7 @@ export const useStore = create<StoreState>((set, get) => ({
     });
 
     socket.on("activeGame", (gameId: string | null) => {
-      const previous = get().activeGameId;
-      if (previous !== undefined && previous !== gameId) {
-        // Patches carry no game ID, so undoing or replaying them would change the new game.
-        set({ activeGameId: gameId, undoStack: [], pendingPatches: [] });
-        return;
-      }
-      set({ activeGameId: gameId });
+      receiveActiveGame(gameId, get, set);
     });
 
     socket.on("operatorConfig", (config: { streamDeck: StreamDeckConfig | null; shortcuts: KeyboardShortcut[] | null }) => {
@@ -947,7 +961,7 @@ export const useStore = create<StoreState>((set, get) => ({
       });
 
       socket.on("activeGame", (gameId: string | null) => {
-        set({ activeGameId: gameId });
+        receiveActiveGame(gameId, get, set);
       });
 
       set({ socket, isConnected: socket.connected });
@@ -1028,35 +1042,35 @@ export const useStore = create<StoreState>((set, get) => ({
   startClock: () => {
     const { socket } = get();
     if (socket) {
-      socket.emit("startClock");
+      socket.emit("startClock", ...clockScope(get()));
     }
   },
 
   stopClock: () => {
     const { socket } = get();
     if (socket) {
-      socket.emit("stopClock");
+      socket.emit("stopClock", ...clockScope(get()));
     }
   },
 
   setClock: (timeMs: number) => {
     const { socket } = get();
     if (socket) {
-      socket.emit("setClock", timeMs);
+      socket.emit("setClock", timeMs, ...clockScope(get()));
     }
   },
 
   clockIncrease: () => {
     const { socket } = get();
     if (socket) {
-      socket.emit("clockIncrease");
+      socket.emit("clockIncrease", ...clockScope(get()));
     }
   },
 
   clockDecrease: () => {
     const { socket } = get();
     if (socket) {
-      socket.emit("clockDecrease");
+      socket.emit("clockDecrease", ...clockScope(get()));
     }
   },
 
