@@ -15,6 +15,7 @@ import pinoHttp from "pino-http";
 import * as Sentry from "@sentry/node";
 import { isLocalModeEnv, LOCAL_USER_ID } from "./src/lib/localMode.ts";
 import { applyGamePatch, type GamePatch, type PenaltyPatch, type TeamPatch } from "./src/utils/gamePatch.ts";
+import { registerOperatorAccess } from "./src/server/operatorAccess.ts";
 import {
   getUserConfig, 
   setUserConfig, 
@@ -1249,6 +1250,16 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       res.status(401).json({ error: "Unauthorized" });
     }
   };
+
+  const operatorAccess = registerOperatorAccess({
+    app,
+    io,
+    authenticate: authenticateExpress,
+    creationLimiter: shareCreationLimiter,
+    localMode,
+    now,
+    logError,
+  });
 
   // Every mutating socket event goes through this: it (a) drops events past a generous
   // per-socket rate so one client spamming events can't peg the event loop, and (b)

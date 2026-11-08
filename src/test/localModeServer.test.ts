@@ -221,4 +221,18 @@ describe("local mode server auth", () => {
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({ status: "ok" });
   });
+
+  it("returns 404 from every second operator route in local mode", async () => {
+    running = await startServer(true);
+    const base = `http://127.0.0.1:${running.port}`;
+    expect((await fetch(`${base}/api/operator-access`)).status).toBe(404);
+    expect((await fetch(`${base}/api/operator-access`, { method: "POST" })).status).toBe(404);
+    expect((await fetch(`${base}/api/operator-access`, { method: "DELETE" })).status).toBe(404);
+    const session = await fetch(`${base}/api/operator/3f2b8c1e-9a47-4d21-8f6e-0c1d2e3f4a5b/session`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin: "123456" }),
+    });
+    expect(session.status).toBe(404);
+  });
 });
