@@ -1325,14 +1325,20 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     handler: (...args: Args) => void | Promise<void>,
   ) {
     socket.on(event, async (...args: Args) => {
+      // A client waiting on an ack shouldn't wait forever for an event that was dropped.
+      const ack = args[args.length - 1];
       if (isSocketEventRateLimited(socket)) {
         logger.warn({ userId: socket.data.userId, socketId: socket.id, event }, "[Socket] Rate limit exceeded, dropping event");
-        // A client waiting on an ack shouldn't wait forever for an event that was dropped.
-        const ack = args[args.length - 1];
         if (typeof ack === "function") ack({ ok: false, error: "Rate limited" });
         return;
       }
       try {
+        // Events held here resume in the order they arrived, since a promise runs its
+        // waiting callbacks in the order they were added.
+        if (!(await socket.data.sessionCheck)) {
+          if (typeof ack === "function") ack({ ok: false });
+          return;
+        }
         await handler(...args);
       } catch (error) {
         logError(`[Socket] Unhandled error in "${event}" handler`, error, {
@@ -1341,6 +1347,32 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         });
       }
     });
+  }
+
+  // A revocation that committed while the handshake was reading its record missed this
+  // socket, since it wasn't in the room yet. Check again now that it is. The read can
+  // also be older than a revocation that signed this socket out while it was running,
+  // so a socket that's gone fails the check too.
+  async function checkOperatorSession(socket: Socket): Promise<boolean> {
+    try {
+      const stillAllowed = await operatorAccess.authenticateHandshake(
+        socket.handshake.auth.operatorId,
+        socket.handshake.auth.operatorToken,
+      );
+      if (!stillAllowed) {
+        socket.disconnect(true);
+        return false;
+      }
+      return socket.connected;
+    } catch (error) {
+      logError("Error re-checking second operator session, disconnecting", error, {
+        userId: socket.data.userId,
+        socketId: socket.id,
+      });
+      // Closing the transport, not disconnecting, so the client reconnects and keeps its token.
+      socket.conn.close();
+      return false;
+    }
   }
 
   io.on("connection", async (socket) => {
@@ -1352,29 +1384,9 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     // Join a room for this user to enable per-user broadcasts
     socket.join(userId);
 
-    if (isOperator) {
-      // A revocation that committed while the handshake was reading its record missed
-      // this socket, since it wasn't in the room yet. Check again now that it is.
-      try {
-        const stillAllowed = await operatorAccess.authenticateHandshake(
-          socket.handshake.auth.operatorId,
-          socket.handshake.auth.operatorToken,
-        );
-        if (!stillAllowed) {
-          socket.disconnect(true);
-          return;
-        }
-      } catch (error) {
-        logError("Error re-checking second operator session, disconnecting", error, { userId, socketId: socket.id });
-        // Closing the transport, not disconnecting, so the client reconnects and keeps its token.
-        socket.conn.close();
-        return;
-      }
-    }
-
-    const initialContext = await getUserContext(userId);
-    emitGameStateTo(socket, initialContext.gameState);
-    socket.emit("activeGame", initialContext.gameId);
+    // Every handler below is registered before the first await. Socket.IO discards an
+    // event with no listener, and a reconnecting client flushes its buffer on connect.
+    socket.data.sessionCheck = isOperator ? checkOperatorSession(socket) : Promise.resolve(true);
 
     onSocketEvent(socket, "updateGameState", async (updates: Partial<GameState>) => {
       if (isViewer) {
@@ -1580,6 +1592,25 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       },
     );
 
+    socket.on("disconnect", () => {
+      logger.info({ userId, socketId: socket.id }, "User disconnected from socket");
+    });
+
+    if (!(await socket.data.sessionCheck)) return;
+
+    let initialContext: UserContext;
+    try {
+      initialContext = await getUserContext(userId);
+    } catch (error) {
+      if (!isOperator) throw error;
+      logError("Error loading game for second operator, disconnecting", error, { userId, socketId: socket.id });
+      // Without a game the client would wait forever. Closing the transport makes it reconnect and try again.
+      socket.conn.close();
+      return;
+    }
+    emitGameStateTo(socket, initialContext.gameState);
+    socket.emit("activeGame", initialContext.gameId);
+
     if (isOperator) {
       const [streamDeck, shortcuts] = await Promise.all([
         loadOperatorConfigValue(userId, "streamdeck", STREAMDECK_FILE),
@@ -1587,10 +1618,6 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       ]);
       socket.emit("operatorConfig", { streamDeck, shortcuts });
     }
-
-    socket.on("disconnect", () => {
-      logger.info({ userId, socketId: socket.id }, "User disconnected from socket");
-    });
   });
 
   app.get("/api/shortcuts", authenticateExpress, async (req, res) => {
