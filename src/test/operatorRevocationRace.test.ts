@@ -25,6 +25,7 @@ const gate = vi.hoisted(() => ({
   plans: [] as unknown[],
   calls: 0,
   failGameLoadFor: null as string | null,
+  afterPinHashed: null as (() => void) | null,
 }));
 const captureException = vi.hoisted(() => vi.fn());
 
@@ -32,6 +33,18 @@ vi.mock("@sentry/node", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@sentry/node")>()),
   captureException,
 }));
+
+vi.mock("../server/operatorCredentials.ts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../server/operatorCredentials.ts")>();
+  return {
+    ...actual,
+    hashPin: vi.fn(async (pin: string) => {
+      const hashed = await actual.hashPin(pin);
+      gate.afterPinHashed?.();
+      return hashed;
+    }),
+  };
+});
 
 vi.mock("../db/database.ts", async () => {
   const actual = await vi.importActual<typeof import("../db/database.ts")>("../db/database.ts");
@@ -62,6 +75,7 @@ describe("second operator session races", () => {
     gate.plans = [];
     gate.calls = 0;
     gate.failGameLoadFor = null;
+    gate.afterPinHashed = null;
     captureException.mockClear();
     dataDir = await mkdtemp(path.join(tmpdir(), "scoreboard-race-"));
     server = createScoreboardServer({ dataDir });
@@ -78,16 +92,21 @@ describe("second operator session races", () => {
   const owner = (userId: string, method: string) =>
     fetch(`${baseUrl}/api/operator-access`, { method, headers: { Authorization: `Bearer ${userId}` } });
 
-  const createAccess = async () => {
+  const createAccessWithPin = async () => {
     const userId = newUser();
     const { operatorId, pin } = await (await owner(userId, "POST")).json();
+    return { userId, operatorId: operatorId as string, pin: pin as string };
+  };
+
+  const createAccess = async () => {
+    const { userId, operatorId, pin } = await createAccessWithPin();
     const res = await fetch(`${baseUrl}/api/operator/${operatorId}/session`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pin }),
     });
     const { token } = await res.json();
-    return { userId, operatorId: operatorId as string, token: token as string };
+    return { userId, operatorId, token: token as string };
   };
 
   const readState = async (userId: string) => {
@@ -360,6 +379,36 @@ describe("second operator session races", () => {
     const reported = JSON.stringify(captureException.mock.calls[0][1]);
     expect(reported).not.toContain(operatorId);
     expect(reported).not.toContain(token);
+  });
+
+  it("makes a guess in flight wait, so it can't write the old PIN back over a new one", async () => {
+    const { userId, operatorId, pin } = await createAccessWithPin();
+    const { held, release } = holdNextRead();
+    const guess = fetch(`${baseUrl}/api/operator/${operatorId}/session`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin: pin === "000000" ? "111111" : "000000" }),
+    });
+    await held;
+
+    // The owner's request now goes as far as it can: with the queue it waits behind the
+    // guess, and without it the new PIN is saved before the guess saves its old copy.
+    const hashed = new Promise<void>((resolve) => (gate.afterPinHashed = resolve));
+    const created = owner(userId, "POST");
+    await hashed;
+    await drain();
+
+    release();
+    expect((await guess).status).toBe(401);
+    const { pin: newPin } = await (await created).json();
+    const postPin = (value: string) =>
+      fetch(`${baseUrl}/api/operator/${operatorId}/session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: value }),
+      });
+    if (newPin !== pin) expect((await postPin(pin)).status).toBe(401);
+    expect((await postPin(newPin)).status).toBe(200);
   });
 
   it("keeps a normal operator connected after reading the record twice", async () => {

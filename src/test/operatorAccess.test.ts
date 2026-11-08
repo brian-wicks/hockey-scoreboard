@@ -173,17 +173,6 @@ describe("second operator access", () => {
       expect(statuses.filter((status) => status === 429)).toHaveLength(8);
     });
 
-    it("does not let a guess in flight write the old PIN back over a new one", async () => {
-      const { userId, operatorId, pin } = await createAccess();
-      const [, created] = await Promise.all([postPin(operatorId, wrongPinFor(pin)), owner(userId, "POST")]);
-      const { pin: newPin } = await created.json();
-      if (newPin !== pin) {
-        const oldPinResult = await postPin(operatorId, pin);
-        expect(oldPinResult.status).toBe(401);
-      }
-      expect((await postPin(operatorId, newPin)).status).toBe(200);
-    });
-
     it("limits requests per IP", async () => {
       const { operatorId } = await createAccess();
       for (let i = 0; i < 30; i += 1) {
