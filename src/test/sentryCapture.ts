@@ -5,6 +5,13 @@ import type { AddressInfo } from "net";
 
 let httpServer: HttpServer;
 
+/**
+ * How many of the captured envelopes are error events. The SDK also sends session
+ * counts whenever it detects a release, which it reads from GITHUB_SHA in CI.
+ */
+export const countEvents = (sent: string[]) =>
+  sent.filter((raw) => JSON.parse(raw)[1].some(([header]: [{ type: string }]) => header.type === "event")).length;
+
 export const closeCapture = async () => {
   await new Promise((resolve) => httpServer.close(resolve));
   await Sentry.close();

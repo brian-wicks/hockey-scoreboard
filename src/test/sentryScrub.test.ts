@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it } from "vitest";
 import { scrubBreadcrumb, scrubEvent } from "../../instrument";
-import { captureFromPosts, closeCapture } from "./sentryCapture";
+import { captureFromPosts, closeCapture, countEvents } from "./sentryCapture";
 
 const id = "3f2b8c1e-9a47-4d21-8f6e-0c1d2e3f4a5b";
 
@@ -122,7 +122,7 @@ describe("Sentry scrubbing", () => {
 
     it("sends neither the ID token nor the cookie once scrubbed", async () => {
       const sent = await captureFromPosts(id, { beforeSend: scrubEvent, beforeBreadcrumb: scrubBreadcrumb }, signedIn);
-      expect(sent).toHaveLength(2);
+      expect(countEvents(sent)).toBe(2);
       expect(sent.join()).not.toContain("sdk-id-token");
       expect(sent.join()).not.toContain("sdk-cookie-value");
       expect(sent.join()).toContain("[hidden]");
@@ -135,7 +135,7 @@ describe("Sentry scrubbing", () => {
 
     it("sends neither the PIN nor the link, and keeps other bodies", async () => {
       const sent = await captureFromPosts(id, { beforeSend: scrubEvent, beforeBreadcrumb: scrubBreadcrumb });
-      expect(sent).toHaveLength(2);
+      expect(countEvents(sent)).toBe(2);
       expect(sent.join()).not.toContain("123456");
       expect(sent.join()).not.toContain(id);
       expect(sent.join()).toContain("kept-body");
