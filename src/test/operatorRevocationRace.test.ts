@@ -581,6 +581,54 @@ describe("second operator session races", () => {
       for (const secret of [operatorId, token, pin]) expect(reported).not.toContain(secret);
     });
 
+    describe("when the active game can't be saved as the user's choice", () => {
+      const failSave = () => {
+        gate.beforeActiveGameSaved = async () => {
+          throw new Error("write failed");
+        };
+      };
+
+      const patch = (socket: Socket, gameId: string) =>
+        new Promise((resolve) => socket.emit("applyGamePatch", { opId: randomUUID(), gameId, home: { scoreDelta: 1 } }, resolve));
+
+      const expectGameIsLive = async (ownerSocket: Socket, userId: string, gameId: string, activeGame: Promise<string>) => {
+        expect(await activeGame).toBe(gameId);
+        expect(captureException).toHaveBeenCalledTimes(1);
+        expect(captureException.mock.calls[0][1]).toEqual({ extra: { userId, gameId } });
+        const before = await readScore(userId);
+        expect(await patch(ownerSocket, gameId)).toEqual({ ok: true });
+        expect(await readScore(userId)).toBe(before + 1);
+      };
+
+      it("still starts the new game and acknowledges it", async () => {
+        const userId = newUser();
+        const ownerSocket = await connectOwner(userId);
+        await startNewGame(ownerSocket);
+        failSave();
+        captureException.mockClear();
+        const activeGame = new Promise<string>((resolve) => ownerSocket.once("activeGame", resolve));
+
+        const { gameId } = await startNewGame(ownerSocket);
+
+        await expectGameIsLive(ownerSocket, userId, gameId, activeGame);
+      });
+
+      it("still opens the game and acknowledges it", async () => {
+        const userId = newUser();
+        const ownerSocket = await connectOwner(userId);
+        const { gameId } = await startNewGame(ownerSocket);
+        await startNewGame(ownerSocket);
+        failSave();
+        captureException.mockClear();
+        const activeGame = new Promise<string>((resolve) => ownerSocket.once("activeGame", resolve));
+
+        const result = await new Promise((resolve) => ownerSocket.emit("openGame", gameId, resolve));
+
+        expect(result).toEqual({ ok: true });
+        await expectGameIsLive(ownerSocket, userId, gameId, activeGame);
+      });
+    });
+
     it("still opens the owner's game when the record can't be read", async () => {
       const { userId, ownerSocket, firstGameId, operatorId } = await setupInGame();
       await startNewGame(ownerSocket);

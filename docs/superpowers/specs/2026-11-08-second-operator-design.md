@@ -235,6 +235,7 @@ Export PDF in the event log uses the layout saved in the second operator's own b
 | Change made for a game that is no longer active | Dropped by the server. See "Game scoping" |
 | Owner reloads onto a cached game after it stopped being active | The cached state is only used with its cached game ID, so changes made on it are stamped. The socket flushes them on connect, `activeGame` clears the client's copies, the server drops them and its state resend corrects the screen |
 | Cached state with no cached game ID, such as the first load after this shipped | The cached state is ignored and the normal connecting state shows, because an unstamped change would be accepted |
+| The active game ID can't be saved when the game changes | Logged with the `userId` and game ID. The game still changes, clients are told and the requester gets its ack. A server restart comes back to the previous game |
 | Owner's game changes | The PIN stops working and the second operator is signed out before the new game's state is sent |
 | PIN sent for a game with no PIN yet | 409 and the gate asks for a new PIN. Nothing is counted, and the form stays usable |
 | Database fault while resetting for a new game | Logged with the `userId` only. The second operator is still disconnected and the owner's game still changes. The old PIN and tokens stay valid until the owner creates a new PIN, because they could not be cleared |

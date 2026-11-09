@@ -1375,6 +1375,17 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
   }
 
+  // The game has already changed in memory by now, so the clients still have to hear
+  // about it. Stopping here would leave them stamping the old game, with every change
+  // dropped. A failed write only means a restart comes back to the previous game.
+  async function saveActiveGameId(userId: string, gameId: string) {
+    try {
+      await setUserConfig(userId, "activeGameId", gameId);
+    } catch (error) {
+      logError("Error saving the active game", error, { userId, gameId });
+    }
+  }
+
   // Each game gets its own PIN. Runs while the old game is still live, so no second
   // operator from that game is connected once the new one exists. With no previous
   // game, a PIN set up ahead of the first game carries over to it.
@@ -1575,7 +1586,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         await resetOperatorAccessIfGameChanges(userId, context, gameId);
         context.gameState = gameState;
         context.gameId = gameId;
-        await setUserConfig(userId, "activeGameId", gameId);
+        await saveActiveGameId(userId, gameId);
         emitGameState(userId);
         emitActiveGame(userId, gameId);
         // Acknowledge directly to the requesting client once the new-game broadcast
@@ -1618,7 +1629,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         }
         context.gameState = gameState;
         context.gameId = gameId;
-        await setUserConfig(userId, "activeGameId", gameId);
+        await saveActiveGameId(userId, gameId);
         reconcileRunningClock(userId, context.gameState);
         emitGameState(userId);
         emitActiveGame(userId, gameId);
