@@ -49,7 +49,7 @@ describe("SecondOperatorSection", () => {
 
     expect(await screen.findByText("012345")).toBeInTheDocument();
     expect(screen.getByText(`${window.location.origin}/operate/op-1`)).toBeInTheDocument();
-    expect(screen.getByText(/separately from the link/i)).toBeInTheDocument();
+    expect(screen.getByText(/Send them separately/i)).toBeInTheDocument();
     expect(screen.queryByText(/won't be shown again/i)).not.toBeInTheDocument();
     expect(lastCall()[1].method).toBe("POST");
   });
@@ -64,6 +64,8 @@ describe("SecondOperatorSection", () => {
 
     const link = `${window.location.origin}/operate/op-1`;
     expect(container.querySelector("code")?.textContent).toBe(link);
+    expect(container.querySelector("svg[data-qr-value]")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "QR code for Second operator link" }));
     expect(container.querySelector("svg[data-qr-value]")?.getAttribute("data-qr-value")).toBe(link);
   });
 
@@ -149,6 +151,8 @@ describe("SecondOperatorSection", () => {
       const { container } = await renderNeedingPin();
       const link = `${window.location.origin}/operate/op-1`;
       expect(screen.getByText(link)).toBeInTheDocument();
+      expect(container.querySelector("svg[data-qr-value]")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "QR code for Second operator link" }));
       expect(container.querySelector("svg[data-qr-value]")?.getAttribute("data-qr-value")).toBe(link);
       expect(screen.queryByText(/anyone with this link/i)).not.toBeInTheDocument();
     });

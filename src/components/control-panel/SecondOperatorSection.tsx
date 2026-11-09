@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, Check, Copy, ExternalLink, UserPlus } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
+import { AlertCircle, UserPlus } from "lucide-react";
 import { getBaseUrl, isLocalMode } from "../../lib/localMode";
 import { useStore } from "../../store";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { Button } from "./ui/primitives";
+import ShareLinkRow from "./ShareLinkRow";
 
 const CHANGE_ERROR = "Couldn't update second operator access. Check your connection and try again.";
 const LOAD_ERROR = "Couldn't load second operator access. Check your connection and reopen this window.";
@@ -19,7 +19,6 @@ export default function SecondOperatorSection() {
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<"new-pin" | "remove" | null>(null);
-  const [copied, setCopied] = useState(false);
 
   const request = async (method: "GET" | "POST" | "DELETE") => {
     const { user } = useStore.getState();
@@ -88,13 +87,6 @@ export default function SecondOperatorSection() {
   const link = operatorId ? `${window.location.origin}/operate/${operatorId}` : null;
   const showNoPin = needsPin && !pin;
 
-  const copyLink = () => {
-    if (!link) return;
-    void navigator.clipboard.writeText(link);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   return (
     <section className="mt-6 pt-6 border-t border-line space-y-4">
       <div>
@@ -103,7 +95,7 @@ export default function SecondOperatorSection() {
           {showNoPin
             ? "This game has no PIN yet. Create one and give it to the second operator."
             : link
-              ? "Anyone with this link and the PIN can change the live game from the Controls and Deck tabs."
+              ? "Anyone with the link and PIN can change the live game. Send them separately."
               : loaded
                 ? "Give one other person the Controls and Deck tabs for your live game. They need a link and a PIN."
                 : error
@@ -127,46 +119,18 @@ export default function SecondOperatorSection() {
       )}
       {link && (
         <>
-          <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
-            <div className="bg-white p-2 rounded-sm self-center shrink-0">
-              <QRCodeSVG value={link} size={110} level="M" includeMargin={false} />
+          <ShareLinkRow label="Second operator link" url={link} />
+          {pin && (
+            <div className="flex items-baseline gap-3 px-3">
+              <span className="text-sm font-semibold text-ink">PIN</span>
+              <span className="text-2xl font-semibold text-ink tabular-nums tracking-widest">{pin}</span>
             </div>
-            <div className="flex-1 min-w-0 space-y-3">
-              <div className="flex items-start gap-2 bg-canvas border border-line rounded-sm px-2.5 py-2">
-                <code className="text-xs text-muted break-all flex-1 tabular-nums leading-relaxed">{link}</code>
-                <button
-                  onClick={copyLink}
-                  className="text-muted hover:text-ink transition-colors p-1 shrink-0"
-                  title="Copy link"
-                >
-                  {copied ? <Check size={14} className="text-ink" /> : <Copy size={14} />}
-                </button>
-                <a
-                  href={link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-muted hover:text-ink transition-colors p-1 shrink-0"
-                  title="Open in new tab"
-                >
-                  <ExternalLink size={14} />
-                </a>
-              </div>
-              {pin && (
-                <div className="bg-surface border border-ink rounded-sm p-3">
-                  <p className="text-xs font-semibold text-ink">PIN</p>
-                  <p className="text-3xl font-semibold text-ink tabular-nums tracking-widest">{pin}</p>
-                  <p className="text-xs text-muted mt-1">
-                    Give the PIN to them separately from the link.
-                  </p>
-                </div>
-              )}
-              {!pin && !needsPin && (
-                <p className="text-sm text-muted">
-                  This PIN can't be shown because it was created before PINs were saved here. Create a new one to see it.
-                </p>
-              )}
-            </div>
-          </div>
+          )}
+          {!pin && !needsPin && (
+            <p className="text-sm text-muted">
+              This PIN can't be shown because it was created before PINs were saved here. Create a new one to see it.
+            </p>
+          )}
 
           <div className="flex flex-wrap gap-2">
             {/* With no PIN, nobody can be signed in, so there's nothing to confirm. */}

@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { Share2, Copy, Check, ExternalLink, X, QrCode, AlertTriangle } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
+import { Share2, X } from "lucide-react";
 import { useStore } from "../../store";
 import { getBaseUrl } from "../../lib/localMode";
 import { isValidShareName, normalizeShareName } from "../../lib/shareNames";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { Button, inputClass } from "./ui/primitives";
+import ShareLinkRow from "./ShareLinkRow";
 import SecondOperatorSection from "./SecondOperatorSection";
 
 const RANDOM_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -26,7 +26,6 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
   const [nameError, setNameError] = useState<string | null>(null);
   const [isConfirmingName, setIsConfirmingName] = useState(false);
   const [isGeneratingShare, setIsGeneratingShare] = useState(false);
-  const [copiedLink, setCopiedLink] = useState<string | null>(null);
   const hasLoadedShareRef = useRef(false);
 
   // @ts-ignore
@@ -126,9 +125,20 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
 
   const nameField = (
     <div className="text-left">
-      <label htmlFor="share-link-name" className="text-sm font-semibold text-ink">
-        Link name
-      </label>
+      <div className="flex items-center justify-between gap-3">
+        <label htmlFor="share-link-name" className="text-sm font-semibold text-ink">
+          Link name
+        </label>
+        {shareId && (
+          <button
+            onClick={handleGenerateShare}
+            disabled={isGeneratingShare}
+            className="text-xs text-muted hover:text-ink underline transition-colors decoration-zinc-700 underline-offset-4"
+          >
+            Replace with new links
+          </button>
+        )}
+      </div>
       <div className="flex flex-wrap items-center gap-2 mt-1">
         <input
           id="share-link-name"
@@ -151,17 +161,10 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
       </div>
       {nameError && <p className="text-sm text-danger mt-1">{nameError}</p>}
       <p className="text-xs text-muted mt-1">
-        Optional. Anyone who guesses the name can view these screens, but can't change anything.
+        Optional. Anyone who guesses the name can view these screens.
       </p>
     </div>
   );
-
-  const handleCopyLink = (path: string) => {
-    const fullUrl = `${window.location.origin}${path}`;
-    navigator.clipboard.writeText(fullUrl);
-    setCopiedLink(path);
-    setTimeout(() => setCopiedLink(null), 2000);
-  };
 
   useEffect(() => {
     if (isOpen && !hasLoadedShareRef.current) {
@@ -196,105 +199,42 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
         </div>
 
         <div className="p-4 sm:p-6">
-          {!shareId ? (
-            <div className="py-12 text-center space-y-4">
-              <div className="w-16 h-16 bg-surface rounded-full flex items-center justify-center mx-auto">
-                <Share2 size={32} className="text-ink" />
+          <section className="space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-ink">Viewer links</h3>
+              <p className="text-sm text-muted mt-1">
+                {shareId
+                  ? "Anyone with a link can view these screens, but can't change anything."
+                  : "No share links yet."}
+              </p>
+            </div>
+
+            {shareId && (
+              <div className="space-y-2">
+                {[
+                  { label: "Overlay", path: `/share/${shareId}/overlay` },
+                  { label: "Jumbotron", path: `/share/${shareId}/jumbotron` },
+                  { label: "Pre-show", path: `/share/${shareId}/preshow` },
+                  { label: "Results", path: `/share/${shareId}/results` },
+                ].map((link) => (
+                  <ShareLinkRow key={link.path} label={link.label} url={`${window.location.origin}${link.path}`} />
+                ))}
               </div>
-              <div className="max-w-xs mx-auto">
-                <p className="text-ink font-semibold">No share links yet.</p>
-                <p className="text-sm text-muted mt-1">Create a link so other people can follow the game.</p>
-              </div>
-              <div className="max-w-sm mx-auto">{nameField}</div>
-              <Button
-                onClick={createLinks}
-                disabled={isGeneratingShare}
-                variant="primary"
-                className="mt-4 px-6 py-2.5 mx-auto"
-              >
+            )}
+
+            {nameField}
+
+            {!shareId && (
+              <Button onClick={createLinks} disabled={isGeneratingShare} variant="primary">
                 {isGeneratingShare ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : (
-                  <Share2 size={18} />
+                  <Share2 size={16} />
                 )}
                 Create share links
               </Button>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="bg-surface border border-ink rounded-sm p-4 flex gap-3">
-                <div className="text-ink pt-0.5">
-                  <AlertTriangle size={18} />
-                </div>
-                <p className="text-sm text-ink/80 leading-relaxed">
-                  Anyone with these links can see the scoreboard and jumbotron without signing in. They <span className="text-ink font-semibold underline decoration-amber-400/30">can't</span> control the game or change settings.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {[
-                  { label: "Overlay", path: `/share/${shareId}/overlay`, desc: "Add as a browser source in OBS" },
-                  { label: "Jumbotron", path: `/share/${shareId}/jumbotron`, desc: "Full-screen display for the rink" },
-                  { label: "Pre-show", path: `/share/${shareId}/preshow`, desc: "Add as a browser source for before the game" },
-                  { label: "Results", path: `/share/${shareId}/results`, desc: "Add as a browser source for after the game" },
-                ].map((link) => (
-                  <div key={link.path} className="group bg-canvas border border-line hover:border-ink rounded-sm p-4 flex flex-col gap-3 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-ink">{link.label}</span>
-                      <a
-                        href={link.path}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-muted hover:text-ink transition-colors"
-                        title="Open in new tab"
-                      >
-                        <ExternalLink size={16} />
-                      </a>
-                    </div>
-                    
-                    <p className="text-xs text-muted -mt-2">{link.desc}</p>
-
-                    <div className="flex justify-center py-2">
-                      <div className="bg-white p-2 rounded-sm shadow-white/5 transition-transform group-hover:scale-105">
-                        <QRCodeSVG 
-                          value={`${window.location.origin}${link.path}`}
-                          size={110}
-                          level="M"
-                          includeMargin={false}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-2 bg-canvas border border-line rounded-sm px-2.5 py-2">
-                      <code className="text-xs text-muted break-all flex-1 tabular-nums leading-relaxed">
-                        {window.location.origin}{link.path}
-                      </code>
-                      <button
-                        onClick={() => handleCopyLink(link.path)}
-                        className="text-muted hover:text-ink transition-colors p-1 shrink-0"
-                        title="Copy to clipboard"
-                      >
-                        {copiedLink === link.path ? <Check size={14} className="text-ink" /> : <Copy size={14} />}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {nameField}
-
-              <div className="pt-4 flex items-center justify-between border-t border-line">
-                <p className="text-xs text-muted">Share ID: <span className="tabular-nums text-muted">{shareId}</span></p>
-                <button
-                  onClick={handleGenerateShare}
-                  disabled={isGeneratingShare}
-                  className="text-xs text-muted hover:text-ink underline transition-colors decoration-zinc-700 underline-offset-4"
-                >
-                  Replace with new links
-                </button>
-              </div>
-            </div>
-          )}
+            )}
+          </section>
 
           <SecondOperatorSection />
         </div>

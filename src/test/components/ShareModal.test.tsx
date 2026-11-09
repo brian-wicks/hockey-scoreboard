@@ -9,6 +9,7 @@ vi.mock("../../store", () => ({
   },
 }));
 
+vi.mock("qrcode.react", () => ({ QRCodeSVG: ({ value }: { value: string }) => <svg data-qr-value={value} /> }));
 vi.mock("../../components/control-panel/SecondOperatorSection", () => ({
   default: () => <div>Second operator section</div>,
 }));
@@ -63,7 +64,7 @@ describe("ShareModal Component", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Overlay")).toBeInTheDocument();
-      expect(screen.getByText("new-share-id")).toBeInTheDocument();
+      expect(screen.getByText(`${window.location.origin}/share/new-share-id/overlay`)).toBeInTheDocument();
     });
   });
 
@@ -78,7 +79,7 @@ describe("ShareModal Component", () => {
     render(<ShareModal isOpen={true} onClose={mockOnClose} />);
 
     await waitFor(() => {
-      expect(screen.getByText("existing-id")).toBeInTheDocument();
+      expect(screen.getByText(`${window.location.origin}/share/existing-id/overlay`)).toBeInTheDocument();
     });
   });
 
@@ -106,7 +107,7 @@ describe("ShareModal Component", () => {
       vi.mocked(useStore.getState).mockReturnValue({ user: mockUser } as any);
       fetchMock().mockResolvedValueOnce(respond(200, { shareId }));
       render(<ShareModal isOpen={true} onClose={mockOnClose} />);
-      if (shareId) await screen.findByText(shareId);
+      if (shareId) await screen.findByText(`${window.location.origin}/share/${shareId}/overlay`);
     };
     const nameBox = () => screen.getByLabelText("Link name");
 
@@ -124,7 +125,7 @@ describe("ShareModal Component", () => {
       await openWith(null);
       fetchMock().mockResolvedValueOnce(respond(200, { shareId: UUID }));
       fireEvent.click(screen.getByText("Create share links"));
-      await screen.findByText(UUID);
+      await screen.findByText(`${window.location.origin}/share/${UUID}/overlay`);
       expect(posts()[0][1]!.body).toBeUndefined();
     });
 
@@ -210,6 +211,51 @@ describe("ShareModal Component", () => {
     });
   });
 
+  describe("layout", () => {
+    const openWithLinks = async () => {
+      vi.mocked(useStore.getState).mockReturnValue({ user: mockUser } as any);
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ shareId: "test-id" }),
+      } as any);
+      const view = render(<ShareModal isOpen={true} onClose={mockOnClose} />);
+      await screen.findByText("Overlay");
+      return view;
+    };
+
+    it("hides QR codes until asked for", async () => {
+      const { container } = await openWithLinks();
+      expect(container.querySelector("svg[data-qr-value]")).toBeNull();
+    });
+
+    it("shows and hides one link's QR code", async () => {
+      const { container } = await openWithLinks();
+      const toggle = screen.getByRole("button", { name: "QR code for Results" });
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+      fireEvent.click(toggle);
+      const codes = container.querySelectorAll("svg[data-qr-value]");
+      expect(codes).toHaveLength(1);
+      expect(codes[0].getAttribute("data-qr-value")).toBe(`${window.location.origin}/share/test-id/results`);
+      expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+      fireEvent.click(toggle);
+      expect(container.querySelector("svg[data-qr-value]")).toBeNull();
+    });
+
+    it("explains the links in one line, without a warning box or separate ID", async () => {
+      await openWithLinks();
+      expect(screen.getByText(/can view these screens, but can't change anything/)).toBeInTheDocument();
+      expect(screen.queryByText(/^Share ID/)).not.toBeInTheDocument();
+      expect(screen.queryByText("Full-screen display for the rink")).not.toBeInTheDocument();
+    });
+
+    it("still offers replacing the links", async () => {
+      await openWithLinks();
+      expect(screen.getByRole("button", { name: "Replace with new links" })).toBeInTheDocument();
+    });
+  });
+
   it("offers a results share link", async () => {
     vi.mocked(useStore.getState).mockReturnValue({ user: mockUser } as any);
     vi.mocked(global.fetch).mockResolvedValueOnce({
@@ -246,13 +292,13 @@ describe("ShareModal Component", () => {
     render(<ShareModal isOpen={true} onClose={mockOnClose} />);
 
     await waitFor(() => {
-      expect(screen.getByText("test-id")).toBeInTheDocument();
+      expect(screen.getByText(`${window.location.origin}/share/test-id/overlay`)).toBeInTheDocument();
     });
 
-    const copyButtons = screen.getAllByTitle("Copy to clipboard");
+    const copyButtons = screen.getAllByTitle("Copy link");
     fireEvent.click(copyButtons[0]);
 
-    expect(navigator.clipboard.writeText).toHaveBeenCalled();
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(`${window.location.origin}/share/test-id/overlay`);
   });
 
   it("shows the second operator section with or without viewer links", async () => {
@@ -267,7 +313,7 @@ describe("ShareModal Component", () => {
       json: () => Promise.resolve({ shareId: "existing-id" }),
     } as any);
     render(<ShareModal isOpen={true} onClose={mockOnClose} />);
-    await screen.findByText("existing-id");
+    await screen.findByText(`${window.location.origin}/share/existing-id/overlay`);
     expect(screen.getByText("Second operator section")).toBeInTheDocument();
   });
 

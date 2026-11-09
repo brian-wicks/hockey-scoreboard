@@ -11,6 +11,29 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.15.0',
+    date: '2026-11-09',
+    sections: {
+      added: [
+        'Add second operator access. Share a link and PIN from the share sheet to give one other person the Controls and Deck tabs for the live game.',
+        'Add a pre-show screen for the livestream, showing the two teams and each team\'s roster with C, A and NM tags.',
+        'Add share links for the pre-show and results screens.',
+        'Add custom name to share links.',
+      ],
+      changed: [
+        'Failed share links now use the same look as the rest of the app.',
+        'Tidy the share screen.',
+      ],
+      fixed: [
+        'Fix changes made during a dropped connection landing in a different game if the game changed in the meantime.',
+        'Fix Undo reversing a change from the previous game after the game was changed on another device.',
+      ],
+      removed: [
+        'Remove the read-only control panel share link. Old links now show a message saying the link is no longer available.',
+      ],
+    },
+  },
+  {
     version: '1.14.2',
     date: '2026-11-05',
     sections: {
