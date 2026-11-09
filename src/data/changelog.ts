@@ -11,6 +11,15 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.15.1',
+    date: '2026-11-09',
+    sections: {
+      fixed: [
+        'Fix the gamesheet preview still building after you leave its screen.',
+      ],
+    },
+  },
+  {
     version: '1.15.0',
     date: '2026-11-09',
     sections: {
