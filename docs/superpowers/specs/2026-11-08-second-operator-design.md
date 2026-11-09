@@ -87,7 +87,7 @@ This applies to the owner and the second operator alike, and covers events buffe
 
 A dropped patch is acknowledged with `{ ok: false }`, and the sender alone is sent the current `gameState`, because it has already shown the change and no broadcast would replace it. Clock events have no ack and change nothing on the client until the server responds, so they just return.
 
-A missing `gameId` is accepted, so a browser tab still open across a deploy keeps working. A non-object or malformed scope counts as no scope. `gameId` never reaches game state: `sanitizeGamePatch` leaves out the top-level value and removes one sent inside `fields`.
+A missing `gameId` is accepted, so a browser tab still open across a deploy keeps working. A page load never relies on this: `ensureInitialized` uses the owner's cached state only together with the cached game ID, and seeds `activeGameId` from it. A non-object or malformed scope counts as no scope. `gameId` never reaches game state: `sanitizeGamePatch` leaves out the top-level value and removes one sent inside `fields`.
 
 `updateGameState` isn't scoped. Second operators are refused it, and no client code sends it today.
 
@@ -213,7 +213,7 @@ New actions: `submitOperatorPin(pin)` and `connectOperator(operatorId, token)`. 
 
 The token is kept in `sessionStorage` under a key that includes the `operatorId`. A reload stays signed in, and closing the tab means entering the PIN again.
 
-`connect` and `connectOperator` share their `gameState` handling and in-transit change tracking through one extracted helper, so a second operator on a poor connection gets the same behaviour as the owner. Only `connect` touches the local game state cache, so a second operator on a shared computer cannot overwrite a cached game.
+`connect` and `connectOperator` share their `gameState` handling and in-transit change tracking through one extracted helper, so a second operator on a poor connection gets the same behaviour as the owner. Only `connect` touches the local game state cache and the cached active game ID, kept under a separate key and removed when the server reports no active game, so a second operator on a shared computer cannot overwrite either. Logout leaves both in place. If another account then signs in on that browser, a change stamped with the previous account's game is dropped by the server.
 
 Export PDF in the event log uses the layout saved in the second operator's own browser, or the default layout, because `loadPdfLayout` does not read the owner's account.
 
@@ -233,6 +233,8 @@ Export PDF in the event log uses the layout saved in the second operator's own b
 | Server restart | Tokens and lockouts persist in the database, so the second operator reconnects without the PIN |
 | Server disconnects the socket on revocation | Socket.IO does not reconnect after a server-side disconnect, so the client treats this reason as a session end and shows the PIN screen |
 | Change made for a game that is no longer active | Dropped by the server. See "Game scoping" |
+| Owner reloads onto a cached game after it stopped being active | The cached state is only used with its cached game ID, so changes made on it are stamped. The socket flushes them on connect, `activeGame` clears the client's copies, the server drops them and its state resend corrects the screen |
+| Cached state with no cached game ID, such as the first load after this shipped | The cached state is ignored and the normal connecting state shows, because an unstamped change would be accepted |
 | Owner's game changes | The PIN stops working and the second operator is signed out before the new game's state is sent |
 | PIN sent for a game with no PIN yet | 409 and the gate asks for a new PIN. Nothing is counted, and the form stays usable |
 | Database fault while resetting for a new game | Logged with the `userId` only. The second operator is still disconnected and the owner's game still changes. The old PIN and tokens stay valid until the owner creates a new PIN, because they could not be cleared |

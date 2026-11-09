@@ -334,6 +334,7 @@ describe("store", () => {
 
   it("hydrates from cached state before socket updates arrive", async () => {
     localStorage.setItem("scoreboard:gameStateCache:v1", JSON.stringify({ ...baseState, period: "cached" }));
+    localStorage.setItem("scoreboard:activeGameIdCache:v1", "cached-game");
     const fetchMock = vi.fn().mockResolvedValue({ json: () => Promise.resolve([]) });
     vi.stubGlobal("fetch", fetchMock);
     const { useStore } = await import("../store");
@@ -511,6 +512,102 @@ describe("store", () => {
     // splice an unrelated game's team/event data back into the just-opened game.
     expect(useStore.getState().undoStack).toEqual([]);
     expect(useStore.getState().gameState?.homeTeam.score).toBe(9);
+  });
+
+  describe("reloading onto a cached game", () => {
+    const STATE_KEY = "scoreboard:gameStateCache:v1";
+    const GAME_KEY = "scoreboard:activeGameIdCache:v1";
+    const cachedScore = 5;
+
+    const reload = async ({ gameId }: { gameId?: string }) => {
+      localStorage.setItem(
+        STATE_KEY,
+        JSON.stringify({ ...baseState, homeTeam: { ...baseState.homeTeam, score: cachedScore } }),
+      );
+      if (gameId) localStorage.setItem(GAME_KEY, gameId);
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ json: () => Promise.resolve([]) }));
+      const { useStore } = await import("../store");
+      useStore.setState({ user: mockUser as any });
+      useStore.getState().ensureInitialized();
+      socketMock.emit.mockClear();
+      return useStore;
+    };
+
+    const scoreGoal = (useStore: Awaited<ReturnType<typeof reload>>) =>
+      useStore.getState().updateState({
+        homeTeam: { ...useStore.getState().gameState!.homeTeam, score: useStore.getState().gameState!.homeTeam.score + 1 },
+      });
+
+    it("shows the cached game and stamps a change and a clock event with its ID", async () => {
+      const useStore = await reload({ gameId: "game-a" });
+      expect(useStore.getState().gameState?.homeTeam.score).toBe(cachedScore);
+      expect(useStore.getState().activeGameId).toBe("game-a");
+
+      scoreGoal(useStore);
+      useStore.getState().setClock(5000);
+
+      expect(socketMock.emit.mock.calls[0][0]).toBe("applyGamePatch");
+      expect(socketMock.emit.mock.calls[0][1].gameId).toBe("game-a");
+      expect(socketMock.emit.mock.calls[1]).toEqual(["setClock", 5000, { gameId: "game-a" }]);
+    });
+
+    it("ignores a cached state that has no game ID and waits for the server", async () => {
+      const useStore = await reload({});
+      expect(useStore.getState().gameState).toBeNull();
+      expect(useStore.getState().activeGameId).toBeUndefined();
+
+      useStore.getState().updateState({ period: "2nd" });
+      expect(socketMock.emit).not.toHaveBeenCalledWith("applyGamePatch", expect.anything(), expect.anything());
+    });
+
+    it("drops changes made on the cached game when the server is on another one", async () => {
+      const useStore = await reload({ gameId: "game-a" });
+      scoreGoal(useStore);
+      expect(useStore.getState().pendingPatches).toHaveLength(1);
+      expect(useStore.getState().undoStack).toHaveLength(1);
+
+      listeners.get("activeGame")?.("game-b");
+
+      expect(useStore.getState().activeGameId).toBe("game-b");
+      expect(useStore.getState().pendingPatches).toEqual([]);
+      expect(useStore.getState().undoStack).toEqual([]);
+    });
+
+    it("keeps changes made on the cached game when the server is still on it", async () => {
+      const useStore = await reload({ gameId: "game-a" });
+      scoreGoal(useStore);
+      listeners.get("activeGame")?.("game-a");
+      expect(useStore.getState().pendingPatches).toHaveLength(1);
+      expect(useStore.getState().undoStack).toHaveLength(1);
+    });
+
+    it("saves the owner's active game, and removes it when there is none", async () => {
+      const { useStore } = await import("../store");
+      useStore.setState({ user: mockUser as any });
+      await useStore.getState().connect();
+
+      listeners.get("activeGame")?.("game-a");
+      expect(localStorage.getItem(GAME_KEY)).toBe("game-a");
+      listeners.get("activeGame")?.("game-b");
+      expect(localStorage.getItem(GAME_KEY)).toBe("game-b");
+      listeners.get("activeGame")?.(null);
+      expect(localStorage.getItem(GAME_KEY)).toBeNull();
+    });
+
+    it("leaves the saved game ID alone on logout, and a new sign-in replaces it", async () => {
+      const useStore = await reload({ gameId: "game-a" });
+      await useStore.getState().logout();
+      expect(useStore.getState().activeGameId).toBeUndefined();
+      expect(localStorage.getItem(GAME_KEY)).toBe("game-a");
+
+      useStore.setState({ user: { ...mockUser, uid: "another-user" } as any });
+      useStore.getState().ensureInitialized();
+      expect(useStore.getState().activeGameId).toBe("game-a");
+
+      listeners.get("activeGame")?.(null);
+      expect(useStore.getState().activeGameId).toBeNull();
+      expect(localStorage.getItem(GAME_KEY)).toBeNull();
+    });
   });
 
   describe("changes scoped to a game", () => {
@@ -870,6 +967,22 @@ describe("store", () => {
       await useStore.getState().submitOperatorPin("123456");
       expect(useStore.getState().operatorAuth).toEqual({ status: "no-pin" });
       expect(sessionStorage.getItem(tokenKey)).toBeNull();
+    });
+
+    it("neither reads nor writes the owner's cached game ID", async () => {
+      const gameKey = "scoreboard:activeGameIdCache:v1";
+      localStorage.setItem(gameKey, "owners-game");
+      localStorage.setItem("scoreboard:gameStateCache:v1", '{"period":"owner"}');
+      sessionStorage.setItem(tokenKey, "good");
+      const { useStore } = await import("../store");
+      useStore.getState().ensureInitialized();
+      expect(useStore.getState().activeGameId).toBeUndefined();
+      expect(useStore.getState().gameState).toBeNull();
+
+      listeners.get("activeGame")?.("game-1");
+      expect(localStorage.getItem(gameKey)).toBe("owners-game");
+      listeners.get("activeGame")?.(null);
+      expect(localStorage.getItem(gameKey)).toBe("owners-game");
     });
 
     it("clears undo and pending patches when the owner switches games", async () => {

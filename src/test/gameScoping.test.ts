@@ -7,6 +7,8 @@ import path from "path";
 import { io as createClient, type Socket } from "socket.io-client";
 import { createScoreboardServer } from "../../serverApp";
 
+vi.mock("../lib/firebase", () => ({ auth: null, googleProvider: {} }));
+vi.mock("firebase/auth", () => ({ signInWithPopup: vi.fn(), signOut: vi.fn() }));
 vi.mock("firebase-admin/app", () => ({ initializeApp: vi.fn(), cert: vi.fn() }));
 vi.mock("firebase-admin/auth", () => ({
   getAuth: vi.fn(() => ({
@@ -249,6 +251,91 @@ describe("changes scoped to a game", () => {
       const state = await read();
       expect(state.homeTeam.score).toBe(0);
       expect(state.clock.timeRemaining).not.toBe(12_345);
+    });
+  });
+
+  it("drops a stamped change from another account", async () => {
+    const first = await setupOwner();
+    const second = await setupOwner();
+    expect(await sendPatch(second.owner, { opId: "x", gameId: first.gameId, home: { scoreDelta: 1 } })).toEqual({ ok: false });
+    expect((await first.read()).homeTeam.score).toBe(0);
+    expect((await second.read()).homeTeam.score).toBe(0);
+  });
+
+  describe("the real store, reloaded onto a cached game", () => {
+    // The store runs here in Node with browser globals stubbed, talking to the real
+    // server through the real socket.io client. Its first socket isn't connected yet
+    // when ensureInitialized returns, so anything done straight away gets buffered.
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    });
+
+    const loadStore = async (cache: Map<string, string>) => {
+      vi.stubGlobal("window", { location: { origin: "http://page.invalid", pathname: "/", search: "" } });
+      vi.stubGlobal("localStorage", {
+        getItem: (key: string) => cache.get(key) ?? null,
+        setItem: (key: string, value: string) => void cache.set(key, value),
+        removeItem: (key: string) => void cache.delete(key),
+      });
+      vi.stubEnv("VITE_BASE_URL", baseUrl);
+      vi.resetModules();
+      return (await import("../store")).useStore;
+    };
+
+    it("sends a click on game A, leaves game B alone and corrects the screen", async () => {
+      const { userId, owner, gameId: gameA, read: readAtStart } = await setupOwner();
+      await sendPatch(owner, { opId: "a-goal", gameId: gameA, home: { scoreDelta: 1 } });
+      const cachedGameA = await readAtStart();
+      expect(cachedGameA.homeTeam.score).toBe(1);
+
+      // Another device moves the owner on to game B while this laptop is away.
+      const gameB = await startNewGame(owner);
+      owner.emit("setClock", 300_000, { gameId: gameB });
+      await settled(owner);
+      owner.close();
+
+      const cache = new Map([
+        ["scoreboard:gameStateCache:v1", JSON.stringify(cachedGameA)],
+        ["scoreboard:activeGameIdCache:v1", gameA],
+      ]);
+      const useStore = await loadStore(cache);
+      const user = { uid: userId, getIdToken: async () => userId };
+      useStore.setState({ user: user as never });
+      useStore.getState().ensureInitialized();
+
+      // The screen shows game A with the socket still connecting, and the operator acts on it.
+      const { gameState, activeGameId, socket } = useStore.getState();
+      expect(activeGameId).toBe(gameA);
+      expect(gameState?.homeTeam.score).toBe(1);
+      expect(socket?.connected).toBe(false);
+      useStore.getState().setClock(12_345);
+      useStore.getState().updateState({ homeTeam: { ...gameState!.homeTeam, score: 2 } });
+      expect(useStore.getState().gameState?.homeTeam.score).toBe(2);
+
+      // Done means the live game on screen and in the cache, with nothing left to replay.
+      await new Promise<void>((resolve) => {
+        const check = () => {
+          const state = useStore.getState();
+          if (state.activeGameId === gameB && state.gameState?.homeTeam.score === 0 && state.pendingPatches.length === 0) {
+            unsubscribe();
+            resolve();
+          }
+        };
+        const unsubscribe = useStore.subscribe(check);
+        check();
+      });
+
+      expect(useStore.getState().undoStack).toEqual([]);
+      expect(cache.get("scoreboard:activeGameIdCache:v1")).toBe(gameB);
+      expect(JSON.parse(cache.get("scoreboard:gameStateCache:v1")!).homeTeam.score).toBe(0);
+      expect(useStore.getState().gameState?.clock.timeRemaining).toBe(300_000);
+
+      useStore.getState().socket?.close();
+      const liveState = await readAtStart();
+      expect(liveState.homeTeam.score).toBe(0);
+      expect(liveState.clock.timeRemaining).toBe(300_000);
     });
   });
 });

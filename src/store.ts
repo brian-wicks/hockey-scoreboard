@@ -409,6 +409,7 @@ const defaultStreamDeckConfig: StreamDeckConfig = {
 
 let hasInitialized = false;
 const STATE_CACHE_KEY = "scoreboard:gameStateCache:v1";
+const ACTIVE_GAME_CACHE_KEY = "scoreboard:activeGameIdCache:v1";
 export const MAX_UNDO_STEPS = 20;
 
 // Long enough for a very slow connection, short enough that a change the server never
@@ -443,6 +444,7 @@ const receiveActiveGame = (
   get: () => StoreState,
   set: (partial: Partial<StoreState>) => void,
 ) => {
+  if (!get().isOperator) saveCachedGameId(gameId);
   const previous = get().activeGameId;
   if (previous !== undefined && previous !== gameId) {
     // These were worked out against the old game, and undoing or replaying them would change the new one.
@@ -467,6 +469,23 @@ const loadCachedState = (): GameState | null => {
 const saveCachedState = (state: GameState) => {
   try {
     localStorage.setItem(STATE_CACHE_KEY, JSON.stringify(state));
+  } catch {
+    // ignore cache failures
+  }
+};
+
+const loadCachedGameId = (): string | null => {
+  try {
+    return localStorage.getItem(ACTIVE_GAME_CACHE_KEY);
+  } catch {
+    return null;
+  }
+};
+
+const saveCachedGameId = (gameId: string | null) => {
+  try {
+    if (gameId === null) localStorage.removeItem(ACTIVE_GAME_CACHE_KEY);
+    else localStorage.setItem(ACTIVE_GAME_CACHE_KEY, gameId);
   } catch {
     // ignore cache failures
   }
@@ -999,9 +1018,12 @@ export const useStore = create<StoreState>((set, get) => ({
     
     hasInitialized = true;
     if (!get().gameState) {
-      const cached = loadCachedState();
+      // A cached game is only live on screen along with its ID, because a change made
+      // on it with no ID would be accepted by whichever game the server has moved on to.
+      const cachedGameId = loadCachedGameId();
+      const cached = cachedGameId ? loadCachedState() : null;
       if (cached) {
-        set({ gameState: cached });
+        set({ gameState: cached, activeGameId: cachedGameId });
       }
     }
     get().connect();
