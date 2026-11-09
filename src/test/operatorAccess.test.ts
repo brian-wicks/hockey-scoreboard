@@ -492,6 +492,33 @@ describe("second operator access", () => {
         expect((await postPin(other.operatorId, other.pin)).status).toBe(200);
       });
 
+      const deleteGame = (userId: string, gameId: string) =>
+        fetch(`${baseUrl}/api/games/${gameId}`, { method: "DELETE", headers: { Authorization: `Bearer ${userId}` } });
+
+      it("ends the PIN and every session when the owner deletes the active game", async () => {
+        const { userId, gameIds, operatorId, pin, token, ended } = await setupInGame();
+        expect((await deleteGame(userId, gameIds[0])).status).toBe(200);
+        expect(await ended).toBe("io server disconnect");
+        await expectNoPinUntilANewOneIsCreated(userId, operatorId, pin, token);
+      });
+
+      it("changes nothing when the owner deletes a different game", async () => {
+        const { userId, gameIds, operatorId, pin, operator } = await setupInGame(2);
+        expect((await deleteGame(userId, gameIds[0])).status).toBe(200);
+        expect(operator.connected).toBe(true);
+        expect(await (await owner(userId, "GET")).json()).toEqual({ operatorId, needsPin: false });
+        expect((await postPin(operatorId, pin)).status).toBe(200);
+      });
+
+      it("changes nothing when someone else's game ID is the one deleted", async () => {
+        const other = await setupInGame();
+        const { userId, operatorId, pin, operator } = await setupInGame();
+        expect((await deleteGame(userId, other.gameIds[0])).status).toBe(200);
+        expect(operator.connected).toBe(true);
+        expect(other.operator.connected).toBe(true);
+        expect((await postPin(operatorId, pin)).status).toBe(200);
+      });
+
       it("does nothing for an owner with no second operator", async () => {
         const userId = newUser();
         const ownerSocket = await connectWith({ token: userId });

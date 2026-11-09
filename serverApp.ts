@@ -2028,7 +2028,17 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
 
   app.delete<{ id: string }>("/api/games/:id", authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
+    // Read before the delete, since a context loaded afterwards wouldn't find the game.
+    let isActiveGame = false;
+    try {
+      isActiveGame = (await getUserContext(userId)).gameId === req.params.id;
+    } catch (error) {
+      logError("Error reading the active game before deleting a game", error, { userId });
+    }
     await deleteSavedGame(req.params.id, userId);
+    // After a restart this user has no previous game, so the next one would keep the PIN.
+    // resetForNewGame only logs a failure, so the delete still succeeds.
+    if (isActiveGame) await operatorAccess.resetForNewGame(userId);
     res.json({ success: true });
   });
 

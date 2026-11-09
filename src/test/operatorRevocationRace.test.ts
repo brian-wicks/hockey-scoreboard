@@ -629,6 +629,31 @@ describe("second operator session races", () => {
       });
     });
 
+    it("still deletes the active game when the reset can't be saved", async () => {
+      const { userId, ownerSocket, firstGameId, operatorId, token } = await setupInGame();
+      const operator = startOperatorAndRecord(operatorId, token);
+      await new Promise((resolve) => operator.socket.once("operatorConfig", resolve));
+      captureException.mockClear();
+      gate.writePlans.push(async () => {
+        throw new Error("write failed");
+      });
+
+      const res = await fetch(`${baseUrl}/api/games/${firstGameId}`, { method: "DELETE", headers: { Authorization: `Bearer ${userId}` } });
+
+      expect(res.status).toBe(200);
+      expect(await operator.ended).toBe("io server disconnect");
+      expect(captureException.mock.calls[0][1]).toEqual({ extra: { userId } });
+      expect(ownerSocket.connected).toBe(true);
+    });
+
+    it("still deletes a game when the active game can't be read", async () => {
+      const userId = newUser();
+      gate.failGameLoadFor = userId;
+      const res = await fetch(`${baseUrl}/api/games/${randomUUID()}`, { method: "DELETE", headers: { Authorization: `Bearer ${userId}` } });
+      expect(res.status).toBe(200);
+      expect(captureException.mock.calls[0][1]).toEqual({ extra: { userId } });
+    });
+
     it("still opens the owner's game when the record can't be read", async () => {
       const { userId, ownerSocket, firstGameId, operatorId } = await setupInGame();
       await startNewGame(ownerSocket);

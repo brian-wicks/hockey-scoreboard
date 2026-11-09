@@ -60,7 +60,7 @@ When the owner's active game changes from a known game to a different one, throu
 
 The reset runs while the old game is still live, before the new game is assigned to the owner's context or sent to anyone. A second operator therefore never receives the next game's state on a session from the previous game. A socket whose handshake read the old record could join the room after the disconnect, so operator sockets start in a separate `operators:{userId}` room that only the disconnect uses, and join the owner's room once the session re-check has passed.
 
-Reopening the same game changes nothing. With no previous game (`context.gameId` is null) nothing changes either, so a PIN set up before the very first game and the waiting screen keep working.
+Deleting the active game runs the same reset. Reopening the same game changes nothing. With no previous game (`context.gameId` is null) nothing changes either, so a PIN set up before the very first game and the waiting screen keep working.
 
 ### Server permissions
 
@@ -236,6 +236,7 @@ Export PDF in the event log uses the layout saved in the second operator's own b
 | Owner reloads onto a cached game after it stopped being active | The cached state is only used with its cached game ID, so changes made on it are stamped. The socket flushes them on connect, `activeGame` clears the client's copies, the server drops them and its state resend corrects the screen |
 | Cached state with no cached game ID, such as the first load after this shipped | The cached state is ignored and the normal connecting state shows, because an unstamped change would be accepted |
 | The active game ID can't be saved when the game changes | Logged with the `userId` and game ID. The game still changes, clients are told and the requester gets its ack. A server restart comes back to the previous game |
+| Owner deletes the active game | The PIN stops working and the second operator is signed out, as for a new game. Otherwise a restart would leave no previous game, and the next game would keep the old PIN and tokens. Deleting any other game changes nothing |
 | Owner's game changes | The PIN stops working and the second operator is signed out before the new game's state is sent |
 | PIN sent for a game with no PIN yet | 409 and the gate asks for a new PIN. Nothing is counted, and the form stays usable |
 | Database fault while resetting for a new game | Logged with the `userId` only. The second operator is still disconnected and the owner's game still changes. The old PIN and tokens stay valid until the owner creates a new PIN, because they could not be cleared |
