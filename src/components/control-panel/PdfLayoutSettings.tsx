@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GameEvent, TeamState, useStore } from "../../store";
 import { buildGamesheetPdfBytes, GamesheetPdfLayout, getDefaultGamesheetPdfLayout } from "../../utils/gamesheetPdf";
 import { getSampleGamesheetInput } from "../../utils/gamesheetSampleData";
@@ -271,6 +271,16 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
   const hasLoadedLayoutRef = useRef(false);
   const lastSavedLayoutRef = useRef<GamesheetPdfLayout | null>(null);
   const previewTimerRef = useRef<number | null>(null);
+  const isMountedRef = useRef(true);
+
+  // The timer below starts during render, so StrictMode's trial unmount can't clear it
+  // without losing the first preview. It checks this when it fires instead.
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
   const lastPreviewDepsRef = useRef<{
     showPdfPreview: boolean;
     previewDebug: boolean;
@@ -336,6 +346,8 @@ export default function PdfLayoutSettings({ homeTeam, awayTeam, eventLog }: PdfL
       previewTimerRef.current = null;
     }
     previewTimerRef.current = window.setTimeout(() => {
+      // A preview still waiting to build when the panel closes would never be seen.
+      if (!isMountedRef.current) return;
       setIsGeneratingPreview(true);
       const source = useSampleData ? sampleInputRef.current : { homeTeam, awayTeam, eventLog };
       buildGamesheetPdfBytes(source, { layout: pdfLayout, debug: previewDebug })

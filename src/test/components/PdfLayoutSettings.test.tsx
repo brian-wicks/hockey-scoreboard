@@ -1,7 +1,9 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { StrictMode } from "react";
+import { act, render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import PdfLayoutSettings from "../../components/control-panel/PdfLayoutSettings";
 import { useStore } from "../../store";
+import { buildGamesheetPdfBytes } from "../../utils/gamesheetPdf";
 
 vi.mock("../../store", () => ({
   useStore: vi.fn(),
@@ -39,6 +41,43 @@ describe("PdfLayoutSettings Component", () => {
     vi.clearAllMocks();
     localStorage.clear();
     vi.mocked(useStore).mockReturnValue({ user: null } as any);
+  });
+
+  describe("preview timer", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      return () => vi.useRealTimers();
+    });
+
+    const renderPanel = () =>
+      render(<PdfLayoutSettings homeTeam={homeTeam as any} awayTeam={awayTeam as any} eventLog={[]} />);
+
+    it("builds the preview shortly after opening", async () => {
+      renderPanel();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(300);
+      });
+      expect(buildGamesheetPdfBytes).toHaveBeenCalledTimes(1);
+    });
+
+    it("still builds the preview under StrictMode, as the app runs in development", async () => {
+      render(
+        <StrictMode>
+          <PdfLayoutSettings homeTeam={homeTeam as any} awayTeam={awayTeam as any} eventLog={[]} />
+        </StrictMode>,
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(300);
+      });
+      expect(buildGamesheetPdfBytes).toHaveBeenCalled();
+    });
+
+    it("doesn't build a preview nobody will see after leaving the screen", () => {
+      const { unmount } = renderPanel();
+      unmount();
+      vi.advanceTimersByTime(300);
+      expect(buildGamesheetPdfBytes).not.toHaveBeenCalled();
+    });
   });
 
   it("renders the PDF layout tweak form on its own, without a toggle", () => {
