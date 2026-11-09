@@ -33,6 +33,7 @@ export const deleteSavedGame = adapter.deleteSavedGame;
 export const getShareUserId = adapter.getShareUserId;
 export const getUserIdShare = adapter.getUserIdShare;
 export const setUserIdShare = adapter.setUserIdShare;
+export const claimShareId = adapter.claimShareId;
 export const getOperatorAccess = adapter.getOperatorAccess;
 export const getUserOperatorAccess = adapter.getUserOperatorAccess;
 export const setOperatorAccess = adapter.setOperatorAccess;

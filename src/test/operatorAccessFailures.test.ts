@@ -151,6 +151,7 @@ describe("second operator access when the database fails", () => {
         userId: "user-1",
         pinHash: "",
         pinSalt: "",
+        pin: null,
         failedAttempts: 0,
         lockedUntil: null,
         tokens: [],

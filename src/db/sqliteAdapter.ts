@@ -53,6 +53,7 @@ db.exec(`
     userId TEXT UNIQUE,
     pinHash TEXT,
     pinSalt TEXT,
+    pin TEXT,
     failedAttempts INTEGER,
     lockedUntil INTEGER,
     tokens TEXT
@@ -70,6 +71,12 @@ if (!savedGamesColumns.some((col) => col.name === "updatedAt")) {
 // backfill from createdAt so they don't sort/display as if last touched in 1970.
 // Cheap no-op once every row has a value, so it's safe to run on every startup.
 db.exec("UPDATE saved_games SET updatedAt = createdAt WHERE updatedAt IS NULL");
+
+// operator_access predates the pin column, so existing databases get it added here.
+const operatorAccessColumns = db.prepare("PRAGMA table_info(operator_access)").all() as { name: string }[];
+if (!operatorAccessColumns.some((col) => col.name === "pin")) {
+  db.exec("ALTER TABLE operator_access ADD COLUMN pin TEXT");
+}
 
 // Every export below is synchronous internally (better-sqlite3 has no async API) —
 // only the return type is promisified, to satisfy the shared DbAdapter interface
@@ -152,6 +159,19 @@ export const setUserIdShare = async (userId: string, shareId: string): Promise<v
   stmt.run(shareId, userId);
 };
 
+// better-sqlite3 runs synchronously and nothing here is awaited, so no other request can
+// claim the name between the read and the write.
+export const claimShareId = async (userId: string, shareId: string): Promise<boolean> => {
+  const row = db.prepare("SELECT userId FROM user_shares WHERE shareId = ?").get(shareId) as { userId: string } | undefined;
+  if (row) return row.userId === userId;
+  db.prepare(`
+    INSERT INTO user_shares (shareId, userId)
+    VALUES (?, ?)
+    ON CONFLICT(userId) DO UPDATE SET shareId = excluded.shareId
+  `).run(shareId, userId);
+  return true;
+};
+
 type OperatorAccessRow = Omit<OperatorAccess, "tokens"> & { tokens: string };
 
 const rowToOperatorAccess = (row: OperatorAccessRow | undefined): OperatorAccess | null =>
@@ -169,14 +189,15 @@ export const getUserOperatorAccess = async (userId: string): Promise<OperatorAcc
 
 export const setOperatorAccess = async (access: OperatorAccess): Promise<void> => {
   const stmt = db.prepare(`
-    INSERT OR REPLACE INTO operator_access (operatorId, userId, pinHash, pinSalt, failedAttempts, lockedUntil, tokens)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT OR REPLACE INTO operator_access (operatorId, userId, pinHash, pinSalt, pin, failedAttempts, lockedUntil, tokens)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
   stmt.run(
     access.operatorId,
     access.userId,
     access.pinHash,
     access.pinSalt,
+    access.pin ?? null,
     access.failedAttempts,
     access.lockedUntil,
     JSON.stringify(access.tokens),

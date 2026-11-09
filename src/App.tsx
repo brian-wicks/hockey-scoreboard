@@ -20,7 +20,20 @@ const Overlay = lazy(() => import('./components/Overlay'));
 const JumbotronScoreboard = lazy(() => import('./components/JumbotronScoreboard'));
 const ChangelogPage = lazy(() => import('./components/ChangelogPage'));
 const ResultsPage = lazy(() => import('./components/ResultsPage'));
+const PreshowPage = lazy(() => import('./components/PreshowPage'));
 const OperatorGate = lazy(() => import('./components/control-panel/OperatorGate'));
+
+/** Where a link to the old read-only control panel now lands. */
+function ControlPanelLinkRemoved() {
+  return (
+    <div className="ui min-h-screen bg-canvas flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-canvas border border-line rounded-sm p-8">
+        <h2 className="text-xl font-semibold mb-2">This link is no longer available</h2>
+        <p className="text-muted">The control panel can't be shared as a read-only view. Ask the main operator for an overlay, jumbotron or pre-show link.</p>
+      </div>
+    </div>
+  );
+}
 
 function AppRoutes() {
   const location = useLocation();
@@ -52,9 +65,9 @@ function AppRoutes() {
     return () => unsubscribe();
   }, [setUser, setAuthLoading]);
 
-  // Overlay, Jumbotron and Results stay exactly as they were (see design.md), and that
-  // includes what they show while loading or failing to connect.
-  const isBroadcastRoute = /\/(overlay|jumbotron|results)$/.test(location.pathname);
+  // The broadcast screens keep their own look (see design.md), including while loading.
+  // Their error screen is for the person setting up the link, so it follows the app's theme.
+  const isBroadcastRoute = /\/(overlay|jumbotron|results|preshow)$/.test(location.pathname);
   const screenClass = isBroadcastRoute
     ? 'min-h-screen bg-slate-900 flex items-center justify-center text-white'
     : 'ui min-h-screen bg-canvas flex items-center justify-center';
@@ -68,25 +81,23 @@ function AppRoutes() {
     !isShareRoute &&
     location.pathname !== '/overlay' &&
     location.pathname !== '/jumbotron' &&
-    location.pathname !== '/results';
+    location.pathname !== '/results' &&
+    location.pathname !== '/preshow';
 
   if (authError && !gameState && !isOperatorRoute) {
     const err = authError.toLowerCase();
     const isNotFound = err.includes("not found") || err.includes("invalid") || err.includes("expired") || err.includes("no shareid");
     
     return (
-      <div className={`${screenClass} p-4`}>
-        <div className={isBroadcastRoute
-          ? "max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-8 text-center shadow-2xl"
-          : "max-w-md w-full bg-canvas border border-line rounded-sm p-8"}
-        >
-          <div className={isBroadcastRoute ? "w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4" : "mb-4"}>
-            <AlertCircle size={32} className={isBroadcastRoute ? "text-red-500" : "text-danger"} />
+      <div className="ui min-h-screen bg-canvas flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-canvas border border-line rounded-sm p-8">
+          <div className="mb-4">
+            <AlertCircle size={32} className="text-danger" />
           </div>
-          <h2 className={isBroadcastRoute ? "text-xl font-bold text-white mb-2" : "text-xl font-semibold mb-2"}>
+          <h2 className="text-xl font-semibold mb-2">
             {isNotFound ? "Share link not found" : "Connection failed"}
           </h2>
-          <p className={isBroadcastRoute ? "text-zinc-400 mb-6" : "text-muted mb-6"}>
+          <p className="text-muted mb-6">
             {isNotFound 
               ? "This scoreboard doesn't exist, or the link has been replaced." 
               : authError}
@@ -95,15 +106,13 @@ function AppRoutes() {
             onClick={() => {
               window.location.href = '/';
             }}
-            className={isBroadcastRoute
-              ? "w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold transition-all mb-3 shadow-lg shadow-indigo-500/20"
-              : "w-full py-3 bg-action hover:bg-action-hover text-canvas rounded-sm text-sm font-semibold transition-colors mb-3"}
+            className="w-full py-3 bg-action hover:bg-action-hover text-canvas rounded-sm text-sm font-semibold transition-colors mb-3"
           >
             Go to the home page
           </button>
-          <p className={isBroadcastRoute ? "text-xs text-zinc-500" : "text-xs text-muted"}>
+          <p className="text-xs text-muted">
             If this is your game, open Share in the control panel to get the current links.
-          </p>
+</p>
         </div>
       </div>
     );
@@ -152,12 +161,15 @@ function AppRoutes() {
           <Route path="/overlay" element={<Overlay />} />
           <Route path="/jumbotron" element={<JumbotronScoreboard />} />
           <Route path="/results" element={<ResultsPage />} />
+          <Route path="/preshow" element={<PreshowPage />} />
           <Route path="/changelog" element={<ChangelogPage />} />
           
           {/* Share Routes */}
-          <Route path="/share/:shareId" element={<ControlPanel />} />
+          <Route path="/share/:shareId" element={<ControlPanelLinkRemoved />} />
           <Route path="/share/:shareId/overlay" element={<Overlay />} />
           <Route path="/share/:shareId/jumbotron" element={<JumbotronScoreboard />} />
+          <Route path="/share/:shareId/results" element={<ResultsPage />} />
+          <Route path="/share/:shareId/preshow" element={<PreshowPage />} />
 
           {/* Second operator */}
           <Route path="/operate/:operatorId" element={<OperatorGate><ControlPanel /></OperatorGate>} />

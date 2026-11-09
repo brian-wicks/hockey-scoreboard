@@ -554,6 +554,20 @@ describe("server API", () => {
       client.close();
     });
 
+    it("syncs pre-show settings to viewers, and a new game starts them again", async () => {
+      const { client, read, send } = await connectPatchClient(`patch-preshow-${Date.now()}`);
+      const started = await read();
+      expect(started.preshow).toEqual({ view: "teams", rosterPage: 0, faceoffAt: null, rotation: { enabled: false, intervalSeconds: 30, startedAt: 0 } });
+
+      const preshow = { view: "away", rosterPage: 1, faceoffAt: 123456 };
+      expect(await send({ opId: "preshow-1", fields: { preshow } })).toEqual({ ok: true });
+      expect((await read()).preshow).toEqual(preshow);
+
+      await new Promise((resolve) => client.emit("startNewGame", undefined, resolve));
+      expect((await read()).preshow).toEqual({ view: "teams", rosterPage: 0, faceoffAt: null, rotation: { enabled: false, intervalSeconds: 30, startedAt: 0 } });
+      client.close();
+    });
+
     it("ignores patches from a share link viewer", async () => {
       const baseUrl = `http://127.0.0.1:${port}`;
       const { client, read, shareId } = await connectPatchClient("patch-viewer");

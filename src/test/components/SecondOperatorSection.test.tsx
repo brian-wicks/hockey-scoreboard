@@ -49,7 +49,8 @@ describe("SecondOperatorSection", () => {
 
     expect(await screen.findByText("012345")).toBeInTheDocument();
     expect(screen.getByText(`${window.location.origin}/operate/op-1`)).toBeInTheDocument();
-    expect(screen.getByText(/won't be shown again/i)).toBeInTheDocument();
+    expect(screen.getByText(/separately from the link/i)).toBeInTheDocument();
+    expect(screen.queryByText(/won't be shown again/i)).not.toBeInTheDocument();
     expect(lastCall()[1].method).toBe("POST");
   });
 
@@ -96,11 +97,24 @@ describe("SecondOperatorSection", () => {
     expect(fetchMock.mock.calls.every(([, init]) => init.method === "GET")).toBe(true);
   });
 
-  it("shows the link without a PIN when reopened", async () => {
+  it("shows the current PIN when reopened, without having to create one", async () => {
+    fetchMock.mockResolvedValueOnce(respond(200, { operatorId: "op-1", needsPin: false, pin: "012345" }));
+    render(<SecondOperatorSection />);
+    expect(await screen.findByText("012345")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("explains a PIN created before PINs were kept, and offers a new one", async () => {
+    fetchMock.mockResolvedValueOnce(respond(200, { operatorId: "op-1", needsPin: false, pin: null }));
+    render(<SecondOperatorSection />);
+    expect(await screen.findByText(/can't be shown/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create new PIN" })).toBeInTheDocument();
+  });
+
+  it("shows the management buttons when reopened", async () => {
     fetchMock.mockResolvedValueOnce(respond(200, { operatorId: "op-1" }));
     render(<SecondOperatorSection />);
     expect(await screen.findByText(`${window.location.origin}/operate/op-1`)).toBeInTheDocument();
-    expect(screen.queryByText(/won't be shown again/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create new PIN" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove access" })).toBeInTheDocument();
   });

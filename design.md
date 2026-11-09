@@ -14,10 +14,10 @@ An operator uses the app during a live game, often on a laptop next to OBS or vM
 |---|---|---|
 | Signed-out home page | `/` when signed out | Split layout with a black panel and a white content area |
 | Dashboard | `/` when signed in | Top navigation bar, white content |
-| Control panel | `/game`, `/share/:shareId`, `/operate/:operatorId` | Black icon sidebar, white content |
+| Control panel | `/game`, `/operate/:operatorId` | Black icon sidebar, white content |
 | Team library | `/teams` | Top navigation bar, white content |
 | New game wizard | Modal from the dashboard | White modal with selection cards |
-| Overlay, jumbotron, results | `/overlay`, `/jumbotron`, `/results` and their share routes | No change; see [Screens outside this redesign](#screens-outside-this-redesign) |
+| Overlay, jumbotron, results, pre-show | `/overlay`, `/jumbotron`, `/results`, `/preshow` and their share routes | No change; see [Screens outside this redesign](#screens-outside-this-redesign) |
 
 ## Colours
 
@@ -55,7 +55,6 @@ Running, stopped and read-only states use labels and shape first, so they still 
 | Clock running | Stop button in error red, labelled Stop |
 | Clock stopped | Start button in action fill, labelled Start |
 | Active penalty | Error red row with white text |
-| Read-only share view | Ink bar with white text saying "Viewer mode: read only" |
 | Saved or copied | Ink text with a check icon |
 | Failed to connect or save | Error text with an icon and a next step |
 
@@ -227,7 +226,7 @@ The Stream Deck layout and PDF layout editor use the same panels, inputs and but
 
 ## Screens outside this redesign
 
-The overlay, jumbotron and results screens must look and behave exactly as they do today, including their share routes. This system doesn't apply to them: their gradients, Bebas Neue and Inter type, team colour glows and animations all stay.
+The overlay, jumbotron, results and pre-show screens must look and behave exactly as they do today, including their share routes. The pre-show screen reuses the results styles and adds its own `.preshow-*` rules. This system doesn't apply to them: their gradients, Bebas Neue and Inter type, team colour glows and animations all stay.
 
 They share `src/index.css` and Tailwind's theme with the rest of the app, so the redesign has to protect them in these ways:
 

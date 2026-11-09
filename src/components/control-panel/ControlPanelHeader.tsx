@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Share2, AlertCircle, LayoutPanelTop, LogOut, PresentationIcon, RotateCcw, Trophy, User as UserIcon, Menu, X, DoorOpen } from "lucide-react";
+import { Share2, AlertCircle, LayoutPanelTop, LogOut, PresentationIcon, RotateCcw, Trophy, Tv, User as UserIcon, Menu, X, DoorOpen } from "lucide-react";
 import { MAX_UNDO_STEPS, useStore } from "../../store";
 import { Button, Wordmark } from "./ui/primitives";
 
@@ -18,18 +18,17 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const user = useStore((state) => state.user);
   const logout = useStore((state) => state.logout);
-  const isViewer = useStore((state) => state.isViewer);
   // These checks can't use `user`: an owner signed in on this browser would bring their
   // account menu into a second operator's session.
   const isOperator = useStore((state) => state.isOperator);
-  const showsOwnerActions = !isViewer && !isOperator;
-  const shareId = useStore((state) => state.shareId);
+  const showsOwnerActions = !isOperator;
 
   const [imageError, setImageError] = useState(false);
 
-  const overlayPath = isViewer ? `/share/${shareId}/overlay` : "/overlay";
-  const jumbotronPath = isViewer ? `/share/${shareId}/jumbotron` : "/jumbotron";
+  const overlayPath = "/overlay";
+  const jumbotronPath = "/jumbotron";
   const resultsPath = "/results";
+  const preshowPath = "/preshow";
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -38,7 +37,7 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
       <div className="px-3 py-2 sm:px-6 sm:py-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 sm:gap-3">
           <h1 className="text-lg flex items-center gap-2 min-w-0">
-            {isViewer || isOperator ? (
+            {isOperator ? (
               <Wordmark className="truncate" />
             ) : (
               <Link to="/" className="truncate rounded-sm hover:underline" title="Back to Dashboard">
@@ -114,6 +113,17 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
               >
                 <Trophy size={16} />
                 <span>Results</span>
+              </a>
+            )}
+            {showsOwnerActions && (
+              <a
+                href={preshowPath}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-2 px-3 py-2 bg-canvas hover:bg-surface border border-line rounded-sm text-sm font-semibold text-ink transition-colors"
+              >
+                <Tv size={16} />
+                <span>Pre-show</span>
               </a>
             )}
             {showsOwnerActions && onShare && (
@@ -242,6 +252,18 @@ export default function ControlPanelHeader({ isConnected, onUndo, canUndo, undoC
               >
                 <Trophy size={18} />
                 <span>Results</span>
+              </a>
+            )}
+            {showsOwnerActions && (
+              <a
+                href={preshowPath}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => setIsMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 bg-canvas hover:bg-surface border border-line rounded-sm text-sm font-semibold text-ink transition-colors"
+              >
+                <Tv size={18} />
+                <span>Pre-show</span>
               </a>
             )}
             {showsOwnerActions && onShare && (

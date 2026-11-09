@@ -54,6 +54,8 @@ vi.mock("firebase-admin/firestore", () => ({
       return makeCollectionRef();
     },
     batch: () => ({ set: batchSet, delete: batchDelete, commit: batchCommit }),
+    runTransaction: (update: (transaction: unknown) => Promise<unknown>) =>
+      update({ get: () => mockGet(), set: batchSet, delete: batchDelete }),
   }),
 }));
 
@@ -70,6 +72,7 @@ import {
   getShareUserId,
   getUserIdShare,
   setUserIdShare,
+  claimShareId,
   pingDatabase,
   getOperatorAccess,
   getUserOperatorAccess,
@@ -173,6 +176,35 @@ describe("firestore adapter", () => {
     expect(collectionSpy).toHaveBeenNthCalledWith(2, "savedGames");
     expect(docSpy).toHaveBeenNthCalledWith(2, "game-1");
     expect(mockDelete).toHaveBeenCalled();
+  });
+
+  describe("claimShareId", () => {
+    it("takes a free name in a transaction, removing the account's old one", async () => {
+      mockGet
+        .mockResolvedValueOnce({ data: () => undefined })
+        .mockResolvedValueOnce({ data: () => ({ shareId: "old-name" }) });
+      expect(await claimShareId("user-1", "free-name")).toBe(true);
+      expect(docSpy).toHaveBeenCalledWith("free-name");
+      expect(docSpy).toHaveBeenCalledWith("old-name");
+      expect(batchDelete).toHaveBeenCalledTimes(1);
+      expect(batchSet).toHaveBeenCalledWith(expect.anything(), { userId: "user-1" });
+      expect(batchSet).toHaveBeenCalledWith(expect.anything(), { shareId: "free-name" }, { merge: true });
+    });
+
+    it("refuses a name another account has, writing nothing", async () => {
+      mockGet.mockResolvedValueOnce({ data: () => ({ userId: "user-2" }) });
+      expect(await claimShareId("user-1", "their-name")).toBe(false);
+      expect(batchSet).not.toHaveBeenCalled();
+      expect(batchDelete).not.toHaveBeenCalled();
+    });
+
+    it("keeps the record when an account asks for the name it already has", async () => {
+      mockGet
+        .mockResolvedValueOnce({ data: () => ({ userId: "user-1" }) })
+        .mockResolvedValueOnce({ data: () => ({ shareId: "my-name" }) });
+      expect(await claimShareId("user-1", "my-name")).toBe(true);
+      expect(batchDelete).not.toHaveBeenCalled();
+    });
   });
 
   it("gets the userId for a top-level share doc", async () => {

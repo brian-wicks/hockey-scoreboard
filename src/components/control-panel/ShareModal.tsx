@@ -3,8 +3,17 @@ import { Share2, Copy, Check, ExternalLink, X, QrCode, AlertTriangle } from "luc
 import { QRCodeSVG } from "qrcode.react";
 import { useStore } from "../../store";
 import { getBaseUrl } from "../../lib/localMode";
-import { Button } from "./ui/primitives";
+import { isValidShareName, normalizeShareName } from "../../lib/shareNames";
+import { ConfirmDialog } from "./ui/ConfirmDialog";
+import { Button, inputClass } from "./ui/primitives";
 import SecondOperatorSection from "./SecondOperatorSection";
+
+const RANDOM_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const INVALID_NAME_ERROR = "Use 4 to 40 letters, numbers and hyphens.";
+const SAVE_NAME_ERROR = "Couldn't save the link name. Check your connection and try again.";
+
+/** What the name box shows for a share ID: a random one isn't a name anyone chose. */
+const nameForShareId = (shareId: string) => (RANDOM_ID_PATTERN.test(shareId) ? "" : shareId);
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -12,13 +21,22 @@ interface ShareModalProps {
 }
 
 export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
-  const [shareId, setShareId] = useState<string | null>(null);
+  const [shareId, setShareIdState] = useState<string | null>(null);
+  const [nameInput, setNameInput] = useState("");
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [isConfirmingName, setIsConfirmingName] = useState(false);
   const [isGeneratingShare, setIsGeneratingShare] = useState(false);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
   const hasLoadedShareRef = useRef(false);
 
   // @ts-ignore
   const baseUrl = getBaseUrl().replace(/\/+$/, "");
+
+  const setShareId = (id: string) => {
+    setShareIdState(id);
+    setNameInput(nameForShareId(id));
+    setNameError(null);
+  };
 
   const loadShareId = async () => {
     const { user } = useStore.getState();
@@ -57,6 +75,86 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
       setIsGeneratingShare(false);
     }
   };
+
+  const claimName = async (name: string) => {
+    const { user } = useStore.getState();
+    if (!user) return;
+    setIsConfirmingName(false);
+    setIsGeneratingShare(true);
+    setNameError(null);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(`${baseUrl}/api/share`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ shareId: name }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.shareId) {
+        setShareId(data.shareId);
+      } else {
+        setNameError(data.error || SAVE_NAME_ERROR);
+      }
+    } catch (error) {
+      console.error("Failed to save link name:", error);
+      setNameError(SAVE_NAME_ERROR);
+    } finally {
+      setIsGeneratingShare(false);
+    }
+  };
+
+  const typedName = normalizeShareName(nameInput);
+
+  const createLinks = () => {
+    if (!typedName) {
+      void handleGenerateShare();
+    } else if (isValidShareName(typedName)) {
+      void claimName(typedName);
+    } else {
+      setNameError(INVALID_NAME_ERROR);
+    }
+  };
+
+  const saveName = () => {
+    if (isValidShareName(typedName)) {
+      setNameError(null);
+      setIsConfirmingName(true);
+    } else {
+      setNameError(INVALID_NAME_ERROR);
+    }
+  };
+
+  const nameField = (
+    <div className="text-left">
+      <label htmlFor="share-link-name" className="text-sm font-semibold text-ink">
+        Link name
+      </label>
+      <div className="flex flex-wrap items-center gap-2 mt-1">
+        <input
+          id="share-link-name"
+          type="text"
+          value={nameInput}
+          onChange={(event) => {
+            setNameInput(event.target.value);
+            setNameError(null);
+          }}
+          placeholder="newcastle-wildcats"
+          autoCapitalize="none"
+          spellCheck={false}
+          className={`${inputClass} flex-1 min-w-48`}
+        />
+        {shareId && (
+          <Button onClick={saveName} disabled={isGeneratingShare || !typedName || typedName === shareId} variant="secondary">
+            Save name
+          </Button>
+        )}
+      </div>
+      {nameError && <p className="text-sm text-danger mt-1">{nameError}</p>}
+      <p className="text-xs text-muted mt-1">
+        Optional. Anyone who guesses the name can view these screens, but can't change anything.
+      </p>
+    </div>
+  );
 
   const handleCopyLink = (path: string) => {
     const fullUrl = `${window.location.origin}${path}`;
@@ -107,8 +205,9 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
                 <p className="text-ink font-semibold">No share links yet.</p>
                 <p className="text-sm text-muted mt-1">Create a link so other people can follow the game.</p>
               </div>
+              <div className="max-w-sm mx-auto">{nameField}</div>
               <Button
-                onClick={handleGenerateShare}
+                onClick={createLinks}
                 disabled={isGeneratingShare}
                 variant="primary"
                 className="mt-4 px-6 py-2.5 mx-auto"
@@ -132,11 +231,12 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
-                  { label: "Control Panel", path: `/share/${shareId}`, desc: "Read-only view of the control panel" },
                   { label: "Overlay", path: `/share/${shareId}/overlay`, desc: "Add as a browser source in OBS" },
                   { label: "Jumbotron", path: `/share/${shareId}/jumbotron`, desc: "Full-screen display for the rink" },
+                  { label: "Pre-show", path: `/share/${shareId}/preshow`, desc: "Add as a browser source for before the game" },
+                  { label: "Results", path: `/share/${shareId}/results`, desc: "Add as a browser source for after the game" },
                 ].map((link) => (
                   <div key={link.path} className="group bg-canvas border border-line hover:border-ink rounded-sm p-4 flex flex-col gap-3 transition-colors">
                     <div className="flex items-center justify-between">
@@ -181,6 +281,8 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
                 ))}
               </div>
 
+              {nameField}
+
               <div className="pt-4 flex items-center justify-between border-t border-line">
                 <p className="text-xs text-muted">Share ID: <span className="tabular-nums text-muted">{shareId}</span></p>
                 <button
@@ -197,6 +299,15 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
           <SecondOperatorSection />
         </div>
       </div>
+
+      <ConfirmDialog
+        open={isConfirmingName}
+        title="Change the link name?"
+        message="Links using the current name stop working, including any OBS sources set up with them."
+        confirmLabel="Change name"
+        onConfirm={() => void claimName(typedName)}
+        onCancel={() => setIsConfirmingName(false)}
+      />
     </div>
   );
 }

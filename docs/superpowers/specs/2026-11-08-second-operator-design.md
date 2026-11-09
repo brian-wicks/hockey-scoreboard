@@ -38,7 +38,7 @@ Access needs a link and a PIN. The owner can sign the second operator out at any
 
 The owner sets up access in a "Second operator" section of the share sheet. The server generates a `randomUUID()` for the link, `/operate/:operatorId`, and a random six-digit PIN using `crypto.randomInt`. The PIN is never part of the link or QR code.
 
-The database stores a salted `scrypt` hash of the PIN, so the share sheet can only show the PIN at the moment it is created. A lost PIN is replaced by creating a new one.
+The database stores a salted `scrypt` hash of the PIN, which sign-in checks, and the PIN itself, which the owner-only `GET /api/operator-access` returns so the share sheet can show it whenever one exists. Someone who can read the database can read the PIN; a six-digit hash could be cracked from the same access anyway.
 
 The operator link and viewer share link are unrelated values. Neither can be derived from the other, and replacing one has no effect on the other.
 
@@ -131,7 +131,7 @@ The electron stubs need no new behaviour, because the routes return 404 in local
 
 | Route | Auth | Behaviour |
 | --- | --- | --- |
-| `GET /api/operator-access` | Owner | `{ operatorId, needsPin }`, with `needsPin` true when the current game has no PIN yet, or `{ operatorId: null, needsPin: false }` |
+| `GET /api/operator-access` | Owner | `{ operatorId, needsPin, pin }`, with `pin` the current PIN or null, and `needsPin` true when the current game has no PIN yet, or `{ operatorId: null, needsPin: false }` |
 | `POST /api/operator-access` | Owner | Creates the link if needed and issues a new PIN. Returns `{ operatorId, pin }`. Deletes tokens, clears any lock and disconnects live sockets |
 | `DELETE /api/operator-access` | Owner | Deletes the record and disconnects live sockets |
 | `POST /api/operator/:operatorId/session` | Link holder | Body `{ pin }`. See the responses below |
@@ -172,8 +172,8 @@ A token that expires while its socket is connected has no immediate effect. The 
 | State | Shown |
 | --- | --- |
 | No access yet | A line explaining the feature and a "Set up second operator" button |
-| Just created, or new PIN | Link, QR code and the PIN in large digits, with a note that the PIN will not be shown again |
-| Reopened later | Link and QR code, with "Create new PIN" and "Remove access" |
+| Access with a current PIN | Link, QR code and the PIN in large digits, with "Create new PIN" and "Remove access" |
+| Access whose PIN predates saved PINs | Link and QR code, with a note that the PIN can't be shown, and "Create new PIN" and "Remove access" |
 | Reopened after the game changed | "This game has no PIN yet. Create one and give it to the second operator." with the link, QR code, "Create new PIN" and "Remove access" |
 
 "Create new PIN" and "Remove access" go through the existing `ConfirmDialog`, because both sign the second operator out mid-game. The exception is "Create new PIN" when the game has no PIN, which creates one directly because nobody can be signed in.

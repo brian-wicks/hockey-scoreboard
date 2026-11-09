@@ -95,6 +95,21 @@ export interface SavedTeam {
   updatedAt: number;
 }
 
+export interface PreshowRotation {
+  enabled: boolean;
+  intervalSeconds: number;
+  /** When the first slide began, in server time. Screens work out the current slide from this. */
+  startedAt: number;
+}
+
+export interface PreshowSettings {
+  view: "teams" | "home" | "away";
+  rosterPage: number;
+  /** When the game starts, in server time. */
+  faceoffAt: number | null;
+  rotation?: PreshowRotation;
+}
+
 export interface GameState {
   homeTeam: TeamState;
   awayTeam: TeamState;
@@ -110,6 +125,7 @@ export interface GameState {
     title: string;
     subtitle?: string;
   };
+  preshow?: PreshowSettings;
   jumbotronGoalHighlight?: {
     team: "home" | "away";
     scorer: string;
@@ -1007,7 +1023,8 @@ export const useStore = create<StoreState>((set, get) => ({
 
     const shareIndex = pathParts.indexOf("share");
     if (shareIndex !== -1 && pathParts[shareIndex + 1]) {
-      const shareId = pathParts[shareIndex + 1];
+      // Names are stored in lowercase, so a link typed with capitals still finds its game.
+      const shareId = pathParts[shareIndex + 1].toLowerCase();
       hasInitialized = true;
       get().connectViewer(shareId);
       return;

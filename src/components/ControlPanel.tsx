@@ -9,6 +9,7 @@ import EventLogPanel from "./control-panel/EventLogPanel";
 import GameActionsPanel from "./control-panel/GameActionsPanel";
 import OverlayControlsPanel from "./control-panel/OverlayControlsPanel";
 import PresetsPanel from "./control-panel/PresetsPanel";
+import PreshowControlsPanel from "./control-panel/PreshowControlsPanel";
 import SettingsPanel from "./control-panel/SettingsPanel";
 import TeamControls from "./control-panel/TeamControls";
 import StreamDeckPanel from "./StreamDeckPanel";
@@ -26,7 +27,6 @@ export default function ControlPanel() {
     serverTimeOffsetMs,
     undoLastUpdate,
     undoStack = [],
-    isViewer,
     isOperator,
     activeGameId,
   } = useStore();
@@ -38,7 +38,7 @@ export default function ControlPanel() {
   const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
-  useKeyboardShortcuts((activeTab === "controls" || activeTab === "streamdeck") && !isViewer);
+  useKeyboardShortcuts(activeTab === "controls" || activeTab === "streamdeck");
 
   ensureInitialized();
 
@@ -46,16 +46,16 @@ export default function ControlPanel() {
   // has never opened/created a game — there's nothing to control here, so bounce back
   // to the Dashboard's file browser rather than operating on an unsaved phantom game.
   useEffect(() => {
-    if (!isViewer && !isOperator && activeGameId === null) {
+    if (!isOperator && activeGameId === null) {
       navigate("/", { replace: true });
     }
-  }, [isViewer, isOperator, activeGameId, navigate]);
+  }, [isOperator, activeGameId, navigate]);
 
   if (!gameState) {
     return <div className="ui flex items-center justify-center h-screen bg-canvas">Connecting...</div>;
   }
 
-  if (!isViewer && !isOperator && activeGameId === null) {
+  if (!isOperator && activeGameId === null) {
     return null;
   }
 
@@ -68,30 +68,25 @@ export default function ControlPanel() {
     jumbotronGradientsEnabled,
     eventLog,
     lowerThird,
+    preshow,
   } = gameState;
 
   return (
-    <div className={`ui relative min-h-screen bg-canvas ${isViewer ? 'select-none pointer-events-none' : ''}`}>
+    <div className="ui relative min-h-screen bg-canvas">
       <div className="relative z-10 flex flex-col min-h-screen">
         <ControlPanelHeader
           isConnected={isConnected}
           onUndo={undoLastUpdate}
-          canUndo={undoStack.length > 0 && !isViewer}
+          canUndo={undoStack.length > 0}
           undoCount={undoStack.length}
           onShare={isOperator ? undefined : () => setIsShareModalOpen(true)}
         />
 
-        {isViewer && (
-          <div className="bg-ink py-1.5 px-4 text-center">
-            <p className="text-xs font-semibold text-canvas">Viewer mode: read only</p>
-          </div>
-        )}
-
         <div className="flex-1 flex">
-          {!isViewer && <AppSidebar activeTab={activeTab} onSelectTab={setActiveTab} tabs={isOperator ? OPERATOR_TABS : undefined} />}
+          <AppSidebar activeTab={activeTab} onSelectTab={setActiveTab} tabs={isOperator ? OPERATOR_TABS : undefined} />
 
           <main className="flex-1 min-w-0 p-3 sm:p-6 pb-20 md:pb-6 max-w-7xl mx-auto w-full">
-            {activeTab === "controls" || isViewer ? (
+            {activeTab === "controls" ? (
               <div className="flex flex-col gap-6">
                 <div className="grid grid-cols-1 min-[950px]:grid-cols-3 gap-6">
                   <TeamControls team="home" state={homeTeam} eventLog={eventLog} updateState={updateState} />
@@ -117,6 +112,13 @@ export default function ControlPanel() {
                   jumbotronGradientsEnabled={jumbotronGradientsEnabled}
                   updateState={updateState}
                   lowerThird={lowerThird}
+                />
+                <PreshowControlsPanel
+                  preshow={preshow}
+                  homePlayers={homeTeam.players ?? []}
+                  awayPlayers={awayTeam.players ?? []}
+                  updateState={updateState}
+                  serverTimeOffsetMs={serverTimeOffsetMs}
                 />
                 <EventLogPanel
                   eventLog={eventLog}

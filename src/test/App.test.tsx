@@ -20,6 +20,7 @@ vi.mock("../components/Overlay", () => ({ default: () => <div>Overlay</div> }));
 vi.mock("../components/JumbotronScoreboard", () => ({ default: () => <div>Jumbotron</div> }));
 vi.mock("../components/Login", () => ({ Login: () => <div>Login Screen</div> }));
 vi.mock("../components/ResultsPage", () => ({ default: () => <div>Results Page</div> }));
+vi.mock("../components/PreshowPage", () => ({ default: () => <div>Preshow Page</div> }));
 vi.mock("../components/ChangelogPage", () => ({ default: () => <div>Changelog Page</div> }));
 vi.mock("../components/control-panel/OperatorGate", () => ({ default: () => <div>Operator Gate</div> }));
 
@@ -105,6 +106,49 @@ describe("App Component", () => {
     render(<App />);
 
     expect(screen.getByText(/Share Link Not Found/i)).toBeInTheDocument();
+  });
+
+  describe.each(["overlay", "jumbotron", "results", "preshow"])("a failed link to the %s screen", (screenName) => {
+    const renderError = (authError: string) => {
+      window.history.pushState({}, "Share", `/share/gone/${screenName}`);
+      vi.mocked(useStore).mockImplementation((selector: any) =>
+        selector({
+          user: null,
+          isViewer: true,
+          authLoading: false,
+          authError,
+          setUser: vi.fn(),
+          setAuthLoading: vi.fn(),
+          ensureInitialized: vi.fn(),
+        }),
+      );
+      return render(<App />);
+    };
+
+    it.each(["Share ID not found", "Failed to connect"])("follows the app's theme for %s", (authError) => {
+      const { container } = renderError(authError);
+      const button = screen.getByRole("button", { name: "Go to the home page" });
+      expect(container.querySelector(".ui.bg-canvas")).toBeInTheDocument();
+      expect(button).toHaveClass("bg-action");
+      expect(container.innerHTML).not.toMatch(/zinc|indigo|slate-900|rounded-2xl/);
+    });
+  });
+
+  it("keeps the broadcast connecting screen on those routes", () => {
+    window.history.pushState({}, "Share", "/share/gone/overlay");
+    vi.mocked(useStore).mockImplementation((selector: any) =>
+      selector({
+        user: null,
+        isViewer: true,
+        authLoading: true,
+        authError: null,
+        setUser: vi.fn(),
+        setAuthLoading: vi.fn(),
+        ensureInitialized: vi.fn(),
+      }),
+    );
+    const { container } = render(<App />);
+    expect(container.querySelector(".bg-slate-900")).toBeInTheDocument();
   });
 
   it("renders the Dashboard at the root route when authenticated", async () => {
@@ -227,7 +271,7 @@ describe("App Component", () => {
     expect(screen.queryByText("Login Screen")).not.toBeInTheDocument();
   });
 
-  it("handles sharing route", async () => {
+  it("no longer opens the control panel from a share link", async () => {
     window.history.pushState({}, "Share", "/share/test-share");
     vi.mocked(useStore).mockImplementation((selector: any) => {
       const state = {
@@ -244,7 +288,63 @@ describe("App Component", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("Control Panel")).toBeInTheDocument();
+    expect(await screen.findByText("This link is no longer available")).toBeInTheDocument();
+    expect(screen.queryByText("Control Panel")).not.toBeInTheDocument();
+  });
+
+  it("opens results from a share link with nobody signed in", async () => {
+    window.history.pushState({}, "Results", "/share/share-1/results");
+    vi.mocked(useStore).mockImplementation((selector: any) =>
+      selector({
+        user: null,
+        isViewer: true,
+        authLoading: false,
+        authError: null,
+        gameState: null,
+        setUser: vi.fn(),
+        setAuthLoading: vi.fn(),
+        ensureInitialized: vi.fn(),
+      }),
+    );
+    render(<App />);
+    expect(await screen.findByText("Results Page")).toBeInTheDocument();
+    expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
+  });
+
+  describe("pre-show route", () => {
+    const stateWith = (overrides: Record<string, unknown>) => ({
+      user: null,
+      isViewer: false,
+      authLoading: false,
+      authError: null,
+      gameState: null,
+      setUser: vi.fn(),
+      setAuthLoading: vi.fn(),
+      ensureInitialized: vi.fn(),
+      ...overrides,
+    });
+
+    it("opens for the signed-in owner, with no footer", async () => {
+      window.history.pushState({}, "Pre-show", "/preshow");
+      vi.mocked(useStore).mockImplementation((selector: any) => selector(stateWith({ user: { uid: "owner" } })));
+      render(<App />);
+      expect(await screen.findByText("Preshow Page")).toBeInTheDocument();
+      expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
+    });
+
+    it("opens from a share link with nobody signed in", async () => {
+      window.history.pushState({}, "Pre-show", "/share/share-1/preshow");
+      vi.mocked(useStore).mockImplementation((selector: any) => selector(stateWith({ isViewer: true })));
+      render(<App />);
+      expect(await screen.findByText("Preshow Page")).toBeInTheDocument();
+    });
+
+    it("uses the broadcast connecting screen", () => {
+      window.history.pushState({}, "Pre-show", "/share/share-1/preshow");
+      vi.mocked(useStore).mockImplementation((selector: any) => selector(stateWith({ isViewer: true, authLoading: true })));
+      const { container } = render(<App />);
+      expect(container.querySelector(".bg-slate-900")).toBeInTheDocument();
+    });
   });
 
   describe("second operator route", () => {

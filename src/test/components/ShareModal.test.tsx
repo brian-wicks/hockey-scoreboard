@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import ShareModal from "../../components/control-panel/ShareModal";
 import { useStore } from "../../store";
@@ -80,6 +80,160 @@ describe("ShareModal Component", () => {
     await waitFor(() => {
       expect(screen.getByText("existing-id")).toBeInTheDocument();
     });
+  });
+
+  it("doesn't offer the control panel as a share link", async () => {
+    vi.mocked(useStore.getState).mockReturnValue({ user: mockUser } as any);
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ shareId: "test-id" }),
+    } as any);
+
+    render(<ShareModal isOpen={true} onClose={mockOnClose} />);
+
+    expect(await screen.findByText("Overlay")).toBeInTheDocument();
+    expect(screen.queryByText("Control Panel")).not.toBeInTheDocument();
+    expect(screen.queryByText(`${window.location.origin}/share/test-id`)).not.toBeInTheDocument();
+  });
+
+  describe("link name", () => {
+    const UUID = "3f2b8c1e-9a47-4d21-8f6e-0c1d2e3f4a5b";
+    const fetchMock = () => vi.mocked(global.fetch);
+    const respond = (status: number, body: unknown) => ({ ok: status < 400, status, json: () => Promise.resolve(body) }) as any;
+    const posts = () => fetchMock().mock.calls.filter(([, init]) => init?.method === "POST");
+
+    const openWith = async (shareId: string | null) => {
+      vi.mocked(useStore.getState).mockReturnValue({ user: mockUser } as any);
+      fetchMock().mockResolvedValueOnce(respond(200, { shareId }));
+      render(<ShareModal isOpen={true} onClose={mockOnClose} />);
+      if (shareId) await screen.findByText(shareId);
+    };
+    const nameBox = () => screen.getByLabelText("Link name");
+
+    it("creates the first links with a chosen name, lowercased", async () => {
+      await openWith(null);
+      fireEvent.change(nameBox(), { target: { value: "New-Cats" } });
+      fetchMock().mockResolvedValueOnce(respond(200, { shareId: "new-cats" }));
+      fireEvent.click(screen.getByText("Create share links"));
+
+      expect(await screen.findByText(`${window.location.origin}/share/new-cats/overlay`)).toBeInTheDocument();
+      expect(JSON.parse(posts()[0][1]!.body as string)).toEqual({ shareId: "new-cats" });
+    });
+
+    it("creates random links when no name is given", async () => {
+      await openWith(null);
+      fetchMock().mockResolvedValueOnce(respond(200, { shareId: UUID }));
+      fireEvent.click(screen.getByText("Create share links"));
+      await screen.findByText(UUID);
+      expect(posts()[0][1]!.body).toBeUndefined();
+    });
+
+    it("explains a badly formed name without sending it", async () => {
+      await openWith(null);
+      fireEvent.change(nameBox(), { target: { value: "no spaces" } });
+      fireEvent.click(screen.getByText("Create share links"));
+      expect(await screen.findByText("Use 4 to 40 letters, numbers and hyphens.")).toBeInTheDocument();
+      expect(posts()).toHaveLength(0);
+    });
+
+    it("says when a name is taken, keeping what was typed", async () => {
+      await openWith(null);
+      fireEvent.change(nameBox(), { target: { value: "taken-name" } });
+      fetchMock().mockResolvedValueOnce(respond(409, { error: "That name is already taken" }));
+      fireEvent.click(screen.getByText("Create share links"));
+      expect(await screen.findByText("That name is already taken")).toBeInTheDocument();
+      expect(nameBox()).toHaveValue("taken-name");
+      expect(screen.getByText("No share links yet.")).toBeInTheDocument();
+    });
+
+    it("explains a failure to save", async () => {
+      await openWith(null);
+      fireEvent.change(nameBox(), { target: { value: "good-name" } });
+      fetchMock().mockRejectedValueOnce(new Error("offline"));
+      fireEvent.click(screen.getByText("Create share links"));
+      expect(await screen.findByText("Couldn't save the link name. Check your connection and try again.")).toBeInTheDocument();
+    });
+
+    it("warns that guessable names can be viewed", async () => {
+      await openWith(null);
+      expect(screen.getByText(/Anyone who guesses the name/)).toBeInTheDocument();
+    });
+
+    it("leaves the box empty for a random ID, and shows a custom name", async () => {
+      await openWith(UUID);
+      expect(nameBox()).toHaveValue("");
+      cleanup();
+      await openWith("my-name");
+      expect(nameBox()).toHaveValue("my-name");
+    });
+
+    it("only offers saving once the name has changed", async () => {
+      await openWith("my-name");
+      expect(screen.getByRole("button", { name: "Save name" })).toBeDisabled();
+      fireEvent.change(nameBox(), { target: { value: "MY-NAME" } });
+      expect(screen.getByRole("button", { name: "Save name" })).toBeDisabled();
+      fireEvent.change(nameBox(), { target: { value: "other-name" } });
+      expect(screen.getByRole("button", { name: "Save name" })).toBeEnabled();
+    });
+
+    it("confirms before changing a name, because old links stop working", async () => {
+      await openWith("my-name");
+      fireEvent.change(nameBox(), { target: { value: "other-name" } });
+      fireEvent.click(screen.getByRole("button", { name: "Save name" }));
+
+      expect(screen.getByText("Change the link name?")).toBeInTheDocument();
+      expect(posts()).toHaveLength(0);
+
+      fetchMock().mockResolvedValueOnce(respond(200, { shareId: "other-name" }));
+      fireEvent.click(screen.getByRole("button", { name: "Change name" }));
+      expect(await screen.findByText(`${window.location.origin}/share/other-name/overlay`)).toBeInTheDocument();
+      expect(screen.queryByText("Change the link name?")).not.toBeInTheDocument();
+    });
+
+    it("sends nothing when the change is cancelled", async () => {
+      await openWith("my-name");
+      fireEvent.change(nameBox(), { target: { value: "other-name" } });
+      fireEvent.click(screen.getByRole("button", { name: "Save name" }));
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(posts()).toHaveLength(0);
+      expect(screen.getByText(`${window.location.origin}/share/my-name/overlay`)).toBeInTheDocument();
+    });
+
+    it("keeps the current links when the new name is taken", async () => {
+      await openWith("my-name");
+      fireEvent.change(nameBox(), { target: { value: "taken-name" } });
+      fireEvent.click(screen.getByRole("button", { name: "Save name" }));
+      fetchMock().mockResolvedValueOnce(respond(409, { error: "That name is already taken" }));
+      fireEvent.click(screen.getByRole("button", { name: "Change name" }));
+      expect(await screen.findByText("That name is already taken")).toBeInTheDocument();
+      expect(screen.getByText(`${window.location.origin}/share/my-name/overlay`)).toBeInTheDocument();
+    });
+  });
+
+  it("offers a results share link", async () => {
+    vi.mocked(useStore.getState).mockReturnValue({ user: mockUser } as any);
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ shareId: "test-id" }),
+    } as any);
+
+    render(<ShareModal isOpen={true} onClose={mockOnClose} />);
+
+    expect(await screen.findByText("Results")).toBeInTheDocument();
+    expect(screen.getByText(`${window.location.origin}/share/test-id/results`)).toBeInTheDocument();
+  });
+
+  it("offers a pre-show share link", async () => {
+    vi.mocked(useStore.getState).mockReturnValue({ user: mockUser } as any);
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ shareId: "test-id" }),
+    } as any);
+
+    render(<ShareModal isOpen={true} onClose={mockOnClose} />);
+
+    expect(await screen.findByText("Pre-show")).toBeInTheDocument();
+    expect(screen.getByText(`${window.location.origin}/share/test-id/preshow`)).toBeInTheDocument();
   });
 
   it("copies link to clipboard", async () => {

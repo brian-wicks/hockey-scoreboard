@@ -226,6 +226,17 @@ describe("store", () => {
     expect(useStore.getState().undoStack).toEqual([]);
   });
 
+  it("finds a share link however the name is capitalised", async () => {
+    window.history.pushState({}, "", "/share/New-Cats/overlay");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(baseState) }));
+    const { useStore } = await import("../store");
+    ioMock.mockClear();
+    useStore.getState().ensureInitialized();
+    expect((ioMock.mock.calls.at(-1) as unknown[])[1]).toMatchObject({ auth: { shareId: "new-cats" } });
+    window.history.pushState({}, "", "/");
+    vi.unstubAllGlobals();
+  });
+
   it("keeps a share link trying to reconnect for as long as it's open", async () => {
     const { useStore } = await import("../store");
     ioMock.mockClear();

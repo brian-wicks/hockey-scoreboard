@@ -42,6 +42,7 @@ import {
   getShareUserId,
   getUserIdShare,
   setUserIdShare,
+  claimShareId,
   getOperatorAccess,
   getUserOperatorAccess,
   setOperatorAccess,
@@ -106,6 +107,7 @@ describe("sqlite adapter", () => {
     userId: "user-1",
     pinHash: "hash",
     pinSalt: "salt",
+    pin: "123456",
     failedAttempts: 2,
     lockedUntil: null,
     tokens: JSON.stringify([{ tokenHash: "t", expiresAt: 5 }]),
@@ -131,10 +133,29 @@ describe("sqlite adapter", () => {
     expect(await getUserOperatorAccess("missing")).toBeNull();
   });
 
+  describe("claimShareId", () => {
+    it("takes a free name", async () => {
+      mockGet.mockReturnValue(undefined);
+      expect(await claimShareId("user-1", "free-name")).toBe(true);
+      expect(mockRun).toHaveBeenCalledWith("free-name", "user-1");
+    });
+
+    it("refuses a name another account has, writing nothing", async () => {
+      mockGet.mockReturnValue({ userId: "user-2" });
+      expect(await claimShareId("user-1", "their-name")).toBe(false);
+      expect(mockRun).not.toHaveBeenCalled();
+    });
+
+    it("accepts the name the account already has", async () => {
+      mockGet.mockReturnValue({ userId: "user-1" });
+      expect(await claimShareId("user-1", "my-name")).toBe(true);
+    });
+  });
+
   it("replaces an account's operator access on save", async () => {
     await setOperatorAccess(operatorAccess);
     expect(mockPrepare.mock.calls.at(-1)?.[0]).toContain("INSERT OR REPLACE INTO operator_access");
-    expect(mockRun).toHaveBeenCalledWith("op-1", "user-1", "hash", "salt", 2, null, operatorRow.tokens);
+    expect(mockRun).toHaveBeenCalledWith("op-1", "user-1", "hash", "salt", "123456", 2, null, operatorRow.tokens);
   });
 
   it("deletes operator access by account", async () => {

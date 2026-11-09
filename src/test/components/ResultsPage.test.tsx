@@ -21,6 +21,21 @@ describe("ResultsPage Component", () => {
     ],
   };
 
+  it("keeps a share link's viewer connection, not replacing it with the signed-in owner's", () => {
+    const ensureInitialized = vi.fn();
+    const connect = vi.fn();
+    vi.mocked(useStore).mockReturnValue({ gameState: mockGameState, ensureInitialized, connect } as any);
+
+    render(
+      <MemoryRouter>
+        <ResultsPage />
+      </MemoryRouter>
+    );
+
+    expect(ensureInitialized).toHaveBeenCalled();
+    expect(connect).not.toHaveBeenCalled();
+  });
+
   it("renders the final score and team names", () => {
     vi.mocked(useStore).mockReturnValue({
       gameState: mockGameState,

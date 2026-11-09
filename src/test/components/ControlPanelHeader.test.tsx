@@ -64,6 +64,11 @@ describe("ControlPanelHeader", () => {
     expect(screen.queryByText("Sign out")).toBeNull();
   });
 
+  it("links the owner to the pre-show screen", () => {
+    render(<ControlPanelHeader isConnected={true} onUndo={vi.fn()} canUndo={true} />, { wrapper: MemoryRouter });
+    expect(screen.getByRole("link", { name: "Pre-show" })).toHaveAttribute("href", "/preshow");
+  });
+
   it("shows a second operator only the status and Undo, even with an owner signed in", () => {
     vi.mocked(useStore).mockImplementation((selector: any) =>
       selector({
@@ -79,7 +84,7 @@ describe("ControlPanelHeader", () => {
 
     expect(screen.getByTitle(/undo last/i)).toBeInTheDocument();
     expect(screen.getByTitle("Connected to server")).toBeInTheDocument();
-    for (const label of ["Close", "Overlay", "Jumbotron", "Results", "Share", "Owner Name"]) {
+    for (const label of ["Close", "Overlay", "Jumbotron", "Results", "Pre-show", "Share", "Owner Name"]) {
       expect(screen.queryByText(label)).not.toBeInTheDocument();
     }
     expect(screen.queryByTitle("Sign out")).not.toBeInTheDocument();

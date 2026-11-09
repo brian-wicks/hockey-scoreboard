@@ -23,6 +23,8 @@ export interface OperatorAccess {
   userId: string;
   pinHash: string;
   pinSalt: string;
+  /** Shown back to the owner on the share sheet. Sign-in still checks the hash. */
+  pin?: string | null;
   failedAttempts: number;
   lockedUntil: number | null;
   tokens: OperatorDeviceToken[];
@@ -46,6 +48,8 @@ export interface DbAdapter {
   getShareUserId(shareId: string): Promise<string | null>;
   getUserIdShare(userId: string): Promise<string | null>;
   setUserIdShare(userId: string, shareId: string): Promise<void>;
+  /** Gives the account this share ID unless another account has it. False means it's taken. */
+  claimShareId(userId: string, shareId: string): Promise<boolean>;
   getOperatorAccess(operatorId: string): Promise<OperatorAccess | null>;
   getUserOperatorAccess(userId: string): Promise<OperatorAccess | null>;
   setOperatorAccess(access: OperatorAccess): Promise<void>;

@@ -114,6 +114,24 @@ export const setUserIdShare = async (userId: string, shareId: string): Promise<v
   await Promise.all([revokeOld, sharesCollection().doc(shareId).set({ userId }), userRef.set({ shareId }, { merge: true })]);
 };
 
+// In a transaction, so two accounts asking at once can't both get the name, and neither
+// can overwrite the other's link.
+export const claimShareId = async (userId: string, shareId: string): Promise<boolean> =>
+  firestore().runTransaction(async (transaction) => {
+    const shareRef = sharesCollection().doc(shareId);
+    const owner = (await transaction.get(shareRef)).data()?.userId;
+    if (typeof owner === "string" && owner !== userId) return false;
+
+    const userRef = usersCollection().doc(userId);
+    const oldShareId = (await transaction.get(userRef)).data()?.shareId;
+    if (typeof oldShareId === "string" && oldShareId !== shareId) {
+      transaction.delete(sharesCollection().doc(oldShareId));
+    }
+    transaction.set(shareRef, { userId });
+    transaction.set(userRef, { shareId }, { merge: true });
+    return true;
+  });
+
 export const getOperatorAccess = async (operatorId: string): Promise<OperatorAccess | null> => {
   const snap = await operatorsCollection().doc(operatorId).get();
   const data = snap.data();

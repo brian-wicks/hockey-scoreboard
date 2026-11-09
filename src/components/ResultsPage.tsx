@@ -5,11 +5,11 @@ const buihaLogoUrl = new URL("../assets/buiha-crest.png", import.meta.url).href;
 const nuSportLogoUrl = new URL("../assets/team-newcastle.svg", import.meta.url).href;
 
 export default function ResultsPage() {
-  const { gameState, connect } = useStore();
+  const { gameState, ensureInitialized } = useStore();
 
   useEffect(() => {
-    connect();
-  }, [connect]);
+    ensureInitialized();
+  }, [ensureInitialized]);
 
   if (!gameState) {
     return <div className="flex items-center justify-center h-screen bg-slate-900 text-white">Connecting...</div>;

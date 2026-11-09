@@ -28,6 +28,7 @@ vi.mock("../../components/control-panel/TeamControls", () => ({ default: () => <
 vi.mock("../../components/control-panel/GameActionsPanel", () => ({ default: () => <div>Actions</div> }));
 vi.mock("../../components/control-panel/EventLogPanel", () => ({ default: () => <div>Log</div> }));
 vi.mock("../../components/control-panel/OverlayControlsPanel", () => ({ default: () => <div>Overlay Controls</div> }));
+vi.mock("../../components/control-panel/PreshowControlsPanel", () => ({ default: () => <div>Pre-show Controls</div> }));
 vi.mock("../../components/control-panel/SettingsPanel", () => ({ default: () => <div>Settings</div> }));
 vi.mock("../../components/control-panel/PresetsPanel", () => ({ default: () => <div>Presets</div> }));
 vi.mock("../../components/StreamDeckPanel", () => ({ default: () => <div>StreamDeck</div> }));
@@ -55,18 +56,33 @@ describe("ControlPanel Component", () => {
     expect(screen.getByText("Actions")).toBeInTheDocument();
   });
 
-  it("shows viewer mode message when isViewer is true", () => {
+  it("has the pre-show controls on the Controls tab", () => {
     vi.mocked(useStore).mockReturnValue({
       gameState: baseGameState,
       updateState: vi.fn(),
-      isViewer: true,
-      user: null,
+      isViewer: false,
+      user: { uid: "123" },
       ensureInitialized: vi.fn(),
     } as any);
 
     renderControlPanel();
 
-    expect(screen.getByText(/Viewer Mode/i)).toBeInTheDocument();
+    expect(screen.getByText("Pre-show Controls")).toBeInTheDocument();
+  });
+
+  it("gives a second operator the pre-show controls", () => {
+    vi.mocked(useStore).mockReturnValue({
+      gameState: baseGameState,
+      updateState: vi.fn(),
+      isViewer: false,
+      isOperator: true,
+      activeGameId: "game-1",
+      ensureInitialized: vi.fn(),
+    } as any);
+
+    renderControlPanel();
+
+    expect(screen.getByText("Pre-show Controls")).toBeInTheDocument();
   });
 
   it("switches tabs correctly", () => {

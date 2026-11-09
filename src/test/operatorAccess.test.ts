@@ -67,15 +67,15 @@ describe("second operator access", () => {
       expect((await fetch(`${baseUrl}/api/operator-access`, { method: "DELETE" })).status).toBe(401);
     });
 
-    it("reports no access, then the link, and never the PIN", async () => {
+    it("reports no access, then the link and the current PIN", async () => {
       const userId = newUser();
-      expect(await (await owner(userId, "GET")).json()).toEqual({ operatorId: null, needsPin: false });
+      expect(await (await owner(userId, "GET")).json()).toEqual({ operatorId: null, needsPin: false, pin: null });
 
       const { operatorId, pin } = await createAccess(userId);
       expect(pin).toMatch(/^\d{6}$/);
 
       const body = await (await owner(userId, "GET")).json();
-      expect(body).toEqual({ operatorId, needsPin: false });
+      expect(body).toEqual({ operatorId, needsPin: false, pin });
     });
 
     it("keeps the link and replaces the PIN on a new PIN", async () => {
@@ -93,7 +93,22 @@ describe("second operator access", () => {
       const { userId, operatorId, pin } = await createAccess();
       expect((await owner(userId, "DELETE")).status).toBe(200);
       expect((await postPin(operatorId, pin)).status).toBe(404);
-      expect(await (await owner(userId, "GET")).json()).toEqual({ operatorId: null, needsPin: false });
+      expect(await (await owner(userId, "GET")).json()).toEqual({ operatorId: null, needsPin: false, pin: null });
+    });
+
+    it("shows the new PIN after replacing one", async () => {
+      const userId = newUser();
+      await createAccess(userId);
+      const { pin } = await createAccess(userId);
+      expect((await (await owner(userId, "GET")).json()).pin).toBe(pin);
+    });
+
+    it("only shows a PIN to its owner", async () => {
+      const { operatorId } = await createAccess();
+      const res = await fetch(`${baseUrl}/api/operator-access`, { headers: { Authorization: `Bearer ${newUser()}` } });
+      expect(await res.json()).toEqual({ operatorId: null, needsPin: false, pin: null });
+      expect((await fetch(`${baseUrl}/api/operator-access`)).status).toBe(401);
+      expect((await postPin(operatorId, "abc")).status).toBe(400);
     });
 
     it("keeps each account's access separate", async () => {
@@ -395,7 +410,7 @@ describe("second operator access", () => {
 
       const expectNoPinUntilANewOneIsCreated = async (userId: string, operatorId: string, pin: string, token: string) => {
         expect(await handshakeError({ operatorId, operatorToken: token })).toBe(ENDED);
-        expect(await (await owner(userId, "GET")).json()).toEqual({ operatorId, needsPin: true });
+        expect(await (await owner(userId, "GET")).json()).toEqual({ operatorId, needsPin: true, pin: null });
 
         // More tries than the limit, which never counts them or locks the link.
         for (let i = 0; i < 6; i++) {
@@ -406,7 +421,7 @@ describe("second operator access", () => {
 
         const created = await createAccess(userId);
         expect(created.operatorId).toBe(operatorId);
-        expect(await (await owner(userId, "GET")).json()).toEqual({ operatorId, needsPin: false });
+        expect(await (await owner(userId, "GET")).json()).toMatchObject({ operatorId, needsPin: false });
         const wrong = await postPin(operatorId, wrongPinFor(created.pin));
         expect((await wrong.json()).attemptsLeft).toBe(4);
         expect((await postPin(operatorId, created.pin)).status).toBe(200);
@@ -458,7 +473,7 @@ describe("second operator access", () => {
         expect(await gotGame).toBe(gameId);
         expect(operator.connected).toBe(true);
         expect((await postPin(operatorId, pin)).status).toBe(200);
-        expect(await (await owner(userId, "GET")).json()).toEqual({ operatorId, needsPin: false });
+        expect(await (await owner(userId, "GET")).json()).toMatchObject({ operatorId, needsPin: false });
       });
 
       it("clears a lock along with the PIN", async () => {
@@ -506,7 +521,7 @@ describe("second operator access", () => {
         const { userId, gameIds, operatorId, pin, operator } = await setupInGame(2);
         expect((await deleteGame(userId, gameIds[0])).status).toBe(200);
         expect(operator.connected).toBe(true);
-        expect(await (await owner(userId, "GET")).json()).toEqual({ operatorId, needsPin: false });
+        expect(await (await owner(userId, "GET")).json()).toMatchObject({ operatorId, needsPin: false });
         expect((await postPin(operatorId, pin)).status).toBe(200);
       });
 
@@ -525,7 +540,7 @@ describe("second operator access", () => {
         await startNewGame(ownerSocket);
         const { gameId } = await startNewGame(ownerSocket);
         expect(gameId).toEqual(expect.any(String));
-        expect(await (await owner(userId, "GET")).json()).toEqual({ operatorId: null, needsPin: false });
+        expect(await (await owner(userId, "GET")).json()).toEqual({ operatorId: null, needsPin: false, pin: null });
       });
     });
 

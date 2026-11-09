@@ -40,6 +40,7 @@ export default function SecondOperatorSection() {
       .then((data) => {
         setOperatorId(data.operatorId ?? null);
         setNeedsPin(data.needsPin === true);
+        setPin(data.pin ?? null);
         setLoaded(true);
       })
       .catch((loadError) => {
@@ -155,9 +156,14 @@ export default function SecondOperatorSection() {
                   <p className="text-xs font-semibold text-ink">PIN</p>
                   <p className="text-3xl font-semibold text-ink tabular-nums tracking-widest">{pin}</p>
                   <p className="text-xs text-muted mt-1">
-                    Give the PIN to them separately from the link. It won't be shown again once you close this window.
+                    Give the PIN to them separately from the link.
                   </p>
                 </div>
+              )}
+              {!pin && !needsPin && (
+                <p className="text-sm text-muted">
+                  This PIN can't be shown because it was created before PINs were saved here. Create a new one to see it.
+                </p>
               )}
             </div>
           </div>

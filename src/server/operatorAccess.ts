@@ -97,7 +97,7 @@ export function registerOperatorAccess({
     const userId = (req as any).user.uid;
     try {
       const access = await getUserOperatorAccess(userId);
-      res.json({ operatorId: access?.operatorId ?? null, needsPin: access?.pinHash === "" });
+      res.json({ operatorId: access?.operatorId ?? null, needsPin: access?.pinHash === "", pin: access?.pin || null });
     } catch (error) {
       logError("Error reading operator access", error, { userId });
       res.status(500).json({ error: "Failed to read operator access" });
@@ -116,7 +116,7 @@ export function registerOperatorAccess({
         const pin = generatePin();
         const credentials = await hashPin(pin);
         await runExclusive(operatorId, () =>
-          setOperatorAccess({ operatorId, userId, ...credentials, failedAttempts: 0, lockedUntil: null, tokens: [] }),
+          setOperatorAccess({ operatorId, userId, ...credentials, pin, failedAttempts: 0, lockedUntil: null, tokens: [] }),
         );
         return { operatorId, pin };
       });
@@ -219,7 +219,7 @@ export function registerOperatorAccess({
           if (!existing) return false;
           const { operatorId } = existing;
           await runExclusive(operatorId, () =>
-            setOperatorAccess({ operatorId, userId, pinHash: "", pinSalt: "", failedAttempts: 0, lockedUntil: null, tokens: [] }),
+            setOperatorAccess({ operatorId, userId, pinHash: "", pinSalt: "", pin: null, failedAttempts: 0, lockedUntil: null, tokens: [] }),
           );
           return true;
         });

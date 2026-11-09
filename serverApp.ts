@@ -18,6 +18,7 @@ import { applyGamePatch, type GamePatch, type PenaltyPatch, type TeamPatch } fro
 import { requestLogSerializers } from "./src/server/requestLogging.ts";
 import { operatorRoom, registerOperatorAccess } from "./src/server/operatorAccess.ts";
 import { OPERATOR_SESSION_ENDED_ERROR } from "./src/lib/operatorAccess.ts";
+import { isValidShareName, normalizeShareName } from "./src/lib/shareNames.ts";
 import {
   getUserConfig, 
   setUserConfig, 
@@ -25,6 +26,7 @@ import {
   getShareUserId,
   getUserIdShare,
   setUserIdShare,
+  claimShareId,
   getSavedGames,
   getSavedGame,
   createSavedGame,
@@ -180,6 +182,12 @@ interface GameState {
     active: boolean;
     title: string;
     subtitle?: string;
+  };
+  preshow?: {
+    view: "teams" | "home" | "away";
+    rosterPage: number;
+    faceoffAt: number | null;
+    rotation?: { enabled: boolean; intervalSeconds: number; startedAt: number };
   };
   jumbotronGoalHighlight?: {
     team: "home" | "away";
@@ -406,6 +414,12 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         overlayLayout: "main",
         jumbotronGradientsEnabled: true,
         lowerThird: { active: false, title: "", subtitle: "" },
+        preshow: {
+          view: "teams",
+          rosterPage: 0,
+          faceoffAt: null,
+          rotation: { enabled: false, intervalSeconds: 30, startedAt: 0 },
+        },
         jumbotronGoalHighlight: null,
       },
       fromLegacyState: false,
@@ -1988,6 +2002,20 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
 
   app.post("/api/share", shareCreationLimiter, authenticateExpress, async (req, res) => {
     const userId = (req as any).user.uid;
+    const requestedName: unknown = req.body?.shareId;
+    if (requestedName !== undefined) {
+      const name = typeof requestedName === "string" ? normalizeShareName(requestedName) : requestedName;
+      if (!isValidShareName(name)) {
+        res.status(400).json({ error: "Use 4 to 40 letters, numbers and hyphens." });
+        return;
+      }
+      if (!(await claimShareId(userId, name))) {
+        res.status(409).json({ error: "That name is already taken" });
+        return;
+      }
+      res.json({ shareId: name });
+      return;
+    }
     // Unlike randomId() (used for non-sensitive event/roster ids), a share link is an
     // unauthenticated bearer token for a user's live game state, so it needs a
     // cryptographically secure generator rather than Math.random().
