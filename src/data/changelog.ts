@@ -11,6 +11,15 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.15.2',
+    date: '2026-11-17',
+    sections: {
+      fixed: [
+        'Fix the jumbotron running off the edge of smaller screens. It now scales with the width of the window.',
+      ],
+    },
+  },
+  {
     version: '1.15.1',
     date: '2026-11-09',
     sections: {
