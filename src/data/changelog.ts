@@ -15,7 +15,7 @@ export const changelogEntries: ChangelogEntry[] = [
     date: '2026-11-17',
     sections: {
       added: [
-        'Add network access to the desktop app. Turn it on from the Share window to open share links and the second operator link on a tablet or another screen on the same wifi, with no internet needed.',
+        'Add network access to the desktop app for devices on the same wifi.',
       ],
     },
   },
