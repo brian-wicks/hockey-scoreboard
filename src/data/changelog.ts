@@ -15,14 +15,8 @@ export const changelogEntries: ChangelogEntry[] = [
     date: '2026-11-17',
     sections: {
       fixed: [
-        'Fix the jumbotron running off the edge of smaller screens. It now scales with the width of the window.',
-        'Fix screens losing their connection on slow wifi while the clock runs. The server now sends a small clock update once a second instead of the whole game ten times a second.',
-        'Fix the clock on the jumbotron and overlay jumping back when an update arrives late.',
-        'Fix Start and Stop pressed during a dropped connection taking effect only when the connection came back. The clock now starts or stops at the time you pressed the button.',
-        'Fix share link screens showing a "Connection failed" page during a short dropout. They now show "Connecting..." or the last score while they reconnect.',
-        'Fix a share link screen freezing on its last score if the server was restarting when the screen opened.',
-        'Fix the control panel staying disconnected until a reload when the server couldn\'t check your sign-in.',
-        'Fix closing a penalty time without changing it putting the penalty back to the time shown when you opened it.',
+        'Fix the jumbotron scaling issues.',
+        'Fix connections issues and improve stability.',
       ],
     },
   },
