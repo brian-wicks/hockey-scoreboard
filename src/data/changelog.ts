@@ -16,7 +16,7 @@ export const changelogEntries: ChangelogEntry[] = [
     sections: {
       fixed: [
         'Fix the jumbotron scaling issues.',
-        'Fix connections issues and improve stability.',
+        'Fix connection issues and improve stability.',
       ],
     },
   },
