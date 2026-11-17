@@ -215,6 +215,53 @@ describe("a running clock", () => {
     });
   });
 
+  describe("what a late stop can give back", () => {
+    const startNewGame = (socket: Socket) =>
+      new Promise<string>((resolve) => socket.emit("startNewGame", undefined, (result: { gameId: string }) => resolve(result.gameId)));
+
+    it("never uses the start of the game it switched away from", async () => {
+      const { owner, read } = await setupOwner();
+      // Game B is left with its clock running.
+      const gameB = await startNewGame(owner);
+      owner.emit("setClock", START);
+      owner.emit("startClock");
+      await settled(owner);
+      // Game A's clock starts, then the operator goes back to B ten seconds later.
+      await startNewGame(owner);
+      owner.emit("setClock", START);
+      const aStartedAt = serverNow();
+      owner.emit("startClock", { at: aStartedAt });
+      await settled(owner);
+      shiftMs += 10_000;
+      await new Promise((resolve) => owner.emit("openGame", gameB, resolve));
+      const reopened = (await read()).clock.timeRemaining;
+
+      // A stop that claims to be from just after A started can't give B that time back.
+      owner.emit("stopClock", { at: aStartedAt + 1_000 });
+      await settled(owner);
+
+      expect((await read()).clock.timeRemaining).toBeLessThanOrEqual(reopened);
+    });
+
+    it("never reaches back past a clock replaced by an update", async () => {
+      const { owner, read } = await setupOwner();
+      const startedAt = serverNow();
+      owner.emit("startClock", { at: startedAt });
+      await settled(owner);
+      shiftMs += 5_000;
+
+      await sendPatch(owner, {
+        opId: "replace-clock",
+        noLog: true,
+        fields: { clock: { timeRemaining: 30_000, isRunning: true, lastUpdate: serverNow() } },
+      });
+      owner.emit("stopClock", { at: startedAt + 1_000 });
+      await settled(owner);
+
+      expect((await read()).clock.timeRemaining).toBeLessThanOrEqual(30_000);
+    });
+  });
+
   describe("starting", () => {
     it("starts at the time the button was pressed when the event arrives late", async () => {
       const { owner, read } = await setupOwner();

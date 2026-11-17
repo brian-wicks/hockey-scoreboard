@@ -1,6 +1,7 @@
-import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, render, screen, fireEvent } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import PenaltyItem from "../../components/control-panel/PenaltyItem";
+import { useStore } from "../../store";
 
 describe("PenaltyItem", () => {
   const mockPenalty = { id: "p1", playerNumber: "10", timeRemaining: 120000, duration: 120000, infraction: "Tripping" };
@@ -61,5 +62,66 @@ describe("PenaltyItem", () => {
     fireEvent.blur(screen.getByPlaceholderText("M:SS"));
 
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  describe("while the clock runs", () => {
+    afterEach(() => {
+      useStore.setState({ gameState: null, serverTimeOffsetMs: 0 });
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    });
+
+    // The game clock started at 60 seconds with this penalty at 2:00, at time 0.
+    const runClock = () => {
+      vi.useFakeTimers();
+      const now = vi.spyOn(Date, "now").mockReturnValue(0);
+      useStore.setState({
+        gameState: { clock: { timeRemaining: 60_000, isRunning: true, lastUpdate: 0 } } as any,
+        serverTimeOffsetMs: 0,
+      });
+      const advance = (ms: number) =>
+        act(() => {
+          now.mockReturnValue(now() + ms);
+          vi.advanceTimersByTime(16);
+        });
+      return advance;
+    };
+
+    it("counts down with the game clock between updates", () => {
+      const advance = runClock();
+      render(<PenaltyItem penalty={mockPenalty} onChange={() => {}} onEndEarly={() => {}} rosterPlayers={mockRoster} />);
+
+      advance(5_000);
+
+      expect(screen.getByRole("button", { name: "1:55" })).toBeInTheDocument();
+    });
+
+    it("doesn't put the time back when its box is opened and left alone", () => {
+      const advance = runClock();
+      const onChange = vi.fn();
+      render(<PenaltyItem penalty={mockPenalty} onChange={onChange} onEndEarly={() => {}} rosterPlayers={mockRoster} />);
+      advance(5_000);
+      fireEvent.click(screen.getByRole("button", { name: "1:55" }));
+
+      // The timer runs on while the box is open.
+      advance(3_000);
+      fireEvent.blur(screen.getByPlaceholderText("M:SS"));
+
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("still sends a time that was typed", () => {
+      const advance = runClock();
+      const onChange = vi.fn();
+      render(<PenaltyItem penalty={mockPenalty} onChange={onChange} onEndEarly={() => {}} rosterPlayers={mockRoster} />);
+      fireEvent.click(screen.getByRole("button", { name: "2:00" }));
+      advance(3_000);
+
+      const input = screen.getByPlaceholderText("M:SS");
+      fireEvent.change(input, { target: { value: "1:30" } });
+      fireEvent.blur(input);
+
+      expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ timeRemaining: 90_000 }));
+    });
   });
 });

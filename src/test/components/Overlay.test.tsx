@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import Overlay from "../../components/Overlay";
 import { useStore } from "../../store";
 
@@ -39,6 +39,32 @@ vi.mock("../../store", () => ({
 describe("Overlay Component", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("counts penalties down with a running clock between updates", () => {
+    vi.spyOn(Date, "now").mockReturnValue(5_000);
+    vi.mocked(useStore).mockReturnValue({
+      gameState: {
+        ...baseGameState,
+        clock: { timeRemaining: 120000, isRunning: true, lastUpdate: 0 },
+        homeTeam: {
+          ...baseGameState.homeTeam,
+          penalties: [{ id: "p1", playerNumber: "12", timeRemaining: 60000, duration: 120000, infraction: "Hooking" }],
+        },
+      },
+      ensureInitialized: vi.fn(),
+      updateState: vi.fn(),
+      serverTimeOffsetMs: 0,
+    } as any);
+
+    render(<Overlay />);
+
+    // Five seconds since the last update, so the penalty shows 0:55 rather than 1:00.
+    expect(screen.getByText("12 - 0:55")).toBeInTheDocument();
   });
 
   it("renders the scoreboard with team abbreviations and scores", () => {
