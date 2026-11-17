@@ -42,7 +42,7 @@ describe("second operator access when the database fails", () => {
       io: { in: () => ({ fetchSockets: async () => [] }) } as any,
       authenticate: (_req, _res, next) => next(),
       creationLimiter: (_req, _res, next) => next(),
-      localMode: false,
+      isAvailable: () => true,
       now: Date.now,
       logError,
     });
@@ -106,13 +106,13 @@ describe("second operator access when the database fails", () => {
     const fetchSockets = vi.fn();
     const failure = new Error("database fault");
 
-    const register = (localMode = false) =>
+    const register = (available = true) =>
       registerOperatorAccess({
         app: express(),
         io: { in: () => ({ fetchSockets }) } as any,
         authenticate: (_req, _res, next) => next(),
         creationLimiter: (_req, _res, next) => next(),
-        localMode,
+        isAvailable: () => available,
         now: Date.now,
         logError,
       });
@@ -167,10 +167,10 @@ describe("second operator access when the database fails", () => {
       expect(fetchSockets).not.toHaveBeenCalled();
     });
 
-    it("does nothing in local mode", async () => {
-      await register(true).resetForNewGame("user-1");
-      expect(db.getUserOperatorAccess).not.toHaveBeenCalled();
-      expect(fetchSockets).not.toHaveBeenCalled();
+    it("still clears the PIN while second operators are off, so it can't carry into the next game", async () => {
+      db.getUserOperatorAccess.mockResolvedValue(record());
+      await register(false).resetForNewGame("user-1");
+      expect(db.setOperatorAccess).toHaveBeenCalledWith(expect.objectContaining({ pinHash: "", tokens: [] }));
     });
 
     it("logs a failed write with the user ID alone and still signs second operators out", async () => {
@@ -235,7 +235,7 @@ describe("second operator access when the database fails", () => {
           next();
         },
         creationLimiter: (_req, _res, next) => next(),
-        localMode: false,
+        isAvailable: () => true,
         now: Date.now,
         logError,
       });

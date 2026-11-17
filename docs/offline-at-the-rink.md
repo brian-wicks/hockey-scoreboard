@@ -16,9 +16,9 @@ application, and it works with the network unplugged.
   to the local database instead of being sent to the cloud. A logo you added on
   the website as a web address won't load offline, so upload the image file
   itself.
-- Only that laptop can control the game. Other devices on the rink's network
-  can't reach the app, because with sign-in switched off anyone who could reach
-  it could change the score.
+- Only that laptop can open the control panel. Other devices can open share
+  links and the second operator link once you turn on network access. See
+  [Using a tablet or another screen](#using-a-tablet-or-another-screen).
 
 ## Installing it
 
@@ -48,6 +48,43 @@ The installer ends up in the `release/` folder.
 
 You don't need to be online at any point.
 
+## Using a tablet or another screen
+
+Other devices on the same network as the laptop can show the jumbotron or
+overlay, or run the game as a second operator. They don't need the internet,
+only a network they share with the laptop.
+
+1. Connect the laptop and the tablet to the same wifi. If the rink's wifi
+   doesn't work, use a phone hotspot or a travel router.
+2. On the laptop, open **Share** in the control panel and choose **Turn on
+   network access**. The first time, your computer may ask whether to allow
+   incoming connections. Choose Allow.
+3. The share links now use the laptop's network address, like
+   `http://192.168.1.20:3696/share/rink/jumbotron`. Scan the QR code with the
+   tablet, or type the address into its browser.
+4. For a second operator, set one up in the same window and give them the link
+   and PIN, the same as on the website.
+
+Network access stays on until you turn it off, including after the app
+restarts. Turning it off disconnects every other device straight away.
+
+The tablet can't open the Dashboard or the control panel's other tabs: only the
+laptop can, because sign-in is off in the desktop app. A second operator gets
+the Controls and Deck tabs, the same as on the website.
+
+If the tablet can't connect:
+
+- Check both devices are on the same network, and that the address in the link
+  matches one shown in the Share window.
+- Guest wifi often stops devices reaching each other. Use a phone hotspot or a
+  travel router instead.
+- Check the laptop's firewall allows Hockey Scoreboard to accept incoming
+  connections.
+
+The app tries port 3696 first, so links saved on a tablet keep working from one
+game to the next. If something else is using that port, it picks another and the
+links change for that launch.
+
 ## Data folder
 
 Games, teams and settings are stored in a database file in the app's data
@@ -61,8 +98,12 @@ Back that folder up if you want to keep a season's games.
 ## Notes for maintainers
 
 - Local mode turns authentication off. It's opt-in via `LOCAL_MODE=true` (see
-  `src/lib/localMode.ts`), the server refuses to start with it under
-  `NODE_ENV=production`, and it only listens on loopback.
+  `src/lib/localMode.ts`), and the server refuses to start with it under
+  `NODE_ENV=production`. Its own listener is on loopback only. Network access
+  adds a second listener on `0.0.0.0` (`src/server/localNetwork.ts`), and
+  requests that arrive through it are never treated as the owner: they get
+  share links and second operator access, which check the share ID or the
+  operator's PIN and token as they do on the website.
 - `npm run electron:dev` runs the desktop shell against the repo without
   packaging. `npm run build:electron` only produces the bundles it needs.
 - `scripts/build-electron.mjs` bundles the server to `dist-electron/server.mjs`

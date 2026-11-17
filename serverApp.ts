@@ -17,6 +17,7 @@ import { isLocalModeEnv, LOCAL_USER_ID } from "./src/lib/localMode.ts";
 import { applyGamePatch, type GamePatch, type PenaltyPatch, type TeamPatch } from "./src/utils/gamePatch.ts";
 import { requestLogSerializers } from "./src/server/requestLogging.ts";
 import { assessConnectionReport, createSentryBudget, sanitizeConnectionReport } from "./src/server/connectionReports.ts";
+import { createLanAccess, DEFAULT_LAN_PORT, lanAddresses } from "./src/server/localNetwork.ts";
 import { operatorRoom, registerOperatorAccess } from "./src/server/operatorAccess.ts";
 import { OPERATOR_SESSION_ENDED_ERROR } from "./src/lib/operatorAccess.ts";
 import { INVALID_SHARE_LINK_ERROR, isValidShareName, normalizeShareName } from "./src/lib/shareNames.ts";
@@ -50,6 +51,10 @@ function logError(msg: string, error: unknown, context?: Record<string, unknown>
   logger.error({ err: error, ...context }, msg);
   Sentry.captureException(error, context ? { extra: context } : undefined);
 }
+
+// What a device on the rink's network is told when it tries to act as the desktop app's owner.
+const LOCAL_OWNER_ONLY_ERROR = "Authentication error: Only the computer running the app can open the control panel";
+const LAN_ACCESS_CONFIG_KEY = "lanAccess";
 
 // Initialize Firebase Admin
 let serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
@@ -201,6 +206,8 @@ interface GameState {
 
 export interface ScoreboardServerOptions {
   dataDir?: string;
+  /** The port the desktop app tries first for devices on the network. */
+  lanPort?: number;
   /** Decides whether a serious connection report can go to Sentry. Defaults to the free plan budget. */
   sentryBudget?: (sessionId: string) => boolean;
   /** Where the built client lives. Packaged builds serve it from outside the app bundle. */
@@ -232,7 +239,9 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   const app = express();
 
   // Trust the first hop (reverse proxy) so req.ip / rate limiting see the real client IP.
-  app.set("trust proxy", 1);
+  // The desktop app has no proxy in front of it, and a device on the rink's network could
+  // otherwise pick its own address for the rate limiters with an X-Forwarded-For header.
+  if (!localMode) app.set("trust proxy", 1);
 
   // Structured request logger (method/url/status/response time as JSON per request).
   app.use(pinoHttp({ logger, serializers: requestLogSerializers }));
@@ -281,8 +290,12 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         baseUri: ["'self'"],
         formAction: ["'self'"],
         frameAncestors: ["'self'"],
+        // Devices on the rink's network load the desktop app over plain HTTP, where
+        // asking for HTTPS would leave them with a blank page.
+        ...(localMode ? { upgradeInsecureRequests: null } : {}),
       },
     },
+    strictTransportSecurity: !localMode,
     // Helmet's default COOP (same-origin) cuts off the opener's connection to the
     // signInWithPopup auth window — Google sign-in still succeeds, but the app never
     // hears about it and reports auth/popup-closed-by-user. same-origin-allow-popups
@@ -316,7 +329,20 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   // serving rejected the app's own JS/CSS with 403 whenever it was reached via
   // any origin other than the exact VITE_BASE_URL (a LAN IP, a different port, a
   // tunnel) — a blank white page with no client-visible error.
-  app.use("/api", cors({ origin: corsOriginCheck }));
+  // A device on the rink's network loads the desktop app from the network listener, by
+  // whatever address it used, so there the page's own origin is the one that's allowed.
+  // Those requests never act as the owner (see src/server/localNetwork.ts).
+  const sameHostOrigin = (req: { headers: { host?: string } }): cors.CorsOptions["origin"] => (origin, callback) => {
+    if (!origin || origin === `http://${req.headers.host}`) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error("Not allowed by CORS"));
+  };
+  const corsFor: cors.CorsOptionsDelegate<express.Request> = (req, callback) => {
+    callback(null, { origin: lanAccess.isLanRequest(req) ? sameHostOrigin(req) : corsOriginCheck });
+  };
+  app.use("/api", cors(corsFor));
   app.use((err: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (err instanceof Error && err.message === "Not allowed by CORS") {
       res.status(403).json({ error: "Not allowed by CORS" });
@@ -356,10 +382,13 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
   });
 
   const httpServer = createServer(app);
+  const lanAccess = createLanAccess({ httpServer, preferredPort: options.lanPort ?? DEFAULT_LAN_PORT });
   const io = new Server(httpServer, {
-    cors: {
-      origin: corsOriginCheck,
-      methods: ["GET", "POST"],
+    cors: (req, callback) => {
+      callback(null, {
+        origin: lanAccess.isLanRequest(req) ? sameHostOrigin(req) : corsOriginCheck,
+        methods: ["GET", "POST"],
+      });
     },
     allowEIO3: true,
     transports: ["polling", "websocket"]
@@ -1309,6 +1338,11 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     }
 
     if (localMode) {
+      // Only this computer runs the game. Other devices use share links or second operator access.
+      if (!lanAccess.isOwnerRequest(socket.request)) {
+        logger.warn({ socketId: socket.id }, "[Socket] Auth failed: owner connection from another device");
+        return next(new Error(LOCAL_OWNER_ONLY_ERROR));
+      }
       socket.data.userId = LOCAL_USER_ID;
       socket.data.isViewer = false;
       return next();
@@ -1335,6 +1369,11 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     // is the single local operator. server.ts refuses to start in this mode under
     // NODE_ENV=production, so it can't silently open up a real deployment.
     if (localMode) {
+      if (!lanAccess.isOwnerRequest(req)) {
+        logger.warn({ method: req.method, url: req.url }, "[Express] Auth failed: owner request from another device");
+        res.status(401).json({ error: LOCAL_OWNER_ONLY_ERROR });
+        return;
+      }
       (req as any).user = { uid: LOCAL_USER_ID };
       next();
       return;
@@ -1362,7 +1401,9 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     io,
     authenticate: authenticateExpress,
     creationLimiter: shareCreationLimiter,
-    localMode,
+    // The desktop app's only other devices are on the network, so second operators are
+    // off there until network access is turned on.
+    isAvailable: () => !localMode || lanAccess.isOn(),
     now,
     logError,
   });
@@ -2121,6 +2162,40 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     res.json({ shareId });
   });
 
+  // Network access for the desktop app (src/server/localNetwork.ts). Only the computer
+  // running the app can see or change it, and it stays on across launches until turned off.
+  if (localMode) {
+    const networkStatus = () => {
+      const port = lanAccess.port();
+      return {
+        enabled: lanAccess.isOn(),
+        port,
+        urls: port === null ? [] : lanAddresses().map((address) => `http://${address}:${port}`),
+      };
+    };
+
+    app.get("/api/local-network", authenticateExpress, (_req, res) => {
+      res.json(networkStatus());
+    });
+
+    app.post("/api/local-network", authenticateExpress, async (req, res) => {
+      const enabled = req.body?.enabled;
+      if (typeof enabled !== "boolean") {
+        return res.status(400).json({ error: "enabled must be true or false" });
+      }
+      try {
+        if (enabled) await lanAccess.start();
+        else await lanAccess.stop();
+        await setUserConfig(LOCAL_USER_ID, LAN_ACCESS_CONFIG_KEY, enabled ? "on" : "off");
+        logger.info({ enabled, port: lanAccess.port() }, "[Local network] Network access changed");
+        res.json(networkStatus());
+      } catch (error) {
+        logError("[Local network] Couldn't change network access", error, { enabled });
+        res.status(500).json({ error: "Couldn't change network access", ...networkStatus() });
+      }
+    });
+  }
+
   // Connection reports from screens (src/lib/connectionDiagnostics.ts), so a problem at the
   // rink can be looked into afterwards. Screens send one at most every 30 seconds, and only
   // after something went wrong, but every device at a rink can share one IP address.
@@ -2241,12 +2316,29 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         }
 
         logger.info({ port: selectedPort }, "[Server] Listening");
-        resolve(selectedPort);
+        if (localMode) {
+          void restoreLanAccess().finally(() => resolve(selectedPort));
+        } else {
+          resolve(selectedPort);
+        }
       });
     });
   }
 
-  function stop() {
+  // Network access stays on across launches, so the tablets' saved links keep working.
+  async function restoreLanAccess() {
+    try {
+      if ((await getUserConfig(LOCAL_USER_ID, LAN_ACCESS_CONFIG_KEY)) === "on") {
+        const port = await lanAccess.start();
+        logger.info({ port }, "[Local network] Listening for devices on the network");
+      }
+    } catch (error) {
+      logError("[Local network] Couldn't turn network access back on", error);
+    }
+  }
+
+  async function stop() {
+    await lanAccess.stop();
     return new Promise<void>((resolve, reject) => {
       for (const context of userContexts.values()) {
         if (context.clockInterval) {

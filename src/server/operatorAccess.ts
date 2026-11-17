@@ -28,7 +28,8 @@ export interface OperatorAccessOptions {
   io: Server;
   authenticate: RequestHandler;
   creationLimiter: RequestHandler;
-  localMode: boolean;
+  /** Whether second operators can reach this server. The desktop app turns it on with network access. */
+  isAvailable: () => boolean;
   now: () => number;
   logError: (msg: string, error: unknown, context?: Record<string, unknown>) => void;
 }
@@ -50,18 +51,20 @@ export function registerOperatorAccess({
   io,
   authenticate,
   creationLimiter,
-  localMode,
+  isAvailable,
   now,
   logError,
 }: OperatorAccessOptions): OperatorAccessControls {
-  // Local mode has one operator and no way to tell two people apart, and its server
-  // only listens on loopback. The explicit 404 stops GETs reaching the SPA catch-all.
-  if (localMode) {
-    app.use(["/api/operator-access", "/api/operator"], (_req, res) => {
-      res.status(404).json({ error: "Not found" });
-    });
-    return { authenticateHandshake: async () => null, resetForNewGame: async () => {} };
-  }
+  // The desktop app can only tell a second operator apart from its owner when they're on
+  // another device, so these routes exist there only while network access is on. The
+  // explicit 404 stops GETs reaching the SPA catch-all.
+  app.use(["/api/operator-access", "/api/operator"], (_req, res, next) => {
+    if (isAvailable()) {
+      next();
+      return;
+    }
+    res.status(404).json({ error: "Not found" });
+  });
 
   // Every read-then-write of a record runs through this queue. Parallel PIN guesses
   // can't all see the same attempt count, and a guess in flight can't save its stale
@@ -203,7 +206,7 @@ export function registerOperatorAccess({
 
   return {
     async authenticateHandshake(operatorId: unknown, token: unknown): Promise<string | null> {
-      if (!isValidOperatorId(operatorId) || typeof token !== "string") return null;
+      if (!isAvailable() || !isValidOperatorId(operatorId) || typeof token !== "string") return null;
       const access = await getOperatorAccess(operatorId);
       return access && hasValidDeviceToken(access.tokens, token, now()) ? access.userId : null;
     },

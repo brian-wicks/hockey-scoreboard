@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertCircle, UserPlus } from "lucide-react";
-import { getBaseUrl, isLocalMode } from "../../lib/localMode";
+import { getBaseUrl } from "../../lib/localMode";
 import { useStore } from "../../store";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { Button } from "./ui/primitives";
@@ -10,8 +10,8 @@ import ShareLinkRow from "./ShareLinkRow";
 const CHANGE_ERROR = "Couldn't update second operator access. Check your connection and try again.";
 const LOAD_ERROR = "Couldn't load second operator access. Check your connection and reopen this window.";
 
-export default function SecondOperatorSection() {
-  const localMode = isLocalMode();
+/** `linkOrigin` is the address in the link to send, when it differs from this computer's own. */
+export default function SecondOperatorSection({ linkOrigin = window.location.origin }: { linkOrigin?: string }) {
   const [operatorId, setOperatorId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [needsPin, setNeedsPin] = useState(false);
@@ -34,7 +34,6 @@ export default function SecondOperatorSection() {
   };
 
   useEffect(() => {
-    if (localMode) return;
     request("GET")
       .then((data) => {
         setOperatorId(data.operatorId ?? null);
@@ -46,7 +45,7 @@ export default function SecondOperatorSection() {
         console.error("Failed to load operator access:", loadError);
         setError(LOAD_ERROR);
       });
-  }, [localMode]);
+  }, []);
 
   const createPin = async () => {
     setConfirming(null);
@@ -82,9 +81,8 @@ export default function SecondOperatorSection() {
     }
   };
 
-  if (localMode) return null;
-
-  const link = operatorId ? `${window.location.origin}/operate/${operatorId}` : null;
+  const path = operatorId ? `/operate/${operatorId}` : null;
+  const link = path ? `${linkOrigin}${path}` : null;
   const showNoPin = needsPin && !pin;
 
   return (
@@ -119,7 +117,7 @@ export default function SecondOperatorSection() {
       )}
       {link && (
         <>
-          <ShareLinkRow label="Second operator link" url={link} />
+          <ShareLinkRow label="Second operator link" url={link} openUrl={`${window.location.origin}${path}`} />
           {pin && (
             <div className="flex items-baseline gap-3 px-3">
               <span className="text-sm font-semibold text-ink">PIN</span>

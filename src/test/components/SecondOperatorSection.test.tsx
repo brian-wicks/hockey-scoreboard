@@ -1,15 +1,10 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import SecondOperatorSection from "../../components/control-panel/SecondOperatorSection";
-import { isLocalMode } from "../../lib/localMode";
 import { useStore } from "../../store";
 
 vi.mock("../../store", () => ({ useStore: { getState: vi.fn() } }));
 vi.mock("qrcode.react", () => ({ QRCodeSVG: ({ value }: { value: string }) => <svg data-qr-value={value} /> }));
-vi.mock("../../lib/localMode", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../lib/localMode")>()),
-  isLocalMode: vi.fn(() => false),
-}));
 
 const respond = (status: number, body: unknown) => ({
   ok: status < 400,
@@ -22,7 +17,6 @@ describe("SecondOperatorSection", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(isLocalMode).mockReturnValue(false);
     vi.mocked(useStore.getState).mockReturnValue({
       user: { getIdToken: vi.fn().mockResolvedValue("owner-token") },
     } as any);
@@ -251,10 +245,14 @@ describe("SecondOperatorSection", () => {
     );
   });
 
-  it("is hidden in local mode", () => {
-    vi.mocked(isLocalMode).mockReturnValue(true);
-    const { container } = render(<SecondOperatorSection />);
-    expect(container).toBeEmptyDOMElement();
-    expect(fetchMock).not.toHaveBeenCalled();
+  it("puts the given address in the link to send, and opens the link on this computer", async () => {
+    fetchMock.mockResolvedValueOnce(respond(200, { operatorId: "op-1", pin: "012345" }));
+    render(<SecondOperatorSection linkOrigin="http://192.168.1.20:3696" />);
+
+    expect(await screen.findByText("http://192.168.1.20:3696/operate/op-1")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Second operator link in a new tab" })).toHaveAttribute(
+      "href",
+      `${window.location.origin}/operate/op-1`,
+    );
   });
 });

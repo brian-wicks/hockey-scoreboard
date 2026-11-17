@@ -4,8 +4,11 @@ import { QRCodeSVG } from "qrcode.react";
 
 const ICON_BUTTON_CLASS = "text-muted hover:text-ink hover:bg-surface transition-colors p-1.5 rounded-sm shrink-0";
 
-/** One share link on a single line, with its QR code shown on request. */
-export default function ShareLinkRow({ label, url }: { label: string; url: string }) {
+/**
+ * One share link on a single line, with its QR code shown on request. `openUrl` is what the
+ * open button uses on this computer, when that's a different address from the one to share.
+ */
+export default function ShareLinkRow({ label, url, openUrl = url }: { label: string; url: string; openUrl?: string }) {
   const [copied, setCopied] = useState(false);
   const [showQr, setShowQr] = useState(false);
 
@@ -37,7 +40,7 @@ export default function ShareLinkRow({ label, url }: { label: string; url: strin
           {copied ? <Check size={16} className="text-ink" /> : <Copy size={16} />}
         </button>
         <a
-          href={url}
+          href={openUrl}
           target="_blank"
           rel="noreferrer"
           className={ICON_BUTTON_CLASS}

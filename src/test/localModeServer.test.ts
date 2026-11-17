@@ -50,6 +50,13 @@ describe("local mode server auth", () => {
     expect(res.status).toBe(200);
   });
 
+  it("asks browsers for HTTPS on the website, where it's always used", async () => {
+    running = await startServer(false);
+    const res = await fetch(`http://127.0.0.1:${running.port}/`);
+    expect(res.headers.get("content-security-policy")).toContain("upgrade-insecure-requests");
+    expect(res.headers.get("strict-transport-security")).not.toBeNull();
+  });
+
   it("rejects the same request when local mode is off", async () => {
     running = await startServer(false);
     const res = await fetch(`http://127.0.0.1:${running.port}/api/shortcuts`);

@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { Share2, X } from "lucide-react";
 import { useStore } from "../../store";
-import { getBaseUrl } from "../../lib/localMode";
+import { getBaseUrl, isLocalMode } from "../../lib/localMode";
 import { isValidShareName, normalizeShareName } from "../../lib/shareNames";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { Button, inputClass } from "./ui/primitives";
 import ShareLinkRow from "./ShareLinkRow";
 import SecondOperatorSection from "./SecondOperatorSection";
+import NetworkAccessSection, { useLocalNetwork } from "./NetworkAccessSection";
 
 const RANDOM_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const INVALID_NAME_ERROR = "Use 4 to 40 letters, numbers and hyphens.";
@@ -30,6 +31,13 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
 
   // @ts-ignore
   const baseUrl = getBaseUrl().replace(/\/+$/, "");
+
+  // With network access on in the desktop app, links to copy or scan use this computer's
+  // address on the network, so another device can open them. Opening one here still uses
+  // this computer's own address, which keeps it in an app window.
+  const localMode = isLocalMode();
+  const network = useLocalNetwork(isOpen && localMode);
+  const linkOrigin = network.address ?? window.location.origin;
 
   const setShareId = (id: string) => {
     setShareIdState(id);
@@ -199,6 +207,8 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
         </div>
 
         <div className="p-4 sm:p-6">
+          {localMode && <NetworkAccessSection network={network} />}
+
           <section className="space-y-4">
             <div>
               <h3 className="text-sm font-semibold text-ink">Viewer links</h3>
@@ -217,7 +227,12 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
                   { label: "Pre-show", path: `/share/${shareId}/preshow` },
                   { label: "Results", path: `/share/${shareId}/results` },
                 ].map((link) => (
-                  <ShareLinkRow key={link.path} label={link.label} url={`${window.location.origin}${link.path}`} />
+                  <ShareLinkRow
+                    key={link.path}
+                    label={link.label}
+                    url={`${linkOrigin}${link.path}`}
+                    openUrl={`${window.location.origin}${link.path}`}
+                  />
                 ))}
               </div>
             )}
@@ -236,7 +251,8 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
             )}
           </section>
 
-          <SecondOperatorSection />
+          {/* The desktop app has no second operators until other devices can reach it. */}
+          {(!localMode || network.enabled) && <SecondOperatorSection linkOrigin={linkOrigin} />}
         </div>
       </div>
 
