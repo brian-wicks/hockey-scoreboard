@@ -4,10 +4,10 @@ import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
 import {defineConfig, loadEnv} from 'vite';
-import {findMissingFirebaseEnvVars, formatMissingEnvError} from './env-check';
-import {isLocalModeEnv} from './src/lib/localMode';
+import {findMissingFirebaseEnvVars, formatMissingEnvError} from './env-check.ts';
+import {isLocalModeEnv} from './src/lib/localMode.ts';
 
-const packageJsonPath = path.resolve(__dirname, 'package.json');
+const packageJsonPath = path.resolve(import.meta.dirname, 'package.json');
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8')) as {version?: string};
 const appVersion = packageJson.version ?? '0.0.0';
 
@@ -31,7 +31,7 @@ export default defineConfig(({mode, command}) => {
     },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(import.meta.dirname, '.'),
       },
     },
     build: {
