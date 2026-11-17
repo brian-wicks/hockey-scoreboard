@@ -11,6 +11,15 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: '1.15.3',
+    date: '2026-11-17',
+    sections: {
+      added: [
+        'Add network access to the desktop app. Turn it on from the Share window to open share links and the second operator link on a tablet or another screen on the same wifi, with no internet needed.',
+      ],
+    },
+  },
+  {
     version: '1.15.2',
     date: '2026-11-17',
     sections: {
