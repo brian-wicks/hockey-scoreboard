@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Penalty, TeamPlayer } from "../../store";
 import { parseTimeInputMs } from "../../utils/clock";
+import { useLivePenaltyMs } from "../../hooks/useClockDisplay";
 import { ComboboxDropdown, PenaltyReasonInput, useComboboxField } from "./DropdownInputs";
 
 interface PenaltyItemProps {
@@ -22,6 +23,9 @@ export default function PenaltyItem({
 }: PenaltyItemProps) {
   const [editMode, setEditMode] = useState(false);
   const [editValue, setEditValue] = useState("2:00");
+  // What the field opened with. The timer keeps running while it's open, so it's compared with this.
+  const [editStartValue, setEditStartValue] = useState("2:00");
+  const liveTimeRemaining = useLivePenaltyMs(penalty.timeRemaining);
 
   const formatPlayerSearchValue = (player: TeamPlayer) => {
     const number = player.jerseyNumber.trim();
@@ -74,7 +78,7 @@ export default function PenaltyItem({
   const handleTimeChange = (value: string) => {
     const timeMs = parseTimeInputMs(value);
     // Displayed times round up, so sending an untouched one would move the timer.
-    if (timeMs !== null && value !== formatPenaltyTime(penalty.timeRemaining)) {
+    if (timeMs !== null && value !== editStartValue) {
       // Only the remaining time is being corrected here — `duration` is the
       // penalty's original recorded length (used for gamesheet PIM), which this
       // editor shouldn't silently rewrite.
@@ -150,11 +154,13 @@ export default function PenaltyItem({
           type="button"
           className="bg-canvas border border-line rounded-sm p-1 text-sm flex-1 min-w-0 text-center font-mono text-danger hover:bg-surface transition-colors"
           onClick={() => {
-            setEditValue(formatPenaltyTime(penalty.timeRemaining));
+            const shown = formatPenaltyTime(liveTimeRemaining);
+            setEditValue(shown);
+            setEditStartValue(shown);
             setEditMode(true);
           }}
         >
-          {formatPenaltyTime(penalty.timeRemaining)}
+          {formatPenaltyTime(liveTimeRemaining)}
         </button>
       )}
       <button

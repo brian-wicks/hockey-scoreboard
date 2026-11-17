@@ -1,7 +1,7 @@
-import { type CSSProperties, useEffect, useMemo } from "react";
+import { type CSSProperties, useEffect } from "react";
 import { useStore } from "../store";
-import { formatPenaltyTimeMs } from "../utils/clock";
-import { useClockDisplay } from "../hooks/useClockDisplay";
+import { formatClockDisplay, formatPenaltyTimeMs, livePenaltyMs } from "../utils/clock";
+import { useLiveClockMs } from "../hooks/useClockDisplay";
 
 function formatPeriodLabel(period: string | undefined | null) {
   const raw = String(period ?? "").trim().toUpperCase();
@@ -28,7 +28,10 @@ export default function JumbotronScoreboard() {
     ensureInitialized();
   }, [ensureInitialized]);
 
-  const displayTime = useClockDisplay(gameState?.clock ?? null, serverTimeOffsetMs, "20:00");
+  const clockMs = useLiveClockMs(gameState?.clock ?? null, serverTimeOffsetMs);
+  const displayTime = clockMs === null ? "20:00" : formatClockDisplay(clockMs);
+  const penaltyTime = (penaltyMs: number) =>
+    formatPenaltyTimeMs(gameState && clockMs !== null ? livePenaltyMs(penaltyMs, gameState.clock, clockMs) : penaltyMs);
 
   const fallbackTeam = {
     name: "",
@@ -71,32 +74,18 @@ export default function JumbotronScoreboard() {
   const highlightAssistText = highlightAssists.length > 0 ? highlightAssists.join(", ") : "";
   const homePenalties = homeTeam.penalties ?? [];
   const awayPenalties = awayTeam.penalties ?? [];
-  const homePenaltyRows = useMemo(
-    () =>
-      homePenalties
-        .slice()
-        .sort((a, b) => a.timeRemaining - b.timeRemaining)
-        .map((penalty) => ({
-          id: penalty.id,
-          number: penalty.playerNumber,
-          infraction: penalty.infraction,
-          remaining: formatPenaltyTimeMs(penalty.timeRemaining ?? 0),
-        })),
-    [homePenalties],
-  );
-  const awayPenaltyRows = useMemo(
-    () =>
-      awayPenalties
-        .slice()
-        .sort((a, b) => a.timeRemaining - b.timeRemaining)
-        .map((penalty) => ({
-          id: penalty.id,
-          number: penalty.playerNumber,
-          infraction: penalty.infraction,
-          remaining: formatPenaltyTimeMs(penalty.timeRemaining ?? 0),
-        })),
-    [awayPenalties],
-  );
+  const penaltyRows = (penalties: typeof homePenalties) =>
+    penalties
+      .slice()
+      .sort((a, b) => a.timeRemaining - b.timeRemaining)
+      .map((penalty) => ({
+        id: penalty.id,
+        number: penalty.playerNumber,
+        infraction: penalty.infraction,
+        remaining: penaltyTime(penalty.timeRemaining ?? 0),
+      }));
+  const homePenaltyRows = penaltyRows(homePenalties);
+  const awayPenaltyRows = penaltyRows(awayPenalties);
 
   useEffect(() => {
     if (!jumbotronGoalHighlight) return;

@@ -4,7 +4,10 @@ import { User, signInWithPopup, signOut } from "firebase/auth";
 import { auth, googleProvider } from "./lib/firebase";
 import { getBaseUrl, isLocalMode } from "./lib/localMode";
 import { OPERATOR_SESSION_ENDED_ERROR } from "./lib/operatorAccess";
+import { INVALID_SHARE_LINK_ERROR } from "./lib/shareNames";
 import { applyGamePatch, createDeleteEventPatch, createGamePatch, invertGamePatch, isUndoable, type GamePatch } from "./utils/gamePatch";
+import { addServerTimeSample, type ServerTimeSample } from "./utils/clock";
+import { trackConnection, type ConnectionDiagnostics } from "./lib/connectionDiagnostics";
 
 const normalizeBaseUrl = (url: string) => url.replace(/\/+$/, "");
 const BASE_URL = normalizeBaseUrl(getBaseUrl());
@@ -136,6 +139,13 @@ export interface GameState {
   serverTime?: number;
 }
 
+/** What the server sends each second while the clock runs, between full updates. */
+export interface ClockSync {
+  clock: ClockState;
+  penalties: Record<"home" | "away", { id: string; timeRemaining: number }[]>;
+  serverTime: number;
+}
+
 export type ShortcutAction =
   | "toggleClock"
   | "clockIncrease"
@@ -193,8 +203,11 @@ export type OperatorAuth =
 interface StoreState {
   socket: Socket | null;
   gameState: GameState | null;
+  /** The last game state the server sent, before this device's unconfirmed changes go on top. */
+  serverGameState: GameState | null;
   isConnected: boolean;
   serverTimeOffsetMs: number;
+  serverTimeSamples: ServerTimeSample[];
   keyboardShortcuts: KeyboardShortcut[];
   streamDeckConfig: StreamDeckConfig;
   /** The patch that reverses each undoable action, oldest first. */
@@ -424,6 +437,19 @@ const defaultStreamDeckConfig: StreamDeckConfig = {
 };
 
 let hasInitialized = false;
+// Watches the current socket, so problems at the rink can be looked at after the game.
+let diagnostics: ConnectionDiagnostics | null = null;
+const watchConnection = (socket: Socket, options: Parameters<typeof trackConnection>[1]) => {
+  diagnostics?.stop();
+  diagnostics = null;
+  try {
+    diagnostics = trackConnection(socket, options);
+  } catch (error) {
+    // Watching the connection must never stop the screen from connecting.
+    console.error("Couldn't start connection diagnostics:", error);
+  }
+};
+const noteServerMessage = (clock: ClockState | undefined) => diagnostics?.noteMessage(clock?.isRunning === true);
 const STATE_CACHE_KEY = "scoreboard:gameStateCache:v1";
 const ACTIVE_GAME_CACHE_KEY = "scoreboard:activeGameIdCache:v1";
 export const MAX_UNDO_STEPS = 20;
@@ -454,6 +480,13 @@ const sendPatch = (
 // The trailing argument on a clock event, naming the game it was made for.
 const clockScope = (state: StoreState): [{ gameId: string }] | [] =>
   typeof state.activeGameId === "string" ? [{ gameId: state.activeGameId }] : [];
+
+// Starting and stopping also say when the button was pressed, in server time. An event sent
+// during a dropped connection waits until the connection is back, and the clock should still
+// start or stop when the operator pressed the button.
+const clockPressScope = (state: StoreState): [{ gameId?: string; at: number }] => [
+  { ...clockScope(state)[0], at: Date.now() + state.serverTimeOffsetMs },
+];
 
 const receiveActiveGame = (
   gameId: string | null,
@@ -512,20 +545,55 @@ const cacheGameState = (get: () => StoreState, state: GameState) => {
   if (!get().isOperator) saveCachedState(state);
 };
 
+const serverTimeFrom = (serverTime: unknown, get: () => StoreState): Pick<StoreState, "serverTimeOffsetMs" | "serverTimeSamples"> => {
+  if (typeof serverTime !== "number") return { serverTimeOffsetMs: get().serverTimeOffsetMs, serverTimeSamples: get().serverTimeSamples };
+  const { samples, offsetMs } = addServerTimeSample(get().serverTimeSamples, serverTime, Date.now());
+  return { serverTimeOffsetMs: offsetMs, serverTimeSamples: samples };
+};
+
+/** Puts the times from a clock sync into the game they belong to. */
+export const applyClockSync = (state: GameState, sync: ClockSync): GameState => {
+  const withPenaltyTimes = (team: TeamState, times: { id: string; timeRemaining: number }[] = []): TeamState => {
+    const byId = new Map(times.map((penalty) => [penalty.id, penalty.timeRemaining]));
+    return {
+      ...team,
+      penalties: team.penalties.map((penalty) =>
+        byId.has(penalty.id) ? { ...penalty, timeRemaining: byId.get(penalty.id)! } : penalty,
+      ),
+    };
+  };
+  return {
+    ...state,
+    clock: sync.clock,
+    homeTeam: withPenaltyTimes(state.homeTeam, sync.penalties?.home),
+    awayTeam: withPenaltyTimes(state.awayTeam, sync.penalties?.away),
+  };
+};
+
 const receiveGameState = (
   state: GameState,
   get: () => StoreState,
   set: (partial: Partial<StoreState>) => void,
 ) => {
-  const serverTime = typeof state.serverTime === "number" ? state.serverTime : null;
-  const serverTimeOffsetMs = serverTime === null ? get().serverTimeOffsetMs : serverTime - Date.now();
-  // Clock ticks arrive up to 10 times a second, and can be from before the server saw
-  // the operator's latest change. Keep that change on top until the server confirms it.
+  // Updates can be from before the server saw the operator's latest change. Keep that
+  // change on top until the server confirms it.
   const oldestPending = Date.now() - PENDING_PATCH_MAX_AGE_MS;
   const pendingPatches = get().pendingPatches.filter((pending) => pending.sentAt >= oldestPending);
   const gameState = pendingPatches.reduce((next, pending) => applyGamePatch(next, pending.patch), state);
-  set({ gameState, serverTimeOffsetMs, pendingPatches });
+  noteServerMessage(state.clock);
+  set({ gameState, serverGameState: state, pendingPatches, ...serverTimeFrom(state.serverTime, get) });
   cacheGameState(get, gameState);
+};
+
+const receiveClockSync = (
+  sync: ClockSync,
+  get: () => StoreState,
+  set: (partial: Partial<StoreState>) => void,
+) => {
+  // Every connection is sent the full game first, so a sync before that has nothing to go into.
+  const serverGameState = get().serverGameState;
+  if (!serverGameState) return;
+  receiveGameState({ ...applyClockSync(serverGameState, sync), serverTime: sync.serverTime }, get, set);
 };
 
 const withMissingDefaultShortcuts = (shortcuts: KeyboardShortcut[]): KeyboardShortcut[] => {
@@ -559,13 +627,25 @@ const clearOperatorToken = (operatorId: string) => {
   }
 };
 
-const OPERATOR_HANDSHAKE_RETRY_MS = 2000;
+const HANDSHAKE_RETRY_MS = 2000;
+
+// Socket.IO retries a dropped or unreachable server by itself, but stops when the server
+// turns the connection down. That can be a fault on the server's side, like a database
+// that didn't answer, so callers use this for every refusal that isn't final.
+const retryRefusedConnection = (socket: Socket, get: () => StoreState) => {
+  if (socket.active) return;
+  setTimeout(() => {
+    if (get().socket === socket) socket.connect();
+  }, HANDSHAKE_RETRY_MS);
+};
 
 export const useStore = create<StoreState>((set, get) => ({
   socket: null,
   gameState: null,
+  serverGameState: null,
   isConnected: false,
   serverTimeOffsetMs: 0,
+  serverTimeSamples: [],
   keyboardShortcuts: [...defaultShortcuts],
   streamDeckConfig: defaultStreamDeckConfig,
   undoStack: [],
@@ -610,9 +690,11 @@ export const useStore = create<StoreState>((set, get) => ({
       if (socket) {
         socket.disconnect();
       }
+      diagnostics?.stop();
+      diagnostics = null;
       if (auth) await signOut(auth);
       hasInitialized = false;
-      set({ user: null, gameState: null, socket: null, isViewer: false, shareId: null, authError: null, savedGames: [], teamLibrary: [], undoStack: [], pendingPatches: [], activeGameId: undefined });
+      set({ user: null, gameState: null, serverGameState: null, socket: null, isViewer: false, shareId: null, authError: null, savedGames: [], teamLibrary: [], undoStack: [], pendingPatches: [], activeGameId: undefined });
     } catch (error) {
       console.error("Logout failed:", error);
     }
@@ -786,6 +868,7 @@ export const useStore = create<StoreState>((set, get) => ({
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
     });
+    watchConnection(socket, { role: "operator" });
 
     const endSession = () => {
       clearOperatorToken(operatorId);
@@ -794,6 +877,7 @@ export const useStore = create<StoreState>((set, get) => ({
         socket: null,
         isConnected: false,
         gameState: null,
+        serverGameState: null,
         activeGameId: undefined,
         undoStack: [],
         pendingPatches: [],
@@ -821,17 +905,16 @@ export const useStore = create<StoreState>((set, get) => ({
         return;
       }
       set({ isConnected: false });
-      // An error from server middleware stops Socket.IO retrying, and a database fault
-      // during the handshake shouldn't leave the second operator stuck.
-      if (!socket.active) {
-        setTimeout(() => {
-          if (get().socket === socket) socket.connect();
-        }, OPERATOR_HANDSHAKE_RETRY_MS);
-      }
+      // A database fault during the handshake shouldn't leave the second operator stuck.
+      retryRefusedConnection(socket, get);
     });
 
     socket.on("gameState", (state: GameState) => {
       receiveGameState(state, get, set);
+    });
+
+    socket.on("clockSync", (sync: ClockSync) => {
+      receiveClockSync(sync, get, set);
     });
 
     socket.on("activeGame", (gameId: string | null) => {
@@ -879,69 +962,82 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   connectViewer: async (shareId: string) => {
-    try {
-      set({ shareId, isViewer: true, authLoading: true, authError: null });
-      
-      // Disconnect existing socket if any
-      if (get().socket) {
-        get().socket?.disconnect();
+    set({ shareId, isViewer: true, authLoading: true, authError: null });
+
+    // Disconnect existing socket if any
+    get().socket?.disconnect();
+
+    const socketUrl = BASE_URL === window.location.origin ? undefined : BASE_URL;
+    const socket = io(socketUrl, {
+      auth: { shareId },
+      transports: ["polling", "websocket"],
+      reconnection: true,
+      // Share links often drive an unattended overlay or jumbotron, so keep trying for as
+      // long as the page is open rather than freezing after a short outage.
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+    });
+    watchConnection(socket, { role: "viewer", shareId });
+
+    let socketDelivered = false;
+    const receive = (state: GameState) => {
+      noteServerMessage(state.clock);
+      set({ gameState: state, serverGameState: state, authLoading: false, authError: null, ...serverTimeFrom(state.serverTime, get) });
+    };
+    const showInvalidLink = (message = "Invalid or expired share link") => {
+      set({ authError: message, authLoading: false });
+      socket.disconnect();
+    };
+
+    socket.on("connect", () => {
+      console.log("Viewer connected to server for share:", shareId);
+      set({ isConnected: true, authLoading: false, authError: null });
+    });
+
+    socket.on("disconnect", () => {
+      set({ isConnected: false });
+    });
+
+    // These screens are often in front of an audience, so a connection problem only shows as
+    // "Connecting..." (or the last score) while the socket keeps trying. Only a link that
+    // doesn't exist gets an error page.
+    socket.on("connect_error", (error) => {
+      console.error("Viewer connection error:", error.message);
+      set({ isConnected: false });
+      if (error.message === INVALID_SHARE_LINK_ERROR) {
+        showInvalidLink();
+        return;
       }
+      retryRefusedConnection(socket, get);
+    });
 
-      const socketUrl = BASE_URL === window.location.origin ? undefined : BASE_URL;
-      const socket = io(socketUrl, {
-        auth: { shareId },
-        transports: ["polling", "websocket"],
-        reconnection: true,
-        // Share links often drive an unattended overlay or jumbotron, so keep trying for as
-        // long as the page is open rather than freezing after a short outage.
-        reconnectionAttempts: Infinity,
-        reconnectionDelay: 1000,
-      });
+    socket.on("gameState", (state: GameState) => {
+      socketDelivered = true;
+      receive(state);
+    });
 
-      socket.on("connect", () => {
-        console.log("Viewer connected to server for share:", shareId);
-        set({ isConnected: true, authLoading: false, authError: null });
-      });
+    socket.on("clockSync", (sync: ClockSync) => {
+      const current = get().gameState;
+      if (current) receive({ ...applyClockSync(current, sync), serverTime: sync.serverTime });
+    });
 
-      socket.on("disconnect", () => {
-        set({ isConnected: false });
-      });
+    set({ socket, isConnected: socket.connected });
 
-      socket.on("connect_error", (error) => {
-        console.error("Viewer connection error:", error.message);
-        set({ isConnected: false, authError: error.message, authLoading: false });
-      });
-
-      socket.on("gameState", (state: GameState) => {
-        const serverTime = typeof state.serverTime === "number" ? state.serverTime : null;
-        const serverTimeOffsetMs = serverTime === null ? get().serverTimeOffsetMs : serverTime - Date.now();
-        set({ gameState: state, serverTimeOffsetMs, authLoading: false, authError: null });
-      });
-
-      set({ socket, isConnected: socket.connected });
-
-      // Load initial state via API as well to be fast
+    // Load initial state via API as well to be fast
+    try {
       const apiUrl = BASE_URL === window.location.origin ? "" : BASE_URL;
       const response = await fetch(`${apiUrl}/api/share/${shareId}/state`);
       if (response.ok) {
         const state = await response.json();
-        const serverTime = typeof state.serverTime === "number" ? state.serverTime : null;
-        const serverTimeOffsetMs = serverTime === null ? get().serverTimeOffsetMs : serverTime - Date.now();
-        set({ gameState: state, serverTimeOffsetMs, authLoading: false, authError: null });
-      } else {
+        // Whatever the socket sent is newer.
+        if (!socketDelivered) receive(state);
+      } else if (response.status === 404) {
         const data = await response.json().catch(() => ({}));
-        set({ 
-          authError: data.error || "Invalid or expired share link", 
-          authLoading: false
-        });
-        socket.disconnect();
+        showInvalidLink(data.error);
       }
+      // Any other failure, like a server restarting, is left to the socket, which keeps trying.
     } catch (error) {
-      console.error("Failed to connect viewer:", error);
-      set({ 
-        authError: "Failed to connect to the shared scoreboard", 
-        authLoading: false
-      });
+      console.error("Failed to load the shared scoreboard, still trying to connect:", error);
     }
   },
 
@@ -973,6 +1069,7 @@ export const useStore = create<StoreState>((set, get) => ({
         reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,
       });
+      watchConnection(socket, { role: "owner" });
 
       socket.on("connect", () => {
         console.log("Connected to server");
@@ -988,11 +1085,22 @@ export const useStore = create<StoreState>((set, get) => ({
 
       socket.on("connect_error", (error) => {
         console.error("Connection error:", error.message);
-        set({ isConnected: false, authError: `Connection error: ${error.message}`, authLoading: false });
+        set({ isConnected: false, authLoading: false });
+        // A dropped or unreachable server only shows as "Connection lost" while Socket.IO
+        // keeps trying. A refusal, like a token the server couldn't check, is shown, and
+        // tried again with a fresh token.
+        if (!socket.active) {
+          set({ authError: `Connection error: ${error.message}` });
+          retryRefusedConnection(socket, get);
+        }
       });
 
       socket.on("gameState", (state: GameState) => {
         receiveGameState(state, get, set);
+      });
+
+      socket.on("clockSync", (sync: ClockSync) => {
+        receiveClockSync(sync, get, set);
       });
 
       socket.on("activeGame", (gameId: string | null) => {
@@ -1081,14 +1189,14 @@ export const useStore = create<StoreState>((set, get) => ({
   startClock: () => {
     const { socket } = get();
     if (socket) {
-      socket.emit("startClock", ...clockScope(get()));
+      socket.emit("startClock", ...clockPressScope(get()));
     }
   },
 
   stopClock: () => {
     const { socket } = get();
     if (socket) {
-      socket.emit("stopClock", ...clockScope(get()));
+      socket.emit("stopClock", ...clockPressScope(get()));
     }
   },
 

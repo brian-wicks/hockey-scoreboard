@@ -16,9 +16,10 @@ import * as Sentry from "@sentry/node";
 import { isLocalModeEnv, LOCAL_USER_ID } from "./src/lib/localMode.ts";
 import { applyGamePatch, type GamePatch, type PenaltyPatch, type TeamPatch } from "./src/utils/gamePatch.ts";
 import { requestLogSerializers } from "./src/server/requestLogging.ts";
+import { assessConnectionReport, createSentryBudget, sanitizeConnectionReport } from "./src/server/connectionReports.ts";
 import { operatorRoom, registerOperatorAccess } from "./src/server/operatorAccess.ts";
 import { OPERATOR_SESSION_ENDED_ERROR } from "./src/lib/operatorAccess.ts";
-import { isValidShareName, normalizeShareName } from "./src/lib/shareNames.ts";
+import { INVALID_SHARE_LINK_ERROR, isValidShareName, normalizeShareName } from "./src/lib/shareNames.ts";
 import {
   getUserConfig, 
   setUserConfig, 
@@ -200,6 +201,8 @@ interface GameState {
 
 export interface ScoreboardServerOptions {
   dataDir?: string;
+  /** Decides whether a serious connection report can go to Sentry. Defaults to the free plan budget. */
+  sentryBudget?: (sessionId: string) => boolean;
   /** Where the built client lives. Packaged builds serve it from outside the app bundle. */
   clientDir?: string;
   now?: () => number;
@@ -370,6 +373,11 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     gameId: string | null;
     clockInterval: NodeJS.Timeout | null;
     lastPersistedAt: number;
+    // When screens were last sent the running clock, by a clock sync or a full update.
+    lastClockSyncAt: number;
+    // When the clock last started, so stopping it can't take back time from before then.
+    // null when it's stopped, or was already running when this server loaded the game.
+    clockStartedAt: number | null;
   }
   const userContexts = new Map<string, UserContext>();
   // Guards getUserContext's first-touch creation: getInitialGameState now awaits a
@@ -493,6 +501,8 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
           gameId,
           clockInterval: null,
           lastPersistedAt: 0,
+          lastClockSyncAt: 0,
+          clockStartedAt: null,
         };
         userContexts.set(userId, context);
         reconcileRunningClock(userId, gameState);
@@ -1050,7 +1060,11 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     const nextPenalties: Penalty[] = [];
 
     team.penalties.forEach((penalty) => {
-      const nextRemaining = Math.max(0, penalty.timeRemaining - elapsedMs);
+      // Time given back (a negative elapsedMs) never takes a penalty past its full length.
+      const nextRemaining =
+        elapsedMs < 0 && penalty.duration > 0
+          ? Math.min(penalty.duration, Math.max(penalty.timeRemaining, penalty.timeRemaining - elapsedMs))
+          : Math.max(0, penalty.timeRemaining - elapsedMs);
       if (nextRemaining > 100) {
         nextPenalties.push({ ...penalty, timeRemaining: nextRemaining });
         return;
@@ -1099,22 +1113,44 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     return { ...gameState, serverTime: now() };
   }
 
-  // The clock tick interval calls this 10x/second while a clock is running; a
-  // synchronous better-sqlite3 write on every tick would block the event loop for
-  // every connected user. Ticks pass throttlePersist so the DB write happens at
-  // most once per PERSIST_THROTTLE_MS — reconcileRunningClock() already recovers
-  // the exact elapsed time from a stale persisted lastUpdate on reload/restart, so
-  // the bounded staleness this introduces is safe.
+  // The clock tick runs 10x/second while a clock is running; a synchronous
+  // better-sqlite3 write on every tick would block the event loop for every
+  // connected user. Ticks pass throttlePersist so the DB write happens at most once
+  // per PERSIST_THROTTLE_MS — reconcileRunningClock() already recovers the exact
+  // elapsed time from a stale persisted lastUpdate on reload/restart, so the bounded
+  // staleness this introduces is safe.
   const PERSIST_THROTTLE_MS = 1000;
+
+  // Screens count a running clock down by themselves, so between full updates a tick
+  // only sends the clock this often, to correct drift and show the screen is still connected.
+  const CLOCK_SYNC_INTERVAL_MS = 1000;
 
   // Every caller already holds (or has just awaited) this user's context, so this
   // reads it straight from the map rather than going through the async
   // getUserContext — keeping this function itself synchronous is what lets the
-  // clock tick (up to 10x/second, see startClockInterval) call it without ever
-  // waiting on a network round trip.
+  // clock tick call it without ever waiting on a network round trip.
   function emitGameState(userId: string, options: { throttlePersist?: boolean } = {}) {
     const context = userContexts.get(userId)!;
     io.to(userId).emit("gameState", buildGameStatePayload(context.gameState));
+    context.lastClockSyncAt = now();
+    persistGameState(userId, context, options);
+  }
+
+  // The clock and penalty times alone. Sending the whole game on every tick, with both
+  // rosters and the event log, was enough traffic to swamp a rink's wifi.
+  function emitClockSync(userId: string) {
+    const context = userContexts.get(userId)!;
+    const { gameState } = context;
+    const penaltyTimes = (team: TeamState) => team.penalties.map(({ id, timeRemaining }) => ({ id, timeRemaining }));
+    io.to(userId).emit("clockSync", {
+      clock: gameState.clock,
+      penalties: { home: penaltyTimes(gameState.homeTeam), away: penaltyTimes(gameState.awayTeam) },
+      serverTime: now(),
+    });
+    context.lastClockSyncAt = now();
+  }
+
+  function persistGameState(userId: string, context: UserContext, options: { throttlePersist?: boolean }) {
     const currentTime = now();
     if (
       context.gameId &&
@@ -1170,14 +1206,17 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
           gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining - elapsed);
           gameState.clock.lastUpdate = currentTime;
 
+          const penaltiesBefore = gameState.homeTeam.penalties.length + gameState.awayTeam.penalties.length;
           gameState.homeTeam.penalties = tickTeamPenalties(gameState, gameState.homeTeam, "home", elapsed);
           gameState.awayTeam.penalties = tickTeamPenalties(gameState, gameState.awayTeam, "away", elapsed);
+          const penaltyEnded = gameState.homeTeam.penalties.length + gameState.awayTeam.penalties.length < penaltiesBefore;
 
           let periodEnded = false;
           if (gameState.clock.timeRemaining <= 0) {
             gameState.clock.timeRemaining = 0;
             appendEvent(gameState, createPeriodEndEvent(gameState));
             gameState.clock.isRunning = false;
+            context.clockStartedAt = null;
             periodEnded = true;
             if (context.clockInterval) {
               clearInterval(context.clockInterval);
@@ -1185,7 +1224,13 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
             }
           }
 
-          emitGameState(userId, { throttlePersist: !periodEnded });
+          // Screens can't tell a penalty or period has ended from the clock alone.
+          if (periodEnded || penaltyEnded) {
+            emitGameState(userId, { throttlePersist: !periodEnded });
+          } else {
+            if (currentTime - context.lastClockSyncAt >= CLOCK_SYNC_INTERVAL_MS) emitClockSync(userId);
+            persistGameState(userId, context, { throttlePersist: true });
+          }
         }
       } catch (error) {
         // This runs unattended every 100ms outside any request/socket-event context —
@@ -1223,7 +1268,14 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     const shareId = socket.handshake.auth.shareId;
 
     if (shareId) {
-      const userId = await getShareUserId(shareId);
+      let userId: string | null;
+      try {
+        userId = await getShareUserId(shareId);
+      } catch (error) {
+        // A different message from an unknown link, so the screen keeps retrying.
+        logError("[Socket] Share link lookup error", error, { socketId: socket.id });
+        return next(new Error("Authentication error: Could not check share link"));
+      }
       if (userId) {
         socket.data.userId = userId;
         socket.data.isViewer = true;
@@ -1231,7 +1283,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         return next();
       }
       logger.warn({ shareId, socketId: socket.id }, "[Socket] Auth failed: invalid shareId");
-      return next(new Error("Authentication error: Invalid share link"));
+      return next(new Error(INVALID_SHARE_LINK_ERROR));
     }
 
     if (socket.handshake.auth.operatorId) {
@@ -1413,7 +1465,16 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     const userId = socket.data.userId;
     const isViewer = socket.data.isViewer === true;
     const isOperator = socket.data.isOperator === true;
-    logger.info({ userId, socketId: socket.id, isViewer }, "User connected via socket");
+    const connectedAt = now();
+    logger.info(
+      { userId, socketId: socket.id, isViewer, isOperator, transport: socket.conn.transport.name },
+      "User connected via socket",
+    );
+    // Screens start on HTTP polling and move to a WebSocket when the network allows it.
+    // One that never does is on a network that blocks WebSockets, and is slower for it.
+    socket.conn.once("upgrade", () => {
+      logger.info({ userId, socketId: socket.id, transport: socket.conn.transport.name }, "Socket upgraded transport");
+    });
 
     // Join a room for this user to enable per-user broadcasts. A second operator joins
     // it after the re-check below, so a session from the previous game can't be sent the
@@ -1423,6 +1484,16 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     // Every handler below is registered before the first await. Socket.IO discards an
     // event with no listener, and a reconnecting client flushes its buffer on connect.
     socket.data.sessionCheck = isOperator ? checkOperatorSession(socket) : Promise.resolve(true);
+
+    // When the operator pressed a clock button, from the time the client sends with the event.
+    // It's limited to between `earliest` and now, so a client with a wrong clock can at worst
+    // leave things as they'd have been without it.
+    const clockPressTime = (scope: unknown, earliest: number) => {
+      const currentTime = now();
+      const pressedAt = scope && typeof scope === "object" ? (scope as { at?: unknown }).at : undefined;
+      if (typeof pressedAt !== "number" || !Number.isFinite(pressedAt)) return currentTime;
+      return Math.min(currentTime, Math.max(earliest, pressedAt));
+    };
 
     // A client names the game each change was made for, so one buffered through a dropped
     // connection or in flight during a switch can't land in the next game. An event that
@@ -1464,6 +1535,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       // dedicated startClock/stopClock/setClock handlers below. Reconcile in case the
       // incoming clock was left running against a now-stale lastUpdate timestamp.
       if (updates.clock) {
+        context.clockStartedAt = null;
         reconcileRunningClock(userId, context.gameState);
       }
 
@@ -1491,6 +1563,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       }
       applyPatchToGame(context, patch);
       if (patch.fields?.clock) {
+        context.clockStartedAt = null;
         reconcileRunningClock(userId, context.gameState);
       }
       // The ack goes first so the client has stopped counting this change as in transit by
@@ -1508,10 +1581,15 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       if (isForAnotherGame(context, scope, "startClock")) return;
       const { gameState } = context;
       if (!gameState.clock.isRunning && gameState.clock.timeRemaining > 0) {
+        // Started when the operator pressed the button, which can be a while ago if the
+        // event waited out a dropped connection. Never before the clock last changed.
+        const startedAt = clockPressTime(scope, gameState.clock.lastUpdate);
         gameState.clock.isRunning = true;
-        gameState.clock.lastUpdate = now();
+        gameState.clock.lastUpdate = startedAt;
+        context.clockStartedAt = startedAt;
+        reconcileRunningClock(userId, gameState);
+        if (!gameState.clock.isRunning) context.clockStartedAt = null;
         emitGameState(userId);
-        startClockInterval(userId);
       }
     });
 
@@ -1524,13 +1602,23 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       if (isForAnotherGame(context, scope, "stopClock")) return;
       const { gameState } = context;
       if (gameState.clock.isRunning) {
-        const currentTime = now();
-        const elapsed = currentTime - gameState.clock.lastUpdate;
+        // Stopped when the operator pressed the button. If the event waited out a dropped
+        // connection, the clock has run on since then, so that time is given back.
+        const stoppedAt = clockPressTime(scope, context.clockStartedAt ?? gameState.clock.lastUpdate);
+        const elapsed = stoppedAt - gameState.clock.lastUpdate;
         gameState.clock.timeRemaining = Math.max(0, gameState.clock.timeRemaining - elapsed);
+        // A negative elapsed time gives the penalties that are still running their time back too.
+        // One that ran out in between stays ended.
         gameState.homeTeam.penalties = tickTeamPenalties(gameState, gameState.homeTeam, "home", elapsed);
         gameState.awayTeam.penalties = tickTeamPenalties(gameState, gameState.awayTeam, "away", elapsed);
         gameState.clock.isRunning = false;
-        gameState.clock.lastUpdate = currentTime;
+        // A start pressed later during the same dropout can then go back as far as this.
+        gameState.clock.lastUpdate = stoppedAt;
+        context.clockStartedAt = null;
+        if (context.clockInterval) {
+          clearInterval(context.clockInterval);
+          context.clockInterval = null;
+        }
         emitGameState(userId);
       }
     });
@@ -1546,6 +1634,8 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       const { gameState } = context;
       gameState.clock.timeRemaining = Math.max(0, timeMs);
       gameState.clock.lastUpdate = now();
+      // A stop pressed before this change mustn't give back time from before it.
+      if (gameState.clock.isRunning) context.clockStartedAt = gameState.clock.lastUpdate;
       emitGameState(userId);
     });
 
@@ -1600,6 +1690,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         await resetOperatorAccessIfGameChanges(userId, context, gameId);
         context.gameState = gameState;
         context.gameId = gameId;
+        context.clockStartedAt = null;
         await saveActiveGameId(userId, gameId);
         emitGameState(userId);
         emitActiveGame(userId, gameId);
@@ -1643,6 +1734,7 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
         }
         context.gameState = gameState;
         context.gameId = gameId;
+        context.clockStartedAt = null;
         await saveActiveGameId(userId, gameId);
         reconcileRunningClock(userId, context.gameState);
         emitGameState(userId);
@@ -1651,8 +1743,13 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
       },
     );
 
-    socket.on("disconnect", () => {
-      logger.info({ userId, socketId: socket.id }, "User disconnected from socket");
+    socket.on("disconnect", (reason) => {
+      // "ping timeout" and "transport close" mean the screen's network went away, as
+      // opposed to the page being closed ("client namespace disconnect").
+      logger.info(
+        { userId, socketId: socket.id, isViewer, isOperator, reason, connectedMs: now() - connectedAt, transport: socket.conn.transport.name },
+        "User disconnected from socket",
+      );
     });
 
     if (!(await socket.data.sessionCheck)) return;
@@ -2022,6 +2119,48 @@ export function createScoreboardServer(options: ScoreboardServerOptions = {}) {
     const shareId = randomUUID();
     await setUserIdShare(userId, shareId);
     res.json({ shareId });
+  });
+
+  // Connection reports from screens (src/lib/connectionDiagnostics.ts), so a problem at the
+  // rink can be looked into afterwards. Screens send one at most every 30 seconds, and only
+  // after something went wrong, but every device at a rink can share one IP address.
+  const diagnosticsLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  const sentryBudget = options.sentryBudget ?? createSentryBudget({ now });
+
+  app.post("/api/diagnostics/connection", diagnosticsLimiter, async (req, res) => {
+    const report = sanitizeConnectionReport(req.body);
+    if (!report) {
+      return res.status(400).json({ error: "Invalid report" });
+    }
+    let userId: string | null = null;
+    if (report.shareId) {
+      try {
+        userId = await getShareUserId(report.shareId);
+      } catch {
+        // The report is still worth logging without it.
+      }
+    }
+    const assessment = assessConnectionReport(report);
+    const logFields = { userId, ...report, assessment };
+    if (assessment.serious) {
+      logger.warn(logFields, `[Diagnostics] ${assessment.headline}`);
+      if (sentryBudget(report.sessionId)) {
+        Sentry.captureMessage(`Screen connection problem: ${assessment.headline}`, {
+          level: "warning",
+          fingerprint: ["connection-report", report.screen, assessment.kind],
+          tags: { screen: report.screen, role: report.role, kind: assessment.kind, transport: report.transport ?? "unknown", appVersion: report.appVersion },
+          extra: { userId, ...report, assessment },
+        });
+      }
+    } else {
+      logger.info(logFields, "[Diagnostics] Connection report");
+    }
+    res.status(204).end();
   });
 
   app.get("/api/share/:shareId/state", async (req, res) => {

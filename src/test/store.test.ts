@@ -244,6 +244,248 @@ describe("store", () => {
     expect((ioMock.mock.calls.at(-1) as unknown[])[1]).toMatchObject({ reconnectionAttempts: Infinity });
   });
 
+  it("sends when start and stop were pressed, in server time", async () => {
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(10_000);
+    const { useStore } = await import("../store");
+    useStore.setState({ socket: socketMock as any, gameState: baseState, serverTimeOffsetMs: 2_500 });
+
+    useStore.getState().stopClock();
+    useStore.getState().startClock();
+
+    expect(socketMock.emit.mock.calls).toEqual([
+      ["stopClock", { at: 12_500 }],
+      ["startClock", { at: 12_500 }],
+    ]);
+    nowSpy.mockRestore();
+  });
+
+  describe("server time", () => {
+    it("keeps the estimate from the quickest delivery, so a slow one doesn't move the clock", async () => {
+      const nowSpy = vi.spyOn(Date, "now");
+      const { useStore } = await import("../store");
+      useStore.setState({ user: mockUser as any });
+      await useStore.getState().connect();
+      const handler = listeners.get("gameState")!;
+
+      nowSpy.mockReturnValue(1_000);
+      handler({ ...baseState, serverTime: 1_500 });
+      // Took 400ms longer to arrive.
+      nowSpy.mockReturnValue(2_000);
+      handler({ ...baseState, serverTime: 2_100 });
+      expect(useStore.getState().serverTimeOffsetMs).toBe(500);
+
+      // Arrived faster than the first.
+      nowSpy.mockReturnValue(3_000);
+      handler({ ...baseState, serverTime: 3_600 });
+      expect(useStore.getState().serverTimeOffsetMs).toBe(600);
+      nowSpy.mockRestore();
+    });
+
+    it("lets an old estimate go after 30 seconds", async () => {
+      const nowSpy = vi.spyOn(Date, "now");
+      const { useStore } = await import("../store");
+      useStore.setState({ user: mockUser as any });
+      await useStore.getState().connect();
+      const handler = listeners.get("gameState")!;
+
+      nowSpy.mockReturnValue(1_000);
+      handler({ ...baseState, serverTime: 2_000 });
+      nowSpy.mockReturnValue(32_000);
+      handler({ ...baseState, serverTime: 32_200 });
+
+      expect(useStore.getState().serverTimeOffsetMs).toBe(200);
+      nowSpy.mockRestore();
+    });
+  });
+
+  describe("clock syncs", () => {
+    const penalty = { id: "p1", playerNumber: "7", timeRemaining: 90_000, duration: 120_000, infraction: "Hooking" };
+    const running = {
+      ...baseState,
+      clock: { timeRemaining: 60_000, isRunning: true, lastUpdate: 1_000 },
+      homeTeam: { ...baseState.homeTeam, penalties: [penalty] },
+    };
+    const sync = {
+      clock: { timeRemaining: 59_000, isRunning: true, lastUpdate: 2_000 },
+      penalties: { home: [{ id: "p1", timeRemaining: 89_000 }], away: [] },
+      serverTime: 2_000,
+    };
+
+    it("moves the clock and penalty times on, keeping the rest of the game", async () => {
+      const { useStore } = await import("../store");
+      useStore.setState({ user: mockUser as any });
+      await useStore.getState().connect();
+      listeners.get("gameState")?.(running);
+
+      listeners.get("clockSync")?.(sync);
+
+      const { gameState } = useStore.getState();
+      expect(gameState?.clock).toEqual(sync.clock);
+      expect(gameState?.homeTeam.penalties).toEqual([{ ...penalty, timeRemaining: 89_000 }]);
+      expect(gameState?.homeTeam.name).toBe("Home");
+    });
+
+    it("keeps an unconfirmed change on top", async () => {
+      const { useStore } = await import("../store");
+      useStore.setState({ user: mockUser as any });
+      await useStore.getState().connect();
+      listeners.get("gameState")?.(running);
+      useStore.getState().updateState({ homeTeam: { ...useStore.getState().gameState!.homeTeam, score: 1 } });
+
+      listeners.get("clockSync")?.(sync);
+      listeners.get("clockSync")?.({ ...sync, serverTime: 3_000 });
+
+      expect(useStore.getState().gameState?.homeTeam.score).toBe(1);
+      expect(useStore.getState().gameState?.clock).toEqual(sync.clock);
+    });
+
+    it("waits for the full game before using one", async () => {
+      const { useStore } = await import("../store");
+      useStore.setState({ user: mockUser as any });
+      await useStore.getState().connect();
+
+      listeners.get("clockSync")?.(sync);
+
+      expect(useStore.getState().gameState).toBeNull();
+    });
+
+    it("reaches a share link's screen", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+      const { useStore } = await import("../store");
+      await useStore.getState().connectViewer("share-1");
+      listeners.get("gameState")?.(running);
+
+      listeners.get("clockSync")?.(sync);
+
+      expect(useStore.getState().gameState?.clock).toEqual(sync.clock);
+      vi.unstubAllGlobals();
+    });
+  });
+
+  describe("share link screens on a poor connection", () => {
+    beforeEach(() => {
+      (socketMock as any).connect = vi.fn();
+      (socketMock as any).active = true;
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    });
+
+    const failFirstLoad = (response: unknown) => vi.stubGlobal("fetch", vi.fn().mockImplementation(response as any));
+
+    it("keeps connecting when the first load fails with a server error", async () => {
+      failFirstLoad(() => Promise.resolve({ ok: false, status: 502, json: () => Promise.resolve({}) }));
+      const { useStore } = await import("../store");
+
+      await useStore.getState().connectViewer("share-1");
+
+      expect(socketMock.disconnect).not.toHaveBeenCalled();
+      expect(useStore.getState().authError).toBeNull();
+      expect(useStore.getState().authLoading).toBe(true);
+    });
+
+    it("keeps connecting when the first load can't reach the server", async () => {
+      failFirstLoad(() => Promise.reject(new TypeError("Failed to fetch")));
+      const { useStore } = await import("../store");
+
+      await useStore.getState().connectViewer("share-1");
+
+      expect(socketMock.disconnect).not.toHaveBeenCalled();
+      expect(useStore.getState().authError).toBeNull();
+    });
+
+    it("shows no error for a dropped connection that Socket.IO is retrying", async () => {
+      failFirstLoad(() => Promise.reject(new TypeError("Failed to fetch")));
+      const { useStore } = await import("../store");
+      await useStore.getState().connectViewer("share-1");
+
+      listeners.get("connect_error")?.(new Error("xhr poll error"));
+
+      expect(useStore.getState().authError).toBeNull();
+      expect(useStore.getState().authLoading).toBe(true);
+    });
+
+    it("shows the link is invalid when the server says so", async () => {
+      (socketMock as any).active = false;
+      failFirstLoad(() => Promise.reject(new TypeError("Failed to fetch")));
+      const { useStore } = await import("../store");
+      const { INVALID_SHARE_LINK_ERROR } = await import("../lib/shareNames");
+      await useStore.getState().connectViewer("share-1");
+
+      listeners.get("connect_error")?.(new Error(INVALID_SHARE_LINK_ERROR));
+
+      expect(useStore.getState().authError).toBeTruthy();
+      expect(socketMock.disconnect).toHaveBeenCalled();
+    });
+
+    it("tries again after the server turns it down for another reason", async () => {
+      (socketMock as any).active = false;
+      failFirstLoad(() => Promise.reject(new TypeError("Failed to fetch")));
+      const { useStore } = await import("../store");
+      await useStore.getState().connectViewer("share-1");
+      vi.useFakeTimers();
+
+      listeners.get("connect_error")?.(new Error("Authentication error: Could not check share link"));
+      vi.advanceTimersByTime(2000);
+
+      expect(useStore.getState().authError).toBeNull();
+      expect((socketMock as any).connect).toHaveBeenCalledTimes(1);
+    });
+
+    it("doesn't replace a newer state from the socket with the first load", async () => {
+      let resolveLoad: (value: unknown) => void = () => {};
+      failFirstLoad(() => new Promise((resolve) => (resolveLoad = resolve)));
+      const { useStore } = await import("../store");
+      const connecting = useStore.getState().connectViewer("share-1");
+
+      listeners.get("gameState")?.({ ...baseState, period: "2nd" });
+      resolveLoad({ ok: true, status: 200, json: () => Promise.resolve({ ...baseState, period: "1st" }) });
+      await connecting;
+
+      expect(useStore.getState().gameState?.period).toBe("2nd");
+    });
+  });
+
+  describe("the owner's connection", () => {
+    beforeEach(() => {
+      (socketMock as any).connect = vi.fn();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("shows no error while Socket.IO retries a dropped connection", async () => {
+      (socketMock as any).active = true;
+      const { useStore } = await import("../store");
+      useStore.setState({ user: mockUser as any });
+      await useStore.getState().connect();
+
+      listeners.get("connect_error")?.(new Error("xhr poll error"));
+
+      expect(useStore.getState().authError).toBeNull();
+      expect(useStore.getState().isConnected).toBe(false);
+    });
+
+    it("tries again with a fresh token after the server turns it down", async () => {
+      (socketMock as any).active = false;
+      const { useStore } = await import("../store");
+      useStore.setState({ user: mockUser as any });
+      await useStore.getState().connect();
+      vi.useFakeTimers();
+
+      listeners.get("connect_error")?.(new Error("Authentication error: Invalid token"));
+      expect(useStore.getState().authError).toContain("Invalid token");
+      vi.advanceTimersByTime(2000);
+
+      expect((socketMock as any).connect).toHaveBeenCalledTimes(1);
+      listeners.get("connect")?.(undefined);
+      expect(useStore.getState().authError).toBeNull();
+    });
+  });
+
   describe("changes still in transit", () => {
     const connected = async () => {
       const { useStore } = await import("../store");
@@ -413,6 +655,7 @@ describe("store", () => {
     // Test error case
     fetchMock.mockResolvedValue({
       ok: false,
+      status: 404,
       json: () => Promise.resolve({ error: "Share not found" }),
     });
     await useStore.getState().connectViewer("bad-share");
@@ -425,10 +668,10 @@ describe("store", () => {
 
     const state = useStore.getState();
     state.startClock();
-    expect(socketMock.emit).toHaveBeenCalledWith("startClock");
+    expect(socketMock.emit).toHaveBeenCalledWith("startClock", { at: expect.any(Number) });
 
     state.stopClock();
-    expect(socketMock.emit).toHaveBeenCalledWith("stopClock");
+    expect(socketMock.emit).toHaveBeenCalledWith("stopClock", { at: expect.any(Number) });
 
     state.setClock(5000);
     expect(socketMock.emit).toHaveBeenCalledWith("setClock", 5000);
@@ -693,9 +936,10 @@ describe("store", () => {
       clockIncrease();
       clockDecrease();
       const scope = { gameId: "game-1" };
+      const pressed = { ...scope, at: expect.any(Number) };
       expect(socketMock.emit.mock.calls).toEqual([
-        ["startClock", scope],
-        ["stopClock", scope],
+        ["startClock", pressed],
+        ["stopClock", pressed],
         ["setClock", 5000, scope],
         ["clockIncrease", scope],
         ["clockDecrease", scope],
@@ -713,7 +957,14 @@ describe("store", () => {
         setClock(5000);
         clockIncrease();
         clockDecrease();
-        expect(socketMock.emit.mock.calls).toEqual([["startClock"], ["stopClock"], ["setClock", 5000], ["clockIncrease"], ["clockDecrease"]]);
+        const pressed = { at: expect.any(Number) };
+        expect(socketMock.emit.mock.calls).toEqual([
+          ["startClock", pressed],
+          ["stopClock", pressed],
+          ["setClock", 5000],
+          ["clockIncrease"],
+          ["clockDecrease"],
+        ]);
       }
     });
 

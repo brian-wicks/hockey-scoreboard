@@ -1,7 +1,7 @@
 import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import { formatPenaltyTimeMs } from "../utils/clock";
-import { useClockDisplay } from "../hooks/useClockDisplay";
+import { useClockDisplay, useLivePenaltyMs } from "../hooks/useClockDisplay";
 
 const GOAL_STING_DURATION_MS = 1900;
 const GOAL_SCORE_REVEAL_MS = 280;
@@ -564,7 +564,7 @@ export default function Overlay({ skipConnect = false }: { skipConnect?: boolean
 }
 
 function PenaltyTimer({ penalty, className = "", style }: { penalty: any; className?: string; style?: CSSProperties }) {
-  const timeDisplay = formatPenaltyTimeMs(penalty.timeRemaining ?? 0);
+  const timeDisplay = formatPenaltyTimeMs(useLivePenaltyMs(penalty.timeRemaining ?? 0));
   let playerNumber = String(penalty.playerNumber ?? "").trim();
   playerNumber = playerNumber === "00" ? "" : playerNumber;
   const display = playerNumber ? `${playerNumber} - ${timeDisplay}` : timeDisplay;

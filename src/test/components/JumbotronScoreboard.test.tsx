@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 const connect = vi.fn();
 const ensureInitialized = vi.fn();
@@ -42,9 +42,11 @@ const baseState = {
   jumbotronGoalHighlight: null,
 };
 
+let currentState = baseState;
+
 vi.mock("../../store", () => ({
   useStore: () => ({
-    gameState: baseState,
+    gameState: currentState,
     connect,
     ensureInitialized,
     serverTimeOffsetMs: 0,
@@ -55,6 +57,11 @@ vi.mock("../../store", () => ({
 import JumbotronScoreboard from "../../components/JumbotronScoreboard";
 
 describe("JumbotronScoreboard", () => {
+  afterEach(() => {
+    currentState = baseState;
+    vi.restoreAllMocks();
+  });
+
   it("renders period label and team labels", () => {
     render(<JumbotronScoreboard />);
     expect(screen.getByText("2ND PERIOD")).toBeInTheDocument();
@@ -67,5 +74,16 @@ describe("JumbotronScoreboard", () => {
     const rows = screen.getAllByText(/Hooking|Tripping/);
     expect(rows[0]).toHaveTextContent("Tripping");
     expect(rows[1]).toHaveTextContent("Hooking");
+  });
+
+  it("counts penalties down with a running clock between updates", () => {
+    vi.spyOn(Date, "now").mockReturnValue(5_000);
+    currentState = { ...baseState, clock: { timeRemaining: 60000, isRunning: true, lastUpdate: 0 } } as typeof baseState;
+
+    render(<JumbotronScoreboard />);
+
+    expect(screen.getByText("0:55")).toBeInTheDocument();
+    expect(screen.getByText("0:25")).toBeInTheDocument();
+    expect(screen.getByText("0:40")).toBeInTheDocument();
   });
 });
